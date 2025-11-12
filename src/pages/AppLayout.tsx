@@ -1,15 +1,15 @@
 import { Outlet } from "react-router-dom";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
-import { AppHeader } from "@/components/AppHeader";
+import Header from "@/components/Header";
 
 export default function AppLayout() {
   return (
     <SidebarProvider defaultOpen>
-      <div className="min-h-screen flex w-full">
+      <Header />
+      <div className="min-h-screen flex w-full pt-[88px]">
         <AppSidebar />
         <div className="flex-1 flex flex-col">
-          <AppHeader />
           <main className="flex-1">
             <Outlet />
           </main>
