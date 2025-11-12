@@ -962,13 +962,19 @@ export default function Dashboard2() {
 
   return (
     <div className={`pt-[150px] px-8 pb-12 space-y-10 ${isFullscreen ? 'fixed inset-0 z-50 bg-background p-4 pt-20' : ''}`}>
+      {/* Badge verde com título */}
+      <div className="mb-8">
+        <div className="inline-block bg-green-500/20 border-2 border-green-500/40 rounded-full px-6 py-3">
+          <h1 className="text-2xl font-bold text-green-400 tracking-tight">
+            Análise de Estilística de Corpus
+          </h1>
+        </div>
+      </div>
+
       {/* Header Section com mais espaçamento e hierarquia */}
       <div className="space-y-6 pb-6 border-b-2 border-border/30">
         <div className="flex items-center justify-between">
           <div className="space-y-3">
-            <h1 className="text-5xl font-bold text-foreground tracking-tight">
-              Dashboard 2.0
-            </h1>
             <h2 className="text-2xl font-semibold text-foreground/90">
               'Quando o verso vem pras casa'
             </h2>

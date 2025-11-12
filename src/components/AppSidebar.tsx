@@ -1,5 +1,6 @@
-import { LayoutDashboard, FolderOpen, Sparkles } from "lucide-react";
+import { LayoutDashboard, FolderOpen, Sparkles, FileText } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
+import { useLocation } from "react-router-dom";
 import {
   Sidebar,
   SidebarContent,
@@ -9,19 +10,31 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
   SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { ChevronDown } from "lucide-react";
 
-const items = [
+const mainItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
-  { title: "Meus Projetos", url: "/projetos", icon: FolderOpen },
-  { title: "Dashboard 2.0", url: "/dashboard2", icon: Sparkles },
+];
+
+const projectItems = [
+  { title: "Análise de Estilística de Corpus", url: "/dashboard2", icon: FileText },
+];
+
+const advancedItems = [
   { title: "Modo Avançado", url: "/avancado", icon: Sparkles, disabled: true },
 ];
 
 export function AppSidebar() {
   const { open } = useSidebar();
+  const location = useLocation();
+  const isProjectActive = projectItems.some(item => location.pathname === item.url);
 
   return (
     <Sidebar className={open ? "w-60" : "w-14"} collapsible="icon">
@@ -34,7 +47,57 @@ export function AppSidebar() {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-              {items.map((item) => (
+              {mainItems.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton asChild>
+                    <NavLink 
+                      to={item.url} 
+                      className="flex items-center gap-2 hover:bg-muted/50"
+                      activeClassName="bg-muted text-primary font-medium"
+                    >
+                      <item.icon className="h-4 w-4" />
+                      {open && <span>{item.title}</span>}
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+
+              {/* Meus Projetos - Collapsible */}
+              <Collapsible defaultOpen={isProjectActive} className="group/collapsible">
+                <SidebarMenuItem>
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuButton className="flex items-center gap-2 hover:bg-muted/50">
+                      <FolderOpen className="h-4 w-4" />
+                      {open && (
+                        <>
+                          <span>Meus Projetos</span>
+                          <ChevronDown className="ml-auto h-4 w-4 transition-transform group-data-[state=open]/collapsible:rotate-180" />
+                        </>
+                      )}
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <SidebarMenuSub>
+                      {projectItems.map((item) => (
+                        <SidebarMenuSubItem key={item.title}>
+                          <SidebarMenuSubButton asChild>
+                            <NavLink 
+                              to={item.url} 
+                              className="flex items-center gap-2 hover:bg-muted/50 pl-8"
+                              activeClassName="bg-muted text-primary font-medium"
+                            >
+                              <item.icon className="h-3 w-3" />
+                              {open && <span className="text-sm">{item.title}</span>}
+                            </NavLink>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      ))}
+                    </SidebarMenuSub>
+                  </CollapsibleContent>
+                </SidebarMenuItem>
+              </Collapsible>
+
+              {advancedItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild disabled={item.disabled}>
                     {item.disabled ? (
