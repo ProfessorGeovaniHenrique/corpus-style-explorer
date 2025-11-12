@@ -44,7 +44,7 @@ export default function Dashboard() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Button onClick={() => navigate("/analise/classicos-gauchos")} className="w-full sm:w-auto">
+            <Button onClick={() => navigate("/dashboard2")} className="w-full sm:w-auto">
               Explorar Demonstração
             </Button>
           </CardContent>
