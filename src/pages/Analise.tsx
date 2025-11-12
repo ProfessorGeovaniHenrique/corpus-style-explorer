@@ -615,31 +615,30 @@ export default function Analise() {
                 <CardContent>
                   <div className="prose prose-sm max-w-none dark:prose-invert">
                     <div className="whitespace-pre-line text-foreground leading-relaxed">
-{`Daí um verso de campo se chegou da campereada
-Desencilhou na ramada, já cansado das lonjuras
+{`A calma do tarumã, ganhou sombra mais copada
 Pela várzea espichada com o sol da tarde caindo
-Os pingos quedaram vigiando a uma cuia e uma bomba
-Recostada na cambona
-
-A calma do tarumã, ganhou sombra mais copada
-Ficaram arreios suados e o silencio de esporas
-Pela cancela encostada também ficou um balaio
-E um ventito da coxilha trouxe coplas entre as asas
-
-Cevou um mate pura-folha, jujado de maçanilha
-Prá querência galponeira, onde o verso é mais caseiro
 Um pañuelo maragato se abriu no horizonte
+Trazendo um novo reponte, prá um fim de tarde bem lindo
+Daí um verso de campo se chegou da campereada
+No lombo de uma gateada frente aberta de respeito
+Desencilhou na ramada, já cansado das lonjuras
+Mas estampando a figura, campeira, bem do seu jeito
+Cevou um mate pura-folha, jujado de maçanilha
+E um ventito da coxilha trouxe coplas entre as asas
+Prá querência galponeira, onde o verso é mais caseiro
 Templado a luz de candeeiro e um "quarto gordo nas brasa"
 A mansidão da campanha traz saudades feito açoite
-
-E uma saudade redomona pelos cantos do galpão
+Com os olhos negros de noite que ela mesmo aquerenciou
 E o verso que tinha sonhos prá rondar na madrugada
-No lombo de uma gateada frente aberta de respeito
-Ou um gateado prá encilha
-
+Deixou a cancela encostada e a tropa se desgarrou
 E o verso sonhou ser várzea com sombra de tarumã
+Ser um galo prás manhãs, ou um gateado prá encilha
 Sonhou com os olhos da prenda vestidos de primavera
-Adormecidos na espera do sol pontear na coxilha`}
+Adormecidos na espera do sol pontear na coxilha
+Ficaram arreios suados e o silencio de esporas
+Um cerne com cor de aurora queimando em fogo de chão
+Uma cuia e uma bomba recostada na cambona
+E uma saudade redomona pelos cantos do galpão`}
                     </div>
                   </div>
                 </CardContent>
