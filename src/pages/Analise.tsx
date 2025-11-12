@@ -12,36 +12,88 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { KWICModal } from "@/components/KWICModal";
+import { InteractiveSemanticNetwork } from "@/components/InteractiveSemanticNetwork";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Download, FileText, Network, Sparkles, BarChart3, FileBarChart, Cloud, HelpCircle, TrendingUp, TrendingDown } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
 
-// Mock data para a palavra "verso"
-const kwicData = [
-  {
-    leftContext: "...Daí um",
-    keyword: "verso",
-    rightContext: "de campo se chegou...",
-    source: "'Quando o verso vem pras casa'",
-  },
-  {
-    leftContext: "...galponeira, onde o",
-    keyword: "verso",
-    rightContext: "é mais caseiro...",
-    source: "'Quando o verso vem pras casa'",
-  },
-  {
-    leftContext: "...E o",
-    keyword: "verso",
-    rightContext: "que tinha sonhos prá rondar...",
-    source: "'Quando o verso vem pras casa'",
-  },
-  {
-    leftContext: "...E o",
-    keyword: "verso",
-    rightContext: "sonhou ser várzea com sombra...",
-    source: "'Quando o verso vem pras casa'",
-  },
-];
+// Mock data KWIC completo baseado na letra da música
+const kwicDataMap: Record<string, Array<{leftContext: string, keyword: string, rightContext: string, source: string}>> = {
+  "verso": [
+    { leftContext: "...Daí um", keyword: "verso", rightContext: "de campo se chegou da campereada...", source: "Luiz Marenco" },
+    { leftContext: "...Prá querência galponeira, onde o", keyword: "verso", rightContext: "é mais caseiro...", source: "Luiz Marenco" },
+    { leftContext: "...E o", keyword: "verso", rightContext: "que tinha sonhos prá rondar na madrugada...", source: "Luiz Marenco" },
+    { leftContext: "...E o", keyword: "verso", rightContext: "sonhou ser várzea com sombra de tarumã...", source: "Luiz Marenco" },
+  ],
+  "tarumã": [
+    { leftContext: "A calma do", keyword: "tarumã", rightContext: ", ganhou sombra mais copada...", source: "Luiz Marenco" },
+    { leftContext: "...E o verso sonhou ser várzea com sombra de", keyword: "tarumã", rightContext: "...", source: "Luiz Marenco" },
+  ],
+  "saudade": [
+    { leftContext: "...A mansidão da campanha traz", keyword: "saudade", rightContext: "feito açoite...", source: "Luiz Marenco" },
+    { leftContext: "...E uma", keyword: "saudade", rightContext: "redomona pelos cantos do galpão...", source: "Luiz Marenco" },
+  ],
+  "galpão": [
+    { leftContext: "...E uma saudade redomona pelos cantos do", keyword: "galpão", rightContext: "...", source: "Luiz Marenco" },
+    { leftContext: "...Prá querência galponeira, onde o verso é mais caseiro... Templado a luz de candeeiro e um 'quarto gordo nas brasa'... A mansidão da campanha traz saudades feito açoite... pelos cantos do", keyword: "galpão", rightContext: "...", source: "Luiz Marenco" },
+  ],
+  "várzea": [
+    { leftContext: "Pela", keyword: "várzea", rightContext: "espichada com o sol da tarde caindo...", source: "Luiz Marenco" },
+    { leftContext: "...E o verso sonhou ser", keyword: "várzea", rightContext: "com sombra de tarumã...", source: "Luiz Marenco" },
+  ],
+  "sonhos": [
+    { leftContext: "...E o verso que tinha", keyword: "sonhos", rightContext: "prá rondar na madrugada...", source: "Luiz Marenco" },
+    { leftContext: "...E o verso sonhou ser várzea... Sonhou com os olhos da prenda vestidos de primavera... Adormecidos na espera do sol pontear na coxilha", keyword: "sonhos", rightContext: "...", source: "Luiz Marenco" },
+  ],
+  "gateada": [
+    { leftContext: "...No lombo de uma", keyword: "gateada", rightContext: "frente aberta de respeito...", source: "Luiz Marenco" },
+    { leftContext: "...Ou um gateado prá", keyword: "encilha", rightContext: "...", source: "Luiz Marenco" },
+  ],
+  "mate": [
+    { leftContext: "Cevou um", keyword: "mate", rightContext: "pura-folha, jujado de maçanilha...", source: "Luiz Marenco" },
+  ],
+  "coxilha": [
+    { leftContext: "...E um ventito da", keyword: "coxilha", rightContext: "trouxe coplas entre as asas...", source: "Luiz Marenco" },
+    { leftContext: "...Adormecidos na espera do sol pontear na", keyword: "coxilha", rightContext: "...", source: "Luiz Marenco" },
+  ],
+  "sombra": [
+    { leftContext: "A calma do tarumã, ganhou", keyword: "sombra", rightContext: "mais copada...", source: "Luiz Marenco" },
+    { leftContext: "...E o verso sonhou ser várzea com", keyword: "sombra", rightContext: "de tarumã...", source: "Luiz Marenco" },
+  ],
+  "arreios": [
+    { leftContext: "Ficaram", keyword: "arreios", rightContext: "suados e o silencio de esporas...", source: "Luiz Marenco" },
+  ],
+  "esporas": [
+    { leftContext: "...Ficaram arreios suados e o silencio de", keyword: "esporas", rightContext: "...", source: "Luiz Marenco" },
+  ],
+  "prenda": [
+    { leftContext: "...Sonhou com os olhos da", keyword: "prenda", rightContext: "vestidos de primavera...", source: "Luiz Marenco" },
+  ],
+  "ramada": [
+    { leftContext: "Desencilhou na", keyword: "ramada", rightContext: ", já cansado das lonjuras...", source: "Luiz Marenco" },
+  ],
+  "candeeiro": [
+    { leftContext: "...Templado a luz de", keyword: "candeeiro", rightContext: "e um 'quarto gordo nas brasa'...", source: "Luiz Marenco" },
+  ],
+  "querência": [
+    { leftContext: "Prá", keyword: "querência", rightContext: "galponeira, onde o verso é mais caseiro...", source: "Luiz Marenco" },
+  ],
+  "cuia": [
+    { leftContext: "Uma", keyword: "cuia", rightContext: "e uma bomba recostada na cambona...", source: "Luiz Marenco" },
+  ],
+  "maragato": [
+    { leftContext: "Um pañuelo", keyword: "maragato", rightContext: "se abriu no horizonte...", source: "Luiz Marenco" },
+  ],
+  "campereada": [
+    { leftContext: "...Daí um verso de campo se chegou da", keyword: "campereada", rightContext: "...", source: "Luiz Marenco" },
+  ],
+  "calma": [
+    { leftContext: "A", keyword: "calma", rightContext: "do tarumã, ganhou sombra mais copada...", source: "Luiz Marenco" },
+  ],
+  "encilha": [
+    { leftContext: "...Ou um gateado prá", keyword: "encilha", rightContext: "...", source: "Luiz Marenco" },
+  ],
+};
 
 const dominiosData = [
   { 
@@ -128,10 +180,20 @@ const palavrasChaveData = [
 export default function Analise() {
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedWord, setSelectedWord] = useState("");
+  const [domainModalOpen, setDomainModalOpen] = useState(false);
+  const [selectedDomain, setSelectedDomain] = useState<typeof dominiosData[0] | null>(null);
 
   const handleWordClick = (word: string) => {
     setSelectedWord(word);
     setModalOpen(true);
+  };
+
+  const handleDomainClick = (domainName: string) => {
+    const domain = dominiosData.find(d => d.dominio === domainName);
+    if (domain) {
+      setSelectedDomain(domain);
+      setDomainModalOpen(true);
+    }
   };
 
   return (
@@ -373,51 +435,8 @@ export default function Analise() {
             </CardHeader>
             <CardContent>
               <div className="grid gap-6 lg:grid-cols-2">
-                <div className="flex items-center justify-center bg-muted/20 rounded-lg p-8 min-h-[400px]">
-                  <div className="relative w-full h-full flex items-center justify-center">
-                    <button
-                      onClick={() => handleWordClick("verso")}
-                      className="absolute top-1/4 left-1/2 -translate-x-1/2 px-6 py-3 rounded-full border-2 border-primary text-primary font-semibold hover:scale-110 transition-transform cursor-pointer"
-                    >
-                      verso
-                    </button>
-                    <button
-                      onClick={() => handleWordClick("tarumã")}
-                      className="absolute top-1/2 left-1/4 px-4 py-2 rounded-full border-2 border-primary/60 text-foreground hover:scale-110 transition-transform cursor-pointer"
-                    >
-                      tarumã
-                    </button>
-                    <button
-                      onClick={() => handleWordClick("saudade")}
-                      className="absolute top-1/2 right-1/4 px-4 py-2 rounded-full border-2 border-primary/60 text-foreground hover:scale-110 transition-transform cursor-pointer"
-                    >
-                      saudade
-                    </button>
-                    <button
-                      onClick={() => handleWordClick("galpão")}
-                      className="absolute bottom-1/4 left-1/3 px-4 py-2 rounded-full border-2 border-primary/40 text-muted-foreground hover:scale-110 transition-transform cursor-pointer"
-                    >
-                      galpão
-                    </button>
-                    <button
-                      onClick={() => handleWordClick("várzea")}
-                      className="absolute bottom-1/4 right-1/3 px-4 py-2 rounded-full border-2 border-primary/40 text-muted-foreground hover:scale-110 transition-transform cursor-pointer"
-                    >
-                      várzea
-                    </button>
-                    <button
-                      onClick={() => handleWordClick("sonhos")}
-                      className="absolute top-1/3 left-1/5 px-3 py-2 rounded-full border border-primary/30 text-muted-foreground hover:scale-110 transition-transform cursor-pointer text-sm"
-                    >
-                      sonhos
-                    </button>
-                    <button
-                      onClick={() => handleWordClick("gateada")}
-                      className="absolute top-2/3 right-1/5 px-3 py-2 rounded-full border border-primary/30 text-muted-foreground hover:scale-110 transition-transform cursor-pointer text-sm"
-                    >
-                      gateada
-                    </button>
-                  </div>
+                <div>
+                  <InteractiveSemanticNetwork onWordClick={handleWordClick} />
                 </div>
 
                 <div className="space-y-4">
@@ -702,86 +721,86 @@ export default function Analise() {
                 {/* Natureza e Paisagem Campeira - Top Left */}
                 <div className="absolute top-[10%] left-[15%]">
                   <div className="relative">
-                    <button
-                      onClick={() => handleWordClick("Natureza e Paisagem Campeira")}
-                      className="text-3xl font-bold hover:scale-110 transition-all cursor-pointer"
-                      style={{ color: "hsl(142, 71%, 45%)" }}
+                    <Badge
+                      onClick={() => handleDomainClick("Natureza e Paisagem Campeira")}
+                      className="text-2xl font-bold px-6 py-3 hover:scale-110 transition-all cursor-pointer shadow-lg"
+                      style={{ backgroundColor: "hsl(142, 71%, 45%)", color: "white" }}
                     >
                       Natureza Campeira
-                    </button>
-                    <button onClick={() => handleWordClick("tarumã")} className="absolute -top-8 left-1/2 -translate-x-1/2 text-sm font-medium opacity-80 hover:opacity-100 hover:scale-110 transition-all" style={{ color: "hsl(142, 71%, 45%)" }}>tarumã</button>
-                    <button onClick={() => handleWordClick("várzea")} className="absolute -right-12 top-0 text-sm font-medium opacity-80 hover:opacity-100 hover:scale-110 transition-all" style={{ color: "hsl(142, 71%, 45%)" }}>várzea</button>
-                    <button onClick={() => handleWordClick("coxilha")} className="absolute -right-10 bottom-2 text-sm font-medium opacity-80 hover:opacity-100 hover:scale-110 transition-all" style={{ color: "hsl(142, 71%, 45%)" }}>coxilha</button>
-                    <button onClick={() => handleWordClick("sombra")} className="absolute -left-10 top-2 text-sm font-medium opacity-80 hover:opacity-100 hover:scale-110 transition-all" style={{ color: "hsl(142, 71%, 45%)" }}>sombra</button>
+                    </Badge>
+                    <Badge onClick={() => handleWordClick("tarumã")} className="absolute -top-12 left-1/2 -translate-x-1/2 px-3 py-1.5 shadow-md hover:scale-110 transition-all cursor-pointer" style={{ backgroundColor: "hsl(142, 71%, 45%)", color: "white", opacity: 0.85 }}>tarumã</Badge>
+                    <Badge onClick={() => handleWordClick("várzea")} className="absolute -right-16 top-0 px-3 py-1.5 shadow-md hover:scale-110 transition-all cursor-pointer" style={{ backgroundColor: "hsl(142, 71%, 45%)", color: "white", opacity: 0.85 }}>várzea</Badge>
+                    <Badge onClick={() => handleWordClick("coxilha")} className="absolute -right-14 bottom-2 px-3 py-1.5 shadow-md hover:scale-110 transition-all cursor-pointer" style={{ backgroundColor: "hsl(142, 71%, 45%)", color: "white", opacity: 0.85 }}>coxilha</Badge>
+                    <Badge onClick={() => handleWordClick("sombra")} className="absolute -left-14 top-2 px-3 py-1.5 shadow-md hover:scale-110 transition-all cursor-pointer" style={{ backgroundColor: "hsl(142, 71%, 45%)", color: "white", opacity: 0.85 }}>sombra</Badge>
                   </div>
                 </div>
 
                 {/* Cavalo e Aperos - Top Right */}
                 <div className="absolute top-[15%] right-[15%]">
                   <div className="relative">
-                    <button
-                      onClick={() => handleWordClick("Cavalo e Aperos")}
-                      className="text-3xl font-bold hover:scale-110 transition-all cursor-pointer"
-                      style={{ color: "hsl(221, 83%, 53%)" }}
+                    <Badge
+                      onClick={() => handleDomainClick("Cavalo e Aperos")}
+                      className="text-2xl font-bold px-6 py-3 hover:scale-110 transition-all cursor-pointer shadow-lg"
+                      style={{ backgroundColor: "hsl(221, 83%, 53%)", color: "white" }}
                     >
                       Cavalo e Aperos
-                    </button>
-                    <button onClick={() => handleWordClick("gateada")} className="absolute -top-8 left-1/2 -translate-x-1/2 text-sm font-medium opacity-80 hover:opacity-100 hover:scale-110 transition-all" style={{ color: "hsl(221, 83%, 53%)" }}>gateada</button>
-                    <button onClick={() => handleWordClick("encilha")} className="absolute -right-12 top-0 text-sm font-medium opacity-80 hover:opacity-100 hover:scale-110 transition-all" style={{ color: "hsl(221, 83%, 53%)" }}>encilha</button>
-                    <button onClick={() => handleWordClick("arreios")} className="absolute -left-10 bottom-0 text-sm font-medium opacity-80 hover:opacity-100 hover:scale-110 transition-all" style={{ color: "hsl(221, 83%, 53%)" }}>arreios</button>
-                    <button onClick={() => handleWordClick("esporas")} className="absolute -right-10 bottom-2 text-sm font-medium opacity-80 hover:opacity-100 hover:scale-110 transition-all" style={{ color: "hsl(221, 83%, 53%)" }}>esporas</button>
+                    </Badge>
+                    <Badge onClick={() => handleWordClick("gateada")} className="absolute -top-12 left-1/2 -translate-x-1/2 px-3 py-1.5 shadow-md hover:scale-110 transition-all cursor-pointer" style={{ backgroundColor: "hsl(221, 83%, 53%)", color: "white", opacity: 0.85 }}>gateada</Badge>
+                    <Badge onClick={() => handleWordClick("encilha")} className="absolute -right-16 top-0 px-3 py-1.5 shadow-md hover:scale-110 transition-all cursor-pointer" style={{ backgroundColor: "hsl(221, 83%, 53%)", color: "white", opacity: 0.85 }}>encilha</Badge>
+                    <Badge onClick={() => handleWordClick("arreios")} className="absolute -left-14 bottom-0 px-3 py-1.5 shadow-md hover:scale-110 transition-all cursor-pointer" style={{ backgroundColor: "hsl(221, 83%, 53%)", color: "white", opacity: 0.85 }}>arreios</Badge>
+                    <Badge onClick={() => handleWordClick("esporas")} className="absolute -right-14 bottom-2 px-3 py-1.5 shadow-md hover:scale-110 transition-all cursor-pointer" style={{ backgroundColor: "hsl(221, 83%, 53%)", color: "white", opacity: 0.85 }}>esporas</Badge>
                   </div>
                 </div>
 
                 {/* Vida no Galpão - Center */}
                 <div className="absolute top-[45%] left-[50%] -translate-x-1/2 -translate-y-1/2">
                   <div className="relative">
-                    <button
-                      onClick={() => handleWordClick("Vida no Galpão")}
-                      className="text-4xl font-bold hover:scale-110 transition-all cursor-pointer"
-                      style={{ color: "hsl(45, 93%, 47%)" }}
+                    <Badge
+                      onClick={() => handleDomainClick("Vida no Galpão")}
+                      className="text-3xl font-bold px-8 py-4 hover:scale-110 transition-all cursor-pointer shadow-lg"
+                      style={{ backgroundColor: "hsl(45, 93%, 47%)", color: "white" }}
                     >
                       Vida no Galpão
-                    </button>
-                    <button onClick={() => handleWordClick("galpão")} className="absolute -top-10 left-1/2 -translate-x-1/2 text-base font-medium opacity-80 hover:opacity-100 hover:scale-110 transition-all" style={{ color: "hsl(45, 93%, 47%)" }}>galpão</button>
-                    <button onClick={() => handleWordClick("mate")} className="absolute -right-12 top-2 text-base font-medium opacity-80 hover:opacity-100 hover:scale-110 transition-all" style={{ color: "hsl(45, 93%, 47%)" }}>mate</button>
-                    <button onClick={() => handleWordClick("candeeiro")} className="absolute -right-16 bottom-0 text-sm font-medium opacity-80 hover:opacity-100 hover:scale-110 transition-all" style={{ color: "hsl(45, 93%, 47%)" }}>candeeiro</button>
-                    <button onClick={() => handleWordClick("querência")} className="absolute -bottom-10 left-1/2 -translate-x-1/2 text-sm font-medium opacity-80 hover:opacity-100 hover:scale-110 transition-all" style={{ color: "hsl(45, 93%, 47%)" }}>querência</button>
-                    <button onClick={() => handleWordClick("cuia")} className="absolute -left-10 bottom-0 text-sm font-medium opacity-80 hover:opacity-100 hover:scale-110 transition-all" style={{ color: "hsl(45, 93%, 47%)" }}>cuia</button>
-                    <button onClick={() => handleWordClick("ramada")} className="absolute -left-12 top-2 text-base font-medium opacity-80 hover:opacity-100 hover:scale-110 transition-all" style={{ color: "hsl(45, 93%, 47%)" }}>ramada</button>
+                    </Badge>
+                    <Badge onClick={() => handleWordClick("galpão")} className="absolute -top-14 left-1/2 -translate-x-1/2 px-3 py-1.5 shadow-md hover:scale-110 transition-all cursor-pointer" style={{ backgroundColor: "hsl(45, 93%, 47%)", color: "white", opacity: 0.85 }}>galpão</Badge>
+                    <Badge onClick={() => handleWordClick("mate")} className="absolute -right-16 top-2 px-3 py-1.5 shadow-md hover:scale-110 transition-all cursor-pointer" style={{ backgroundColor: "hsl(45, 93%, 47%)", color: "white", opacity: 0.85 }}>mate</Badge>
+                    <Badge onClick={() => handleWordClick("candeeiro")} className="absolute -right-20 bottom-0 px-3 py-1.5 shadow-md hover:scale-110 transition-all cursor-pointer" style={{ backgroundColor: "hsl(45, 93%, 47%)", color: "white", opacity: 0.85 }}>candeeiro</Badge>
+                    <Badge onClick={() => handleWordClick("querência")} className="absolute -bottom-14 left-1/2 -translate-x-1/2 px-3 py-1.5 shadow-md hover:scale-110 transition-all cursor-pointer" style={{ backgroundColor: "hsl(45, 93%, 47%)", color: "white", opacity: 0.85 }}>querência</Badge>
+                    <Badge onClick={() => handleWordClick("cuia")} className="absolute -left-14 bottom-0 px-3 py-1.5 shadow-md hover:scale-110 transition-all cursor-pointer" style={{ backgroundColor: "hsl(45, 93%, 47%)", color: "white", opacity: 0.85 }}>cuia</Badge>
+                    <Badge onClick={() => handleWordClick("ramada")} className="absolute -left-16 top-2 px-3 py-1.5 shadow-md hover:scale-110 transition-all cursor-pointer" style={{ backgroundColor: "hsl(45, 93%, 47%)", color: "white", opacity: 0.85 }}>ramada</Badge>
                   </div>
                 </div>
 
                 {/* Sentimentos e Poesia - Bottom Left */}
                 <div className="absolute bottom-[12%] left-[18%]">
                   <div className="relative">
-                    <button
-                      onClick={() => handleWordClick("Sentimentos e Poesia")}
-                      className="text-3xl font-bold hover:scale-110 transition-all cursor-pointer"
-                      style={{ color: "hsl(291, 64%, 42%)" }}
+                    <Badge
+                      onClick={() => handleDomainClick("Sentimentos e Poesia")}
+                      className="text-2xl font-bold px-6 py-3 hover:scale-110 transition-all cursor-pointer shadow-lg"
+                      style={{ backgroundColor: "hsl(291, 64%, 42%)", color: "white" }}
                     >
                       Sentimentos
-                    </button>
-                    <button onClick={() => handleWordClick("verso")} className="absolute -top-8 left-1/2 -translate-x-1/2 text-sm font-medium opacity-80 hover:opacity-100 hover:scale-110 transition-all" style={{ color: "hsl(291, 64%, 42%)" }}>verso</button>
-                    <button onClick={() => handleWordClick("saudade")} className="absolute -right-12 top-0 text-sm font-medium opacity-80 hover:opacity-100 hover:scale-110 transition-all" style={{ color: "hsl(291, 64%, 42%)" }}>saudade</button>
-                    <button onClick={() => handleWordClick("sonhos")} className="absolute -left-10 top-2 text-sm font-medium opacity-80 hover:opacity-100 hover:scale-110 transition-all" style={{ color: "hsl(291, 64%, 42%)" }}>sonhos</button>
-                    <button onClick={() => handleWordClick("calma")} className="absolute -bottom-8 left-1/2 -translate-x-1/2 text-sm font-medium opacity-80 hover:opacity-100 hover:scale-110 transition-all" style={{ color: "hsl(291, 64%, 42%)" }}>calma</button>
+                    </Badge>
+                    <Badge onClick={() => handleWordClick("verso")} className="absolute -top-12 left-1/2 -translate-x-1/2 px-3 py-1.5 shadow-md hover:scale-110 transition-all cursor-pointer" style={{ backgroundColor: "hsl(291, 64%, 42%)", color: "white", opacity: 0.85 }}>verso</Badge>
+                    <Badge onClick={() => handleWordClick("saudade")} className="absolute -right-16 top-0 px-3 py-1.5 shadow-md hover:scale-110 transition-all cursor-pointer" style={{ backgroundColor: "hsl(291, 64%, 42%)", color: "white", opacity: 0.85 }}>saudade</Badge>
+                    <Badge onClick={() => handleWordClick("sonhos")} className="absolute -left-14 top-2 px-3 py-1.5 shadow-md hover:scale-110 transition-all cursor-pointer" style={{ backgroundColor: "hsl(291, 64%, 42%)", color: "white", opacity: 0.85 }}>sonhos</Badge>
+                    <Badge onClick={() => handleWordClick("calma")} className="absolute -bottom-12 left-1/2 -translate-x-1/2 px-3 py-1.5 shadow-md hover:scale-110 transition-all cursor-pointer" style={{ backgroundColor: "hsl(291, 64%, 42%)", color: "white", opacity: 0.85 }}>calma</Badge>
                   </div>
                 </div>
 
                 {/* Tradição Gaúcha - Bottom Right */}
                 <div className="absolute bottom-[15%] right-[20%]">
                   <div className="relative">
-                    <button
-                      onClick={() => handleWordClick("Tradição Gaúcha")}
-                      className="text-3xl font-bold hover:scale-110 transition-all cursor-pointer"
-                      style={{ color: "hsl(0, 72%, 51%)" }}
+                    <Badge
+                      onClick={() => handleDomainClick("Tradição Gaúcha")}
+                      className="text-2xl font-bold px-6 py-3 hover:scale-110 transition-all cursor-pointer shadow-lg"
+                      style={{ backgroundColor: "hsl(0, 72%, 51%)", color: "white" }}
                     >
                       Tradição Gaúcha
-                    </button>
-                    <button onClick={() => handleWordClick("maragato")} className="absolute -top-8 left-1/2 -translate-x-1/2 text-sm font-medium opacity-80 hover:opacity-100 hover:scale-110 transition-all" style={{ color: "hsl(0, 72%, 51%)" }}>maragato</button>
-                    <button onClick={() => handleWordClick("prenda")} className="absolute -right-10 top-0 text-sm font-medium opacity-80 hover:opacity-100 hover:scale-110 transition-all" style={{ color: "hsl(0, 72%, 51%)" }}>prenda</button>
-                    <button onClick={() => handleWordClick("campereada")} className="absolute -left-14 bottom-0 text-sm font-medium opacity-80 hover:opacity-100 hover:scale-110 transition-all" style={{ color: "hsl(0, 72%, 51%)" }}>campereada</button>
+                    </Badge>
+                    <Badge onClick={() => handleWordClick("maragato")} className="absolute -top-12 left-1/2 -translate-x-1/2 px-3 py-1.5 shadow-md hover:scale-110 transition-all cursor-pointer" style={{ backgroundColor: "hsl(0, 72%, 51%)", color: "white", opacity: 0.85 }}>maragato</Badge>
+                    <Badge onClick={() => handleWordClick("prenda")} className="absolute -right-14 top-0 px-3 py-1.5 shadow-md hover:scale-110 transition-all cursor-pointer" style={{ backgroundColor: "hsl(0, 72%, 51%)", color: "white", opacity: 0.85 }}>prenda</Badge>
+                    <Badge onClick={() => handleWordClick("campereada")} className="absolute -left-20 bottom-0 px-3 py-1.5 shadow-md hover:scale-110 transition-all cursor-pointer" style={{ backgroundColor: "hsl(0, 72%, 51%)", color: "white", opacity: 0.85 }}>campereada</Badge>
                   </div>
                 </div>
               </div>
@@ -795,8 +814,83 @@ export default function Analise() {
         open={modalOpen}
         onOpenChange={setModalOpen}
         word={selectedWord}
-        data={selectedWord === "verso" ? kwicData : []}
+        data={kwicDataMap[selectedWord] || []}
       />
+
+      {/* Modal de Domínio Semântico */}
+      <Dialog open={domainModalOpen} onOpenChange={setDomainModalOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-3">
+              {selectedDomain && (
+                <>
+                  <div 
+                    className="w-4 h-4 rounded-full" 
+                    style={{ backgroundColor: selectedDomain.cor }}
+                  />
+                  {selectedDomain.dominio}
+                </>
+              )}
+            </DialogTitle>
+            <DialogDescription>
+              Dados estatísticos do domínio semântico
+            </DialogDescription>
+          </DialogHeader>
+          {selectedDomain && (
+            <div className="space-y-6">
+              <div className="grid grid-cols-2 gap-4">
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="text-2xl font-bold">{selectedDomain.ocorrencias}</div>
+                    <p className="text-sm text-muted-foreground">Ocorrências</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="text-2xl font-bold">{selectedDomain.percentual}%</div>
+                    <p className="text-sm text-muted-foreground">do corpus</p>
+                  </CardContent>
+                </Card>
+              </div>
+              
+              <div>
+                <h4 className="font-semibold mb-3">Palavras-chave do domínio</h4>
+                <div className="flex flex-wrap gap-2">
+                  {selectedDomain.palavras.map((palavra, idx) => (
+                    <Badge 
+                      key={idx} 
+                      variant="secondary" 
+                      className="cursor-pointer hover:bg-success/20 text-base px-4 py-2"
+                      style={{ backgroundColor: `${selectedDomain.cor}20`, borderColor: selectedDomain.cor }}
+                      onClick={() => {
+                        setDomainModalOpen(false);
+                        handleWordClick(palavra);
+                      }}
+                    >
+                      {palavra}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+
+              <div className="p-4 bg-muted/50 rounded-lg">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="font-semibold">Distribuição no corpus</span>
+                </div>
+                <div className="w-full bg-background rounded-full h-4">
+                  <div 
+                    className="h-4 rounded-full transition-all" 
+                    style={{ 
+                      width: `${selectedDomain.percentual}%`, 
+                      backgroundColor: selectedDomain.cor 
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
