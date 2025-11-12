@@ -7,9 +7,9 @@ interface NetworkNode {
   x: number;
   y: number;
   distance: number;
-  prosody: "positive" | "neutral" | "melancholic" | "contemplative";
   frequency: number;
 }
+
 interface InteractiveSemanticNetworkProps {
   onWordClick: (word: string) => void;
 }
@@ -18,21 +18,19 @@ const prosodyColors = {
   positive: "hsl(142, 35%, 25%)",
   neutral: "hsl(221, 40%, 25%)",
   melancholic: "hsl(45, 40%, 25%)",
-  contemplative: "hsl(291, 35%, 25%)"
+  contemplative: "hsl(291, 35%, 25%)",
 };
 
 const prosodyTextColors = {
   positive: "hsl(142, 80%, 75%)",
   neutral: "hsl(221, 85%, 75%)",
   melancholic: "hsl(45, 95%, 75%)",
-  contemplative: "hsl(291, 75%, 75%)"
+  contemplative: "hsl(291, 75%, 75%)",
 };
 
 const MIN_ORBIT_RADIUS = 120;
 
-export function InteractiveSemanticNetwork({
-  onWordClick
-}: InteractiveSemanticNetworkProps) {
+export function InteractiveSemanticNetwork({ onWordClick }: InteractiveSemanticNetworkProps) {
   const [nodes, setNodes] = useState<NetworkNode[]>([
     {
       id: "verso",
@@ -41,7 +39,7 @@ export function InteractiveSemanticNetwork({
       y: 200,
       distance: 0,
       prosody: "contemplative",
-      frequency: 45
+      frequency: 45,
     },
     {
       id: "saudade",
@@ -50,7 +48,7 @@ export function InteractiveSemanticNetwork({
       y: 80,
       distance: 0.08,
       prosody: "melancholic",
-      frequency: 42
+      frequency: 42,
     },
     {
       id: "tarumã",
@@ -59,7 +57,7 @@ export function InteractiveSemanticNetwork({
       y: 120,
       distance: 0.12,
       prosody: "neutral",
-      frequency: 38
+      frequency: 38,
     },
     {
       id: "galpão",
@@ -68,7 +66,7 @@ export function InteractiveSemanticNetwork({
       y: 240,
       distance: 0.15,
       prosody: "neutral",
-      frequency: 35
+      frequency: 35,
     },
     {
       id: "várzea",
@@ -77,7 +75,7 @@ export function InteractiveSemanticNetwork({
       y: 340,
       distance: 0.22,
       prosody: "positive",
-      frequency: 28
+      frequency: 28,
     },
     {
       id: "sonhos",
@@ -86,7 +84,7 @@ export function InteractiveSemanticNetwork({
       y: 370,
       distance: 0.25,
       prosody: "contemplative",
-      frequency: 26
+      frequency: 26,
     },
     {
       id: "coxilha",
@@ -95,16 +93,16 @@ export function InteractiveSemanticNetwork({
       y: 340,
       distance: 0.28,
       prosody: "positive",
-      frequency: 24
+      frequency: 24,
     },
     {
       id: "mate",
       label: "mate",
       x: 100,
       y: 240,
-      distance: 0.30,
+      distance: 0.3,
       prosody: "neutral",
-      frequency: 22
+      frequency: 22,
     },
     {
       id: "gateada",
@@ -113,7 +111,7 @@ export function InteractiveSemanticNetwork({
       y: 130,
       distance: 0.35,
       prosody: "neutral",
-      frequency: 18
+      frequency: 18,
     },
     {
       id: "campanha",
@@ -122,16 +120,16 @@ export function InteractiveSemanticNetwork({
       y: 70,
       distance: 0.38,
       prosody: "positive",
-      frequency: 16
+      frequency: 16,
     },
     {
       id: "querência",
       label: "querência",
       x: 360,
       y: 50,
-      distance: 0.40,
+      distance: 0.4,
       prosody: "contemplative",
-      frequency: 15
+      frequency: 15,
     },
     {
       id: "prenda",
@@ -140,16 +138,16 @@ export function InteractiveSemanticNetwork({
       y: 180,
       distance: 0.43,
       prosody: "positive",
-      frequency: 14
+      frequency: 14,
     },
     {
       id: "arreios",
       label: "arreios",
       x: 520,
       y: 300,
-      distance: 0.50,
+      distance: 0.5,
       prosody: "neutral",
-      frequency: 12
+      frequency: 12,
     },
     {
       id: "coplas",
@@ -158,7 +156,7 @@ export function InteractiveSemanticNetwork({
       y: 380,
       distance: 0.55,
       prosody: "contemplative",
-      frequency: 11
+      frequency: 11,
     },
     {
       id: "mansidão",
@@ -167,7 +165,7 @@ export function InteractiveSemanticNetwork({
       y: 380,
       distance: 0.58,
       prosody: "contemplative",
-      frequency: 10
+      frequency: 10,
     },
     {
       id: "maragato",
@@ -176,7 +174,7 @@ export function InteractiveSemanticNetwork({
       y: 300,
       distance: 0.62,
       prosody: "neutral",
-      frequency: 9
+      frequency: 9,
     },
     {
       id: "esporas",
@@ -185,9 +183,10 @@ export function InteractiveSemanticNetwork({
       y: 180,
       distance: 0.65,
       prosody: "neutral",
-      frequency: 8
-    }
+      frequency: 8,
+    },
   ]);
+
   const [dragging, setDragging] = useState<string | null>(null);
   const [hasDragged, setHasDragged] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -202,10 +201,8 @@ export function InteractiveSemanticNetwork({
     if (dragging && containerRef.current) {
       setHasDragged(true);
       const rect = containerRef.current.getBoundingClientRect();
-      const centerNode = nodes.find(n => n.distance === 0);
-      const draggedNode = nodes.find(n => n.id === dragging);
-
-      if (!centerNode || !draggedNode || draggedNode.distance === 0) return;
+      const centerNode = nodes.find((n) => n.distance === 0);
+      const draggedNode = nodes.find((n) => n.id === dragging);
 
       const mouseX = e.clientX - rect.left;
       const mouseY = e.clientY - rect.top;
@@ -216,13 +213,7 @@ export function InteractiveSemanticNetwork({
       const newX = centerNode.x + Math.cos(angle) * radius;
       const newY = centerNode.y + Math.sin(angle) * radius;
 
-      setNodes(prev =>
-        prev.map(node =>
-          node.id === dragging
-            ? { ...node, x: newX, y: newY }
-            : node
-        )
-      );
+      setNodes((prev) => prev.map((node) => (node.id === dragging ? { ...node, x: newX, y: newY } : node)));
     }
   };
 
@@ -238,12 +229,12 @@ export function InteractiveSemanticNetwork({
 
   useEffect(() => {
     if (dragging) {
-      document.addEventListener('mouseup', handleMouseUp);
-      return () => document.removeEventListener('mouseup', handleMouseUp);
+      document.addEventListener("mouseup", handleMouseUp);
+      return () => document.removeEventListener("mouseup", handleMouseUp);
     }
   }, [dragging]);
 
-  const centerNode = nodes.find(n => n.distance === 0);
+  const centerNode = nodes.find((n) => n.distance === 0);
 
   return (
     <div className="space-y-4">
@@ -257,15 +248,10 @@ export function InteractiveSemanticNetwork({
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
         className="border border-border rounded-lg bg-background/50 cursor-move overflow-hidden"
-        style={{ width: '100%', height: '500px', position: 'relative' }}
+        style={{ width: "100%", height: "500px", position: "relative" }}
       >
-        <svg
-          width="100%"
-          height="100%"
-          style={{ position: 'absolute', top: 0, left: 0 }}
-        >
-          {nodes.map(node => {
-            if (node.distance === 0 || !centerNode) return null;
+        <svg width="100%" height="100%" style={{ position: "absolute", top: 0, left: 0 }}>
+          {nodes.map((node) => {
             return (
               <line
                 key={`line-${node.id}`}
@@ -280,7 +266,7 @@ export function InteractiveSemanticNetwork({
             );
           })}
 
-          {nodes.map(node => (
+          {nodes.map((node) => (
             <g key={node.id}>
               <circle
                 cx={node.x}
@@ -290,9 +276,9 @@ export function InteractiveSemanticNetwork({
                 stroke={prosodyTextColors[node.prosody]}
                 strokeWidth="2"
                 style={{
-                  cursor: node.distance === 0 ? 'default' : 'grab',
+                  cursor: node.distance === 0 ? "default" : "grab",
                   opacity: dragging && dragging !== node.id ? 0.5 : 1,
-                  transition: dragging === node.id ? 'none' : 'opacity 0.2s'
+                  transition: dragging === node.id ? "none" : "opacity 0.2s",
                 }}
                 onMouseDown={(e) => handleMouseDown(e as any, node.id)}
                 onClick={() => handleClick(node.id, node.label)}
@@ -306,7 +292,7 @@ export function InteractiveSemanticNetwork({
                 fontSize="12"
                 fontWeight="bold"
                 pointerEvents="none"
-                style={{ userSelect: 'none' }}
+                style={{ userSelect: "none" }}
               >
                 {node.label}
               </text>
