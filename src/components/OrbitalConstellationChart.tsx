@@ -905,7 +905,7 @@ export const OrbitalConstellationChart = ({
               Constelação: {system.centerWord}
             </h3>
           </div>
-          <div className="flex-1 flex justify-end">
+          <div className="flex-1 flex justify-start">
             <button 
               onClick={() => setViewMode('constellations')} 
               className="px-5 py-2.5 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors font-medium shadow-sm"
@@ -915,64 +915,10 @@ export const OrbitalConstellationChart = ({
           </div>
         </div>
 
-        <div className="mb-3 px-4 animate-fade-in">
-          <div className="flex flex-wrap gap-4 p-4 bg-muted/30 rounded-lg">
-            {system.words.sort((a, b) => b.strength - a.strength).map((word, index) => {
-              const wordKey = `${system.centerWord}-${word.word}`;
-              const currentProgress = orbitProgress[wordKey] ?? (index / system.words.length) * 100;
-              return (
-                <div key={word.word} className="flex items-center gap-3 min-w-[220px]">
-                  <div className="flex flex-col gap-1 flex-1">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-medium">{word.word}</span>
-                      <span 
-                        className="text-xs font-semibold px-2 py-0.5 rounded" 
-                        style={{
-                          backgroundColor: `${word.color}20`,
-                          color: word.color
-                        }}
-                      >
-                        {word.strength}%
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <input 
-                        type="range" 
-                        min="0" 
-                        max="100" 
-                        value={currentProgress} 
-                        onChange={e => handleOrbitProgressChange(wordKey, parseFloat(e.target.value))} 
-                        className="flex-1 h-1.5 rounded-lg appearance-none cursor-pointer"
-                        style={{
-                          background: `linear-gradient(to right, ${word.color} 0%, ${word.color} ${currentProgress}%, hsl(var(--muted)) ${currentProgress}%, hsl(var(--muted)) 100%)`
-                        }}
-                      />
-                      <span className="text-xs text-muted-foreground w-8 text-right">
-                        {Math.round(currentProgress)}°
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-          <div className="flex items-start justify-between mt-2 px-1">
-            <p className="text-xs text-muted-foreground flex-1">
-              💡 Dica: Arraste as palavras no gráfico ou use os controles acima. Passe o mouse sobre uma palavra para ver sua concordância.
-            </p>
-            <NavigationToolbar
-              onZoomIn={handleZoomIn}
-              onZoomOut={handleZoomOut}
-              onReset={handleResetZoom}
-              onFitToView={() => {
-                setZoomLevel(1);
-                setPanOffset({ x: 0, y: 0 });
-              }}
-              onToggleFullscreen={() => setIsFullscreen(!isFullscreen)}
-              isFullscreen={isFullscreen}
-              className="ml-4"
-            />
-          </div>
+        <div className="mb-4 px-4">
+          <p className="text-sm text-muted-foreground">
+            💡 Dica: Arraste as palavras no gráfico para reposicioná-las. Passe o mouse sobre uma palavra para ver sua concordância.
+          </p>
         </div>
 
         <div className="px-4">
