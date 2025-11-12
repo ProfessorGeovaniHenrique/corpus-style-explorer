@@ -16,17 +16,17 @@ interface InteractiveSemanticNetworkProps {
 }
 
 const prosodyColors = {
-  positive: "hsl(142, 71%, 45%)",
-  neutral: "hsl(221, 83%, 53%)",
-  melancholic: "hsl(45, 93%, 47%)",
-  contemplative: "hsl(291, 64%, 42%)",
+  positive: "hsl(142, 35%, 25%)",
+  neutral: "hsl(221, 40%, 25%)",
+  melancholic: "hsl(45, 40%, 25%)",
+  contemplative: "hsl(291, 35%, 25%)",
 };
 
 const prosodyTextColors = {
-  positive: "hsl(142, 71%, 75%)",
-  neutral: "hsl(221, 83%, 75%)",
-  melancholic: "hsl(45, 93%, 75%)",
-  contemplative: "hsl(291, 64%, 75%)",
+  positive: "hsl(142, 80%, 75%)",
+  neutral: "hsl(221, 85%, 75%)",
+  melancholic: "hsl(45, 95%, 75%)",
+  contemplative: "hsl(291, 75%, 75%)",
 };
 
 const MIN_ORBIT_RADIUS = 120; // distância mínima da palavra-chave (em pixels)
