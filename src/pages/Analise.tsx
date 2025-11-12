@@ -219,22 +219,14 @@ export default function Analise() {
       </div>
 
       <Tabs defaultValue="dominios" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-7">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="dominios" className="gap-2">
             <FileText className="h-4 w-4" />
             Domínios
           </TabsTrigger>
-          <TabsTrigger value="anotacao" className="gap-2">
-            <Sparkles className="h-4 w-4" />
-            Anotação
-          </TabsTrigger>
           <TabsTrigger value="rede" className="gap-2">
             <Network className="h-4 w-4" />
             Rede
-          </TabsTrigger>
-          <TabsTrigger value="clustering" className="gap-2" disabled>
-            <Sparkles className="h-4 w-4" />
-            Clustering
           </TabsTrigger>
           <TabsTrigger value="frequencia" className="gap-2">
             <BarChart3 className="h-4 w-4" />
@@ -338,83 +330,6 @@ export default function Analise() {
               </Card>
             </div>
           </div>
-        </TabsContent>
-
-        {/* Tab: Anotação */}
-        <TabsContent value="anotacao" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <Sparkles className="h-5 w-5 text-primary" />
-                <div>
-                  <CardTitle>Anotação Morfossintática e Lematização</CardTitle>
-                  <CardDescription>
-                    Análise automática de POS tagging e redução de palavras aos seus lemas
-                  </CardDescription>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <Tabs defaultValue="lematizacao" className="space-y-4">
-                <TabsList>
-                  <TabsTrigger value="texto">Texto Anotado</TabsTrigger>
-                  <TabsTrigger value="estatisticas">Estatísticas POS</TabsTrigger>
-                  <TabsTrigger value="lematizacao">Lematização</TabsTrigger>
-                </TabsList>
-                
-                <TabsContent value="lematizacao" className="space-y-4">
-                  <div>
-                    <h3 className="text-lg font-semibold mb-2 flex items-center gap-2">
-                      <FileText className="h-5 w-5" />
-                      Exemplos de Lematização
-                    </h3>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      Redução de palavras flexionadas aos seus lemas (forma canônica)
-                    </p>
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Palavra Original</TableHead>
-                          <TableHead>Lema</TableHead>
-                          <TableHead>Classe</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {lematizacaoData.map((item, index) => (
-                          <TableRow key={index}>
-                            <TableCell className="font-mono">{item.original}</TableCell>
-                            <TableCell>
-                              <Badge variant="secondary" className="bg-success/10 text-success">
-                                {item.lema}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>
-                              <Badge 
-                                className={
-                                  item.classe === "NOUN" ? "bg-primary/10 text-primary" :
-                                  item.classe === "VERB" ? "bg-destructive/10 text-destructive" :
-                                  "bg-accent/10 text-accent"
-                                }
-                              >
-                                {item.classe}
-                              </Badge>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                  
-                  <div className="p-4 bg-success/5 border border-success/20 rounded-lg">
-                    <h4 className="font-semibold text-success mb-2">Sobre Lematização</h4>
-                    <p className="text-sm text-muted-foreground">
-                      A lematização reduz palavras flexionadas à sua forma base (lema). Por exemplo: "empresas" → "empresa", "investem" → "investir". Isso é essencial para análises linguísticas precisas, pois agrupa diferentes formas da mesma palavra.
-                    </p>
-                  </div>
-                </TabsContent>
-              </Tabs>
-            </CardContent>
-          </Card>
         </TabsContent>
 
         {/* Tab: Rede */}
