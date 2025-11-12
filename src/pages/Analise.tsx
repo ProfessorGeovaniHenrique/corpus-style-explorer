@@ -597,6 +597,123 @@ const palavrasChaveData = [{
   palavra: "mate",
   ll: 20.5,
   mi: 3.9,
+  frequenciaBruta: 2,
+  frequenciaNormalizada: 11.8,
+  significancia: "Média",
+  efeito: "Sobre-uso",
+  efeitoIcon: TrendingUp
+}, {
+  palavra: "candeeiro",
+  ll: 19.8,
+  mi: 3.7,
+  frequenciaBruta: 1,
+  frequenciaNormalizada: 5.9,
+  significancia: "Média",
+  efeito: "Sobre-uso",
+  efeitoIcon: TrendingUp
+}, {
+  palavra: "querência",
+  ll: 18.6,
+  mi: 3.5,
+  frequenciaBruta: 1,
+  frequenciaNormalizada: 5.9,
+  significancia: "Média",
+  efeito: "Sobre-uso",
+  efeitoIcon: TrendingUp
+}, {
+  palavra: "fogo",
+  ll: 17.3,
+  mi: 3.3,
+  frequenciaBruta: 1,
+  frequenciaNormalizada: 5.9,
+  significancia: "Média",
+  efeito: "Sobre-uso",
+  efeitoIcon: TrendingUp
+}, {
+  palavra: "chão",
+  ll: 16.8,
+  mi: 3.2,
+  frequenciaBruta: 1,
+  frequenciaNormalizada: 5.9,
+  significancia: "Baixa",
+  efeito: "Normal",
+  efeitoIcon: TrendingUp
+}, {
+  palavra: "cuia",
+  ll: 21.4,
+  mi: 4.1,
+  frequenciaBruta: 1,
+  frequenciaNormalizada: 5.9,
+  significancia: "Média",
+  efeito: "Sobre-uso",
+  efeitoIcon: TrendingUp
+}, {
+  palavra: "bomba",
+  ll: 20.1,
+  mi: 3.8,
+  frequenciaBruta: 1,
+  frequenciaNormalizada: 5.9,
+  significancia: "Média",
+  efeito: "Sobre-uso",
+  efeitoIcon: TrendingUp
+}, {
+  palavra: "coplas",
+  ll: 19.5,
+  mi: 3.7,
+  frequenciaBruta: 1,
+  frequenciaNormalizada: 5.9,
+  significancia: "Média",
+  efeito: "Sobre-uso",
+  efeitoIcon: TrendingUp
+}, {
+  palavra: "mansidão",
+  ll: 18.9,
+  mi: 3.6,
+  frequenciaBruta: 1,
+  frequenciaNormalizada: 5.9,
+  significancia: "Média",
+  efeito: "Sobre-uso",
+  efeitoIcon: TrendingUp
+}, {
+  palavra: "calma",
+  ll: 14.2,
+  mi: 2.8,
+  frequenciaBruta: 1,
+  frequenciaNormalizada: 5.9,
+  significancia: "Baixa",
+  efeito: "Normal",
+  efeitoIcon: TrendingUp
+}, {
+  palavra: "silêncio",
+  ll: 17.6,
+  mi: 3.4,
+  frequenciaBruta: 1,
+  frequenciaNormalizada: 5.9,
+  significancia: "Média",
+  efeito: "Sobre-uso",
+  efeitoIcon: TrendingUp
+}, {
+  palavra: "maragato",
+  ll: 22.7,
+  mi: 4.3,
+  frequenciaBruta: 1,
+  frequenciaNormalizada: 5.9,
+  significancia: "Alta",
+  efeito: "Sobre-uso",
+  efeitoIcon: TrendingUp
+}, {
+  palavra: "pañuelo",
+  ll: 21.9,
+  mi: 4.2,
+  frequenciaBruta: 1,
+  frequenciaNormalizada: 5.9,
+  significancia: "Média",
+  efeito: "Sobre-uso",
+  efeitoIcon: TrendingUp
+}, {
+  palavra: "maçanilha",
+  ll: 20.8,
+  mi: 4.0,
   frequenciaBruta: 1,
   frequenciaNormalizada: 5.9,
   significancia: "Média",
@@ -1073,24 +1190,24 @@ E uma saudade redomona pelos cantos do galpão`}
 
         {/* Tab: Domínios - Seção Refatorada */}
         <TabsContent value="dominios" className="space-y-6">
-          <div className="grid gap-6 lg:grid-cols-3">
-            <div className="lg:col-span-2 space-y-6">
-              <Card>
-                <CardHeader>
-                  <div className="flex items-center gap-2">
-                    <div className="p-2 rounded-lg bg-success/10">
-                      <FileText className="h-5 w-5 text-success" />
+          <TooltipProvider delayDuration={100}>
+            <div className="grid gap-6 lg:grid-cols-3">
+              <div className="lg:col-span-2 space-y-6">
+                <Card>
+                  <CardHeader>
+                    <div className="flex items-center gap-2">
+                      <div className="p-2 rounded-lg bg-success/10">
+                        <FileText className="h-5 w-5 text-success" />
+                      </div>
+                      <div>
+                        <CardTitle>Domínios Semânticos Identificados</CardTitle>
+                        <CardDescription>
+                          Análise baseada em IA - 5 domínios detectados em 170 palavras
+                        </CardDescription>
+                      </div>
                     </div>
-                    <div>
-                      <CardTitle>Domínios Semânticos Identificados</CardTitle>
-                      <CardDescription>
-                        Análise baseada em IA - 5 domínios detectados em 170 palavras
-                      </CardDescription>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <TooltipProvider>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
                     {dominiosData.map((item, index) => (
                       <div key={index} className="space-y-3 p-4 rounded-lg border bg-card hover:shadow-md transition-all">
                         <div className="flex items-start justify-between">
@@ -1162,11 +1279,10 @@ E uma saudade redomona pelos cantos do galpão`}
                         <div className="flex flex-wrap gap-2">
                           {item.palavras.map((palavra, idx) => {
                             const palavraChave = palavrasChaveData.find(p => p.palavra === palavra);
-                            const stats = palavraStats[palavra];
                             const kwicEntries = kwicDataMap[palavra];
                             
                             return (
-                              <UITooltip key={idx} delayDuration={200}>
+                              <UITooltip key={idx}>
                                 <TooltipTrigger asChild>
                                   <Badge 
                                     className="cursor-pointer hover:scale-110 transition-all border-0 shadow-sm" 
@@ -1179,7 +1295,7 @@ E uma saudade redomona pelos cantos do galpão`}
                                     {palavra}
                                   </Badge>
                                 </TooltipTrigger>
-                                <TooltipContent className="max-w-md p-4">
+                                <TooltipContent className="max-w-md p-4 z-50">
                                   <div className="space-y-3">
                                     <div className="flex items-center justify-between gap-4">
                                       <p className="font-bold text-lg text-foreground">{palavra}</p>
@@ -1194,42 +1310,40 @@ E uma saudade redomona pelos cantos do galpão`}
                                     </div>
                                     
                                     {/* Estatísticas detalhadas */}
-                                    {(palavraChave || stats) && (
-                                      <div className="grid grid-cols-2 gap-3 py-2 border-y border-border">
-                                        <div>
-                                          <p className="text-xs text-muted-foreground">Frequência no Corpus</p>
-                                          <p className="text-sm font-semibold text-foreground">
-                                            {palavraChave?.frequenciaBruta || stats?.frequenciaBruta || kwicEntries?.length || 1}x
-                                          </p>
-                                        </div>
-                                        {palavraChave && (
-                                          <>
-                                            <div>
-                                              <p className="text-xs text-muted-foreground">Significância</p>
-                                              <div className="flex items-center gap-1">
-                                                <p className="text-sm font-semibold text-foreground">{palavraChave.significancia}</p>
-                                                {palavraChave.significancia === "Alta" && (
-                                                  <TrendingUp className="h-3 w-3 text-success" />
-                                                )}
-                                              </div>
-                                            </div>
-                                            <div>
-                                              <p className="text-xs text-muted-foreground">Log-Likelihood</p>
-                                              <p className="text-sm font-semibold text-foreground">{palavraChave.ll.toFixed(1)}</p>
-                                            </div>
-                                            <div>
-                                              <p className="text-xs text-muted-foreground">Efeito</p>
-                                              <div className="flex items-center gap-1">
-                                                <p className="text-sm font-semibold text-foreground">{palavraChave.efeito}</p>
-                                                {palavraChave.efeito === "Sobre-uso" && (
-                                                  <TrendingUp className="h-3 w-3 text-success" />
-                                                )}
-                                              </div>
-                                            </div>
-                                          </>
-                                        )}
+                                    <div className="grid grid-cols-2 gap-3 py-2 border-y border-border">
+                                      <div>
+                                        <p className="text-xs text-muted-foreground">Frequência no Corpus</p>
+                                        <p className="text-sm font-semibold text-foreground">
+                                          {palavraChave?.frequenciaBruta || kwicEntries?.length || 1}x
+                                        </p>
                                       </div>
-                                    )}
+                                      {palavraChave && (
+                                        <>
+                                          <div>
+                                            <p className="text-xs text-muted-foreground">Significância</p>
+                                            <div className="flex items-center gap-1">
+                                              <p className="text-sm font-semibold text-foreground">{palavraChave.significancia}</p>
+                                              {palavraChave.significancia === "Alta" && (
+                                                <TrendingUp className="h-3 w-3 text-success" />
+                                              )}
+                                            </div>
+                                          </div>
+                                          <div>
+                                            <p className="text-xs text-muted-foreground">Log-Likelihood</p>
+                                            <p className="text-sm font-semibold text-foreground">{palavraChave.ll.toFixed(1)}</p>
+                                          </div>
+                                          <div>
+                                            <p className="text-xs text-muted-foreground">Efeito</p>
+                                            <div className="flex items-center gap-1">
+                                              <p className="text-sm font-semibold text-foreground">{palavraChave.efeito}</p>
+                                              {palavraChave.efeito === "Sobre-uso" && (
+                                                <TrendingUp className="h-3 w-3 text-success" />
+                                              )}
+                                            </div>
+                                          </div>
+                                        </>
+                                      )}
+                                    </div>
                                     
                                     {/* Contexto KWIC */}
                                     <div className="text-xs space-y-1">
@@ -1321,12 +1435,11 @@ E uma saudade redomona pelos cantos do galpão`}
                         </div>
                       </div>
                     ))}
-                  </TooltipProvider>
-                </CardContent>
-              </Card>
-            </div>
+                  </CardContent>
+                </Card>
+              </div>
 
-            {/* Coluna lateral com gráficos e estatísticas */}
+              {/* Coluna lateral com gráficos e estatísticas */}
             <div className="space-y-6">
               {/* Gráfico de distribuição */}
               <Card>
@@ -1447,8 +1560,9 @@ E uma saudade redomona pelos cantos do galpão`}
                   </Button>
                 </CardContent>
               </Card>
+              </div>
             </div>
-          </div>
+          </TooltipProvider>
         </TabsContent>
 
         {/* Tab: Rede */}
