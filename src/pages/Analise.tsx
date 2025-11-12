@@ -1016,6 +1016,7 @@ E uma saudade redomona pelos cantos do galpão`}
                   <ResponsiveContainer width="100%" height={240}>
                     <BarChart data={dominiosData.map(d => ({ 
                       nome: d.dominio.split(' ').slice(0, 2).join(' '), 
+                      nomeCompleto: d.dominio,
                       valor: d.ocorrencias,
                       cor: d.cor 
                     }))}>
@@ -1032,8 +1033,16 @@ E uma saudade redomona pelos cantos do galpão`}
                         contentStyle={{ 
                           backgroundColor: 'hsl(var(--background))', 
                           border: '1px solid hsl(var(--border))',
-                          borderRadius: '8px'
+                          borderRadius: '8px',
+                          padding: '12px'
                         }}
+                        formatter={(value: number, name: string, props: any) => {
+                          return [
+                            `${value} ocorrências`,
+                            props.payload.nomeCompleto
+                          ];
+                        }}
+                        labelFormatter={() => ''}
                       />
                       <Bar dataKey="valor" radius={[8, 8, 0, 0]}>
                         {dominiosData.map((entry, index) => (
