@@ -718,29 +718,31 @@ export default function Analise() {
           <Card>
             <CardHeader>
               <CardTitle>Nuvem de Domínios Semânticos</CardTitle>
-              <CardDescription>Domínios principais com suas palavras-chave satélites</CardDescription>
+              <CardDescription>Domínios principais com suas palavras-chave satélites. Tamanho proporcional à relevância estatística.</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="relative min-h-[600px] bg-muted/20 rounded-lg p-8">
-                {/* Natureza e Paisagem Campeira - Top Left */}
-                <div className="absolute top-[10%] left-[15%]">
+              <div className="relative min-h-[700px] bg-muted/20 rounded-lg p-8">
+                {/* Natureza e Paisagem Campeira - Centro (mais saliente: 28.2%) */}
+                <div className="absolute top-[45%] left-[50%] -translate-x-1/2 -translate-y-1/2">
                   <div className="relative">
                     <Badge
                       onClick={() => handleDomainClick("Natureza e Paisagem Campeira")}
-                      className="text-2xl font-bold px-6 py-3 hover:scale-110 transition-all cursor-pointer shadow-lg border-0"
+                      className="text-3xl font-bold px-8 py-4 hover:scale-110 transition-all cursor-pointer shadow-lg border-0"
                       style={{ backgroundColor: "hsl(142, 35%, 25%)", color: "hsl(142, 80%, 75%)" }}
                     >
-                      Natureza Campeira
+                      Natureza e Paisagem Campeira
                     </Badge>
-                    <Badge onClick={() => handleWordClick("tarumã")} className="absolute -top-12 left-1/2 -translate-x-1/2 px-3 py-1.5 shadow-md hover:scale-110 transition-all cursor-pointer border-0" style={{ backgroundColor: "hsl(142, 35%, 25%)", color: "hsl(142, 80%, 75%)" }}>tarumã</Badge>
-                    <Badge onClick={() => handleWordClick("várzea")} className="absolute -right-16 top-0 px-3 py-1.5 shadow-md hover:scale-110 transition-all cursor-pointer border-0" style={{ backgroundColor: "hsl(142, 35%, 25%)", color: "hsl(142, 80%, 75%)" }}>várzea</Badge>
-                    <Badge onClick={() => handleWordClick("coxilha")} className="absolute -right-14 bottom-2 px-3 py-1.5 shadow-md hover:scale-110 transition-all cursor-pointer border-0" style={{ backgroundColor: "hsl(142, 35%, 25%)", color: "hsl(142, 80%, 75%)" }}>coxilha</Badge>
-                    <Badge onClick={() => handleWordClick("sombra")} className="absolute -left-14 top-2 px-3 py-1.5 shadow-md hover:scale-110 transition-all cursor-pointer border-0" style={{ backgroundColor: "hsl(142, 35%, 25%)", color: "hsl(142, 80%, 75%)" }}>sombra</Badge>
+                    <Badge onClick={() => handleWordClick("tarumã")} className="absolute -top-14 left-1/4 px-3 py-1.5 shadow-md hover:scale-110 transition-all cursor-pointer border-0" style={{ backgroundColor: "hsl(142, 35%, 25%)", color: "hsl(142, 80%, 75%)" }}>tarumã</Badge>
+                    <Badge onClick={() => handleWordClick("várzea")} className="absolute -right-20 top-2 px-3 py-1.5 shadow-md hover:scale-110 transition-all cursor-pointer border-0" style={{ backgroundColor: "hsl(142, 35%, 25%)", color: "hsl(142, 80%, 75%)" }}>várzea</Badge>
+                    <Badge onClick={() => handleWordClick("coxilha")} className="absolute -right-16 bottom-4 px-3 py-1.5 shadow-md hover:scale-110 transition-all cursor-pointer border-0" style={{ backgroundColor: "hsl(142, 35%, 25%)", color: "hsl(142, 80%, 75%)" }}>coxilha</Badge>
+                    <Badge onClick={() => handleWordClick("sombra")} className="absolute -left-16 top-4 px-3 py-1.5 shadow-md hover:scale-110 transition-all cursor-pointer border-0" style={{ backgroundColor: "hsl(142, 35%, 25%)", color: "hsl(142, 80%, 75%)" }}>sombra</Badge>
+                    <Badge onClick={() => handleWordClick("campo")} className="absolute -bottom-14 left-1/3 px-3 py-1.5 shadow-md hover:scale-110 transition-all cursor-pointer border-0" style={{ backgroundColor: "hsl(142, 35%, 25%)", color: "hsl(142, 80%, 75%)" }}>campo</Badge>
+                    <Badge onClick={() => handleWordClick("sol")} className="absolute -top-16 right-1/4 px-3 py-1.5 shadow-md hover:scale-110 transition-all cursor-pointer border-0" style={{ backgroundColor: "hsl(142, 35%, 25%)", color: "hsl(142, 80%, 75%)" }}>sol</Badge>
                   </div>
                 </div>
 
-                {/* Cavalo e Aperos - Top Right */}
-                <div className="absolute top-[15%] right-[15%]">
+                {/* Cavalo e Aperos - Top Left (22.4%) */}
+                <div className="absolute top-[12%] left-[15%]">
                   <div className="relative">
                     <Badge
                       onClick={() => handleDomainClick("Cavalo e Aperos")}
@@ -756,34 +758,34 @@ export default function Analise() {
                   </div>
                 </div>
 
-                {/* Vida no Galpão - Center */}
-                <div className="absolute top-[45%] left-[50%] -translate-x-1/2 -translate-y-1/2">
+                {/* Vida no Galpão - Top Right (18.8%) */}
+                <div className="absolute top-[15%] right-[15%]">
                   <div className="relative">
                     <Badge
                       onClick={() => handleDomainClick("Vida no Galpão")}
-                      className="text-3xl font-bold px-8 py-4 hover:scale-110 transition-all cursor-pointer shadow-lg border-0"
+                      className="text-xl font-bold px-5 py-3 hover:scale-110 transition-all cursor-pointer shadow-lg border-0"
                       style={{ backgroundColor: "hsl(45, 40%, 25%)", color: "hsl(45, 95%, 75%)" }}
                     >
                       Vida no Galpão
                     </Badge>
-                    <Badge onClick={() => handleWordClick("galpão")} className="absolute -top-14 left-1/2 -translate-x-1/2 px-3 py-1.5 shadow-md hover:scale-110 transition-all cursor-pointer border-0" style={{ backgroundColor: "hsl(45, 40%, 25%)", color: "hsl(45, 95%, 75%)" }}>galpão</Badge>
-                    <Badge onClick={() => handleWordClick("mate")} className="absolute -right-16 top-2 px-3 py-1.5 shadow-md hover:scale-110 transition-all cursor-pointer border-0" style={{ backgroundColor: "hsl(45, 40%, 25%)", color: "hsl(45, 95%, 75%)" }}>mate</Badge>
-                    <Badge onClick={() => handleWordClick("candeeiro")} className="absolute -right-20 bottom-0 px-3 py-1.5 shadow-md hover:scale-110 transition-all cursor-pointer border-0" style={{ backgroundColor: "hsl(45, 40%, 25%)", color: "hsl(45, 95%, 75%)" }}>candeeiro</Badge>
-                    <Badge onClick={() => handleWordClick("querência")} className="absolute -bottom-14 left-1/2 -translate-x-1/2 px-3 py-1.5 shadow-md hover:scale-110 transition-all cursor-pointer border-0" style={{ backgroundColor: "hsl(45, 40%, 25%)", color: "hsl(45, 95%, 75%)" }}>querência</Badge>
-                    <Badge onClick={() => handleWordClick("cuia")} className="absolute -left-14 bottom-0 px-3 py-1.5 shadow-md hover:scale-110 transition-all cursor-pointer border-0" style={{ backgroundColor: "hsl(45, 40%, 25%)", color: "hsl(45, 95%, 75%)" }}>cuia</Badge>
-                    <Badge onClick={() => handleWordClick("ramada")} className="absolute -left-16 top-2 px-3 py-1.5 shadow-md hover:scale-110 transition-all cursor-pointer border-0" style={{ backgroundColor: "hsl(45, 40%, 25%)", color: "hsl(45, 95%, 75%)" }}>ramada</Badge>
+                    <Badge onClick={() => handleWordClick("galpão")} className="absolute -top-12 left-1/2 -translate-x-1/2 px-3 py-1.5 shadow-md hover:scale-110 transition-all cursor-pointer border-0" style={{ backgroundColor: "hsl(45, 40%, 25%)", color: "hsl(45, 95%, 75%)" }}>galpão</Badge>
+                    <Badge onClick={() => handleWordClick("mate")} className="absolute -right-14 top-2 px-3 py-1.5 shadow-md hover:scale-110 transition-all cursor-pointer border-0" style={{ backgroundColor: "hsl(45, 40%, 25%)", color: "hsl(45, 95%, 75%)" }}>mate</Badge>
+                    <Badge onClick={() => handleWordClick("candeeiro")} className="absolute -right-18 bottom-0 px-3 py-1.5 shadow-md hover:scale-110 transition-all cursor-pointer border-0" style={{ backgroundColor: "hsl(45, 40%, 25%)", color: "hsl(45, 95%, 75%)" }}>candeeiro</Badge>
+                    <Badge onClick={() => handleWordClick("querência")} className="absolute -bottom-12 left-1/2 -translate-x-1/2 px-3 py-1.5 shadow-md hover:scale-110 transition-all cursor-pointer border-0" style={{ backgroundColor: "hsl(45, 40%, 25%)", color: "hsl(45, 95%, 75%)" }}>querência</Badge>
+                    <Badge onClick={() => handleWordClick("cuia")} className="absolute -left-12 bottom-0 px-3 py-1.5 shadow-md hover:scale-110 transition-all cursor-pointer border-0" style={{ backgroundColor: "hsl(45, 40%, 25%)", color: "hsl(45, 95%, 75%)" }}>cuia</Badge>
+                    <Badge onClick={() => handleWordClick("ramada")} className="absolute -left-14 top-2 px-3 py-1.5 shadow-md hover:scale-110 transition-all cursor-pointer border-0" style={{ backgroundColor: "hsl(45, 40%, 25%)", color: "hsl(45, 95%, 75%)" }}>ramada</Badge>
                   </div>
                 </div>
 
-                {/* Sentimentos e Poesia - Bottom Left */}
-                <div className="absolute bottom-[12%] left-[18%]">
+                {/* Sentimentos e Poesia - Bottom Left (16.5%) */}
+                <div className="absolute bottom-[15%] left-[20%]">
                   <div className="relative">
                     <Badge
                       onClick={() => handleDomainClick("Sentimentos e Poesia")}
-                      className="text-2xl font-bold px-6 py-3 hover:scale-110 transition-all cursor-pointer shadow-lg border-0"
+                      className="text-xl font-bold px-5 py-2.5 hover:scale-110 transition-all cursor-pointer shadow-lg border-0"
                       style={{ backgroundColor: "hsl(291, 35%, 25%)", color: "hsl(291, 75%, 75%)" }}
                     >
-                      Sentimentos
+                      Sentimentos e Poesia
                     </Badge>
                     <Badge onClick={() => handleWordClick("verso")} className="absolute -top-12 left-1/2 -translate-x-1/2 px-3 py-1.5 shadow-md hover:scale-110 transition-all cursor-pointer border-0" style={{ backgroundColor: "hsl(291, 35%, 25%)", color: "hsl(291, 75%, 75%)" }}>verso</Badge>
                     <Badge onClick={() => handleWordClick("saudade")} className="absolute -right-16 top-0 px-3 py-1.5 shadow-md hover:scale-110 transition-all cursor-pointer border-0" style={{ backgroundColor: "hsl(291, 35%, 25%)", color: "hsl(291, 75%, 75%)" }}>saudade</Badge>
@@ -792,12 +794,12 @@ export default function Analise() {
                   </div>
                 </div>
 
-                {/* Tradição Gaúcha - Bottom Right */}
-                <div className="absolute bottom-[15%] right-[20%]">
+                {/* Tradição Gaúcha - Bottom Right (14.1%) */}
+                <div className="absolute bottom-[18%] right-[22%]">
                   <div className="relative">
                     <Badge
                       onClick={() => handleDomainClick("Tradição Gaúcha")}
-                      className="text-2xl font-bold px-6 py-3 hover:scale-110 transition-all cursor-pointer shadow-lg border-0"
+                      className="text-lg font-bold px-4 py-2 hover:scale-110 transition-all cursor-pointer shadow-lg border-0"
                       style={{ backgroundColor: "hsl(0, 35%, 25%)", color: "hsl(0, 80%, 75%)" }}
                     >
                       Tradição Gaúcha
