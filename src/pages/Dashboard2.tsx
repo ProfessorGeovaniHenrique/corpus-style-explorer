@@ -9,7 +9,7 @@ import { InteractiveSemanticNetwork } from "@/components/InteractiveSemanticNetw
 import { OrbitalConstellationChart } from "@/components/OrbitalConstellationChart";
 import { NavigationToolbar } from "@/components/NavigationToolbar";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Download, FileText, Network, Sparkles, BarChart3, FileBarChart, Cloud, HelpCircle, TrendingUp, TrendingDown } from "lucide-react";
+import { Download, FileText, Network, Sparkles, BarChart3, FileBarChart, Cloud, HelpCircle, TrendingUp, TrendingDown, Maximize2 } from "lucide-react";
 import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
 
@@ -961,52 +961,70 @@ export default function Dashboard2() {
   };
 
   return (
-    <div className={`pt-[150px] px-8 pb-8 space-y-8 ${isFullscreen ? 'fixed inset-0 z-50 bg-background p-4 pt-20' : ''}`}>
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-4xl font-bold mb-2">
-            Dashboard 2.0: 'Quando o verso vem pras casa'
-          </h1>
-          <p className="text-muted-foreground">
-            Análise semântica completa do corpus - Versão otimizada
-          </p>
+    <div className={`pt-[150px] px-8 pb-12 space-y-10 ${isFullscreen ? 'fixed inset-0 z-50 bg-background p-4 pt-20' : ''}`}>
+      {/* Header Section com mais espaçamento e hierarquia */}
+      <div className="space-y-6 pb-6 border-b-2 border-border/30">
+        <div className="flex items-center justify-between">
+          <div className="space-y-3">
+            <h1 className="text-5xl font-bold text-foreground tracking-tight">
+              Dashboard 2.0
+            </h1>
+            <h2 className="text-2xl font-semibold text-foreground/90">
+              'Quando o verso vem pras casa'
+            </h2>
+            <p className="text-base text-muted-foreground/80 max-w-2xl">
+              Análise semântica completa do corpus | Versão otimizada com navegação aprimorada
+            </p>
+          </div>
+          <Button variant="outline" className="gap-2 h-11 px-6">
+            <Download className="h-5 w-5" />
+            Exportar Dados
+          </Button>
         </div>
-        <Button variant="outline" className="gap-2">
-          <Download className="h-4 w-4" />
-          Exportar Dados
-        </Button>
+        
+        {/* Dica de navegação */}
+        <div className="flex items-start gap-3 p-4 bg-primary/5 border border-primary/20 rounded-lg">
+          <HelpCircle className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+          <div className="space-y-1">
+            <p className="text-sm font-medium text-foreground">Dicas de Navegação</p>
+            <p className="text-xs text-muted-foreground/90 leading-relaxed">
+              Use as abas abaixo para explorar diferentes análises. Passe o mouse sobre elementos para ver detalhes. 
+              Clique em palavras para ver concordância (KWIC). Gráficos podem ser ampliados para tela cheia.
+            </p>
+          </div>
+        </div>
       </div>
 
-      <Tabs defaultValue="corpus" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-6">
-          <TabsTrigger value="corpus" className="gap-2">
+      <Tabs defaultValue="corpus" className="space-y-8">
+        <TabsList className="grid w-full grid-cols-6 h-14 p-1.5 bg-muted/40">
+          <TabsTrigger value="corpus" className="gap-2 text-sm font-medium">
             <FileText className="h-4 w-4" />
-            Corpus
+            <span className="hidden sm:inline">Corpus</span>
           </TabsTrigger>
-          <TabsTrigger value="dominios" className="gap-2">
+          <TabsTrigger value="dominios" className="gap-2 text-sm font-medium">
             <FileText className="h-4 w-4" />
-            Domínios
+            <span className="hidden sm:inline">Domínios</span>
           </TabsTrigger>
-          <TabsTrigger value="rede" className="gap-2">
+          <TabsTrigger value="rede" className="gap-2 text-sm font-medium">
             <Network className="h-4 w-4" />
-            Rede
+            <span className="hidden sm:inline">Rede</span>
           </TabsTrigger>
-          <TabsTrigger value="frequencia" className="gap-2">
+          <TabsTrigger value="frequencia" className="gap-2 text-sm font-medium">
             <BarChart3 className="h-4 w-4" />
-            Frequência
+            <span className="hidden sm:inline">Frequência</span>
           </TabsTrigger>
-          <TabsTrigger value="estatistica" className="gap-2">
+          <TabsTrigger value="estatistica" className="gap-2 text-sm font-medium">
             <FileBarChart className="h-4 w-4" />
-            Estatística
+            <span className="hidden sm:inline">Estatística</span>
           </TabsTrigger>
-          <TabsTrigger value="nuvem" className="gap-2">
+          <TabsTrigger value="nuvem" className="gap-2 text-sm font-medium">
             <Cloud className="h-4 w-4" />
-            Nuvem
+            <span className="hidden sm:inline">Nuvem</span>
           </TabsTrigger>
         </TabsList>
 
         {/* Tab: Corpus */}
-        <TabsContent value="corpus" className="space-y-6">
+        <TabsContent value="corpus" className="space-y-8 mt-8">
           <div className="grid gap-6 lg:grid-cols-3">
             <div className="lg:col-span-2">
               <Card>
@@ -1080,11 +1098,22 @@ E uma saudade redomona pelos cantos do galpão`}
         </TabsContent>
 
         {/* Tab: Domínios - Seção Completa */}
-        <TabsContent value="dominios" className="space-y-6">
+        <TabsContent value="dominios" className="space-y-8 mt-8">
+          {/* Dica contextual */}
+          <div className="flex items-start gap-3 p-4 bg-success/5 border border-success/20 rounded-lg">
+            <Sparkles className="h-5 w-5 text-success mt-0.5 flex-shrink-0" />
+            <div>
+              <p className="text-sm font-medium text-foreground mb-1">💡 Explore os Domínios</p>
+              <p className="text-xs text-muted-foreground/90">
+                Clique nas palavras para ver concordância (KWIC). Passe o mouse sobre os badges para ver estatísticas detalhadas.
+              </p>
+            </div>
+          </div>
+          
           <TooltipProvider delayDuration={100}>
-            <div className="grid gap-6 lg:grid-cols-3">
-              <div className="lg:col-span-2 space-y-6">
-                <Card>
+            <div className="grid gap-8 lg:grid-cols-3">
+              <div className="lg:col-span-2 space-y-8">
+                <Card className="border-border/60 shadow-sm">
                   <CardHeader>
                     <div className="flex items-center gap-2">
                       <div className="p-2 rounded-lg bg-success/10">
@@ -1098,18 +1127,18 @@ E uma saudade redomona pelos cantos do galpão`}
                       </div>
                     </div>
                   </CardHeader>
-                  <CardContent className="space-y-6">
+                  <CardContent className="space-y-8 p-6">
                     {dominiosData.map((item, index) => (
-                      <div key={index} className="space-y-3 p-4 rounded-lg border bg-card hover:shadow-md transition-all">
-                        <div className="flex items-start justify-between">
-                          <div className="flex items-center gap-3">
+                      <div key={index} className="space-y-4 p-6 rounded-lg border-2 border-border/40 bg-card hover:shadow-lg hover:border-primary/30 transition-all duration-300">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex items-center gap-4">
                             <div 
-                              className="w-4 h-4 rounded-full shadow-sm" 
+                              className="w-5 h-5 rounded-full shadow-md" 
                               style={{ backgroundColor: item.cor }} 
                             />
                             <div>
-                              <h3 className="font-bold text-lg">{item.dominio}</h3>
-                              <p className="text-sm text-muted-foreground">
+                              <h3 className="font-bold text-xl text-foreground">{item.dominio}</h3>
+                              <p className="text-sm text-muted-foreground/80 mt-1.5">
                                 {index === 0 && "Elementos naturais da paisagem pampeana que formam o cenário poético"}
                                 {index === 1 && "Vocabulário técnico relacionado ao cavalo e seu equipamento"}
                                 {index === 2 && "Espaço de convivência, tradição e pertencimento gaúcho"}
@@ -1118,12 +1147,12 @@ E uma saudade redomona pelos cantos do galpão`}
                               </p>
                             </div>
                           </div>
-                          <div className="flex flex-col items-end gap-1">
+                          <div className="flex flex-col items-end gap-2">
                             <UITooltip>
                               <TooltipTrigger asChild>
                                 <div className="flex items-center gap-2 cursor-help">
-                                  <HelpCircle className="h-4 w-4 text-muted-foreground" />
-                                  <span className="text-2xl font-bold" style={{ color: item.cor }}>
+                                  <HelpCircle className="h-5 w-5 text-muted-foreground/70" />
+                                  <span className="text-3xl font-bold" style={{ color: item.cor }}>
                                     {item.percentual}%
                                   </span>
                                 </div>
@@ -1150,10 +1179,10 @@ E uma saudade redomona pelos cantos do galpão`}
                           </div>
                         </div>
                         
-                        {/* Barra de progresso animada */}
-                        <div className="relative w-full bg-muted/30 rounded-full h-3 overflow-hidden">
+                        {/* Barra de progresso animada com mais espaço */}
+                        <div className="relative w-full bg-muted/30 rounded-full h-4 overflow-hidden mt-2">
                           <div 
-                            className="h-3 rounded-full transition-all duration-500 relative"
+                            className="h-4 rounded-full transition-all duration-500 relative"
                             style={{
                               width: `${item.percentual}%`,
                               backgroundColor: item.cor,
@@ -1166,8 +1195,8 @@ E uma saudade redomona pelos cantos do galpão`}
                           </div>
                         </div>
 
-                        {/* Palavras com tooltips individuais */}
-                        <div className="flex flex-wrap gap-2">
+                        {/* Palavras com tooltips individuais e mais espaço */}
+                        <div className="flex flex-wrap gap-2.5 mt-1">
                           {item.palavras.map((palavra, idx) => {
                             const palavraChave = palavrasChaveData.find(p => p.palavra === palavra);
                             const kwicEntries = kwicDataMap[palavra];
@@ -1176,7 +1205,7 @@ E uma saudade redomona pelos cantos do galpão`}
                               <UITooltip key={idx}>
                                 <TooltipTrigger asChild>
                                   <Badge 
-                                    className="cursor-pointer hover:scale-110 transition-all border-0 shadow-sm" 
+                                    className="cursor-pointer hover:scale-110 transition-all border-0 shadow-sm text-sm px-3 py-1.5" 
                                     style={{
                                       backgroundColor: item.cor,
                                       color: item.corTexto
@@ -1262,13 +1291,13 @@ E uma saudade redomona pelos cantos do galpão`}
                   </CardContent>
                 </Card>
 
-                {/* Gráfico de Comparação */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Distribuição dos Domínios Semânticos</CardTitle>
-                    <CardDescription>Comparativo de ocorrências entre domínios</CardDescription>
+                {/* Gráfico de Comparação com mais destaque */}
+                <Card className="border-border/60 shadow-sm">
+                  <CardHeader className="pb-6">
+                    <CardTitle className="text-2xl font-bold text-foreground">Distribuição dos Domínios Semânticos</CardTitle>
+                    <CardDescription className="text-base text-muted-foreground/80">Comparativo de ocorrências entre domínios</CardDescription>
                   </CardHeader>
-                  <CardContent>
+                  <CardContent className="p-6">
                     <ResponsiveContainer width="100%" height={300}>
                       <BarChart data={dominiosData}>
                         <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
@@ -1302,7 +1331,7 @@ E uma saudade redomona pelos cantos do galpão`}
                 </Card>
               </div>
 
-              <div className="space-y-6">
+              <div className="space-y-8">
                 {/* Card de insights */}
                 <Card>
                   <CardHeader>
@@ -1311,35 +1340,35 @@ E uma saudade redomona pelos cantos do galpão`}
                       Insights da Análise
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="space-y-2">
-                      <div className="flex items-start gap-2">
-                        <div className="w-2 h-2 rounded-full bg-success mt-1.5" />
+                  <CardContent className="space-y-5 p-5">
+                    <div className="space-y-3">
+                      <div className="flex items-start gap-3">
+                        <div className="w-2.5 h-2.5 rounded-full bg-success mt-2 flex-shrink-0" />
                         <div className="flex-1">
-                          <p className="text-sm font-medium">Domínio Dominante</p>
-                          <p className="text-xs text-muted-foreground">
+                          <p className="text-sm font-semibold text-foreground">Domínio Dominante</p>
+                          <p className="text-xs text-muted-foreground/80 leading-relaxed mt-1">
                             "Natureza e Paisagem Campeira" lidera com {dominiosData[0].percentual}%, evidenciando 
                             a centralidade do ambiente pampeano na construção poética
                           </p>
                         </div>
                       </div>
                       
-                      <div className="flex items-start gap-2">
-                        <div className="w-2 h-2 rounded-full bg-primary mt-1.5" />
+                      <div className="flex items-start gap-3">
+                        <div className="w-2.5 h-2.5 rounded-full bg-primary mt-2 flex-shrink-0" />
                         <div className="flex-1">
-                          <p className="text-sm font-medium">Equilíbrio Temático</p>
-                          <p className="text-xs text-muted-foreground">
+                          <p className="text-sm font-semibold text-foreground">Equilíbrio Temático</p>
+                          <p className="text-xs text-muted-foreground/80 leading-relaxed mt-1">
                             Os 5 domínios cobrem {dominiosData.reduce((acc, d) => acc + d.percentual, 0).toFixed(1)}% 
                             do corpus, demonstrando forte coesão semântica
                           </p>
                         </div>
                       </div>
 
-                      <div className="flex items-start gap-2">
-                        <div className="w-2 h-2 rounded-full bg-purple-500 mt-1.5" />
+                      <div className="flex items-start gap-3">
+                        <div className="w-2.5 h-2.5 rounded-full bg-purple-500 mt-2 flex-shrink-0" />
                         <div className="flex-1">
-                          <p className="text-sm font-medium">Densidade Lexical</p>
-                          <p className="text-xs text-muted-foreground">
+                          <p className="text-sm font-semibold text-foreground">Densidade Lexical</p>
+                          <p className="text-xs text-muted-foreground/80 leading-relaxed mt-1">
                             Média de {(dominiosData.reduce((acc, d) => acc + d.ocorrencias, 0) / 
                             dominiosData.reduce((acc, d) => acc + d.palavras.length, 0)).toFixed(1)} 
                             ocorrências por palavra-chave no corpus
@@ -1350,17 +1379,17 @@ E uma saudade redomona pelos cantos do galpão`}
                   </CardContent>
                 </Card>
 
-                {/* Card de ações */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Exportar Dados</CardTitle>
+                {/* Card de ações com mais destaque */}
+                <Card className="border-border/60 shadow-sm">
+                  <CardHeader className="pb-4">
+                    <CardTitle className="text-lg font-semibold">Exportar Dados</CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-2">
-                    <Button variant="outline" className="w-full justify-start" size="sm">
+                  <CardContent className="space-y-3 p-5">
+                    <Button variant="outline" className="w-full justify-start h-11" size="sm">
                       <Download className="h-4 w-4 mr-2" />
                       Baixar como CSV
                     </Button>
-                    <Button variant="outline" className="w-full justify-start" size="sm">
+                    <Button variant="outline" className="w-full justify-start h-11" size="sm">
                       <FileBarChart className="h-4 w-4 mr-2" />
                       Gerar Relatório
                     </Button>
@@ -1372,15 +1401,26 @@ E uma saudade redomona pelos cantos do galpão`}
         </TabsContent>
 
         {/* Tab: Rede */}
-        <TabsContent value="rede" className="space-y-6">
-          <Card>
-            <CardHeader>
+        <TabsContent value="rede" className="space-y-8 mt-8">
+          {/* Dica contextual */}
+          <div className="flex items-start gap-3 p-4 bg-purple-500/5 border border-purple-500/20 rounded-lg">
+            <Maximize2 className="h-5 w-5 text-purple-500 mt-0.5 flex-shrink-0" />
+            <div>
+              <p className="text-sm font-medium text-foreground mb-1">🎯 Visualização Otimizada</p>
+              <p className="text-xs text-muted-foreground/90">
+                Este gráfico é melhor visualizado em <strong>tela cheia</strong>. Use o botão de tela cheia na barra de ferramentas flutuante.
+              </p>
+            </div>
+          </div>
+          
+          <Card className="border-border/60 shadow-sm">
+            <CardHeader className="pb-6">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Network className="h-5 w-5 text-primary" />
+                <div className="flex items-center gap-3">
+                  <Network className="h-6 w-6 text-primary" />
                   <div>
-                    <CardTitle>Rede Semântica Interativa</CardTitle>
-                    <CardDescription>
+                    <CardTitle className="text-2xl font-bold text-foreground">Rede Semântica Interativa</CardTitle>
+                    <CardDescription className="text-base text-muted-foreground/80 mt-1">
                       Visualização da força de associação entre palavras-chave no corpus.
                     </CardDescription>
                   </div>
@@ -1391,15 +1431,15 @@ E uma saudade redomona pelos cantos do galpão`}
                 </Badge>
               </div>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-6">
-                <div className="space-y-4">
-                  <div className="p-4 bg-muted/30 rounded-lg border">
-                    <h4 className="font-semibold mb-2 flex items-center gap-2">
-                      <Sparkles className="h-4 w-4 text-primary" />
+            <CardContent className="p-6">
+              <div className="space-y-8">
+                <div className="space-y-6">
+                  <div className="p-5 bg-muted/30 rounded-lg border-2 border-border/40">
+                    <h4 className="font-semibold text-base mb-3 flex items-center gap-2">
+                      <Sparkles className="h-5 w-5 text-primary" />
                       Sistema Orbital Hierárquico - Prosódia Semântica
                     </h4>
-                    <p className="text-sm text-muted-foreground mb-3">
+                    <p className="text-sm text-muted-foreground/80 leading-relaxed">
                       Visualização hierárquica em 3 níveis: <strong>(1)</strong> Clique em "Canção Analisada" para ver os sistemas orbitais, 
                       <strong>(2)</strong> clique em um sistema (verso, saudade, sonhos, etc.) para ver em detalhe suas palavras e força de associação semântica.
                     </p>
@@ -1415,14 +1455,14 @@ E uma saudade redomona pelos cantos do galpão`}
         </TabsContent>
 
         {/* Tab: Frequência */}
-        <TabsContent value="frequencia" className="space-y-6">
-          <div className="grid gap-6 lg:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <CardTitle>Log-Likelihood (LL)</CardTitle>
-                <CardDescription>Medida estatística de significância das palavras-chave</CardDescription>
+        <TabsContent value="frequencia" className="space-y-8 mt-8">
+          <div className="grid gap-8 lg:grid-cols-2">
+            <Card className="border-border/60 shadow-sm">
+              <CardHeader className="pb-6">
+                <CardTitle className="text-2xl font-bold text-foreground">Log-Likelihood (LL)</CardTitle>
+                <CardDescription className="text-base text-muted-foreground/80">Medida estatística de significância das palavras-chave</CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-6">
                 <ResponsiveContainer width="100%" height={300}>
                   <BarChart data={logLikelihoodData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
@@ -1444,12 +1484,12 @@ E uma saudade redomona pelos cantos do galpão`}
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Mutual Information (MI)</CardTitle>
-                <CardDescription>Força da associação entre palavra e corpus</CardDescription>
+            <Card className="border-border/60 shadow-sm">
+              <CardHeader className="pb-6">
+                <CardTitle className="text-2xl font-bold text-foreground">Mutual Information (MI)</CardTitle>
+                <CardDescription className="text-base text-muted-foreground/80">Força da associação entre palavra e corpus</CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-6">
                 <ResponsiveContainer width="100%" height={300}>
                   <BarChart data={miScoreData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
@@ -1474,25 +1514,37 @@ E uma saudade redomona pelos cantos do galpão`}
         </TabsContent>
 
         {/* Tab: Estatística */}
-        <TabsContent value="estatistica" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Tabela de Palavras-Chave Estatísticas</CardTitle>
-              <CardDescription>
+        <TabsContent value="estatistica" className="space-y-8 mt-8">
+          {/* Dica contextual */}
+          <div className="flex items-start gap-3 p-4 bg-blue-500/5 border border-blue-500/20 rounded-lg">
+            <HelpCircle className="h-5 w-5 text-blue-500 mt-0.5 flex-shrink-0" />
+            <div>
+              <p className="text-sm font-medium text-foreground mb-1">📊 Tabela Interativa</p>
+              <p className="text-xs text-muted-foreground/90">
+                Clique em qualquer linha para ver a concordância (KWIC) da palavra selecionada.
+              </p>
+            </div>
+          </div>
+          
+          <Card className="border-border/60 shadow-sm">
+            <CardHeader className="pb-6">
+              <CardTitle className="text-2xl font-bold text-foreground">Tabela de Palavras-Chave Estatísticas</CardTitle>
+              <CardDescription className="text-base text-muted-foreground/80">
                 Análise combinada de Log-Likelihood e MI Score
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-6">
+              <div className="rounded-lg border-2 border-border/40 overflow-hidden">
               <Table>
                 <TableHeader>
-                  <TableRow>
-                    <TableHead>Palavra</TableHead>
-                    <TableHead className="text-right">Freq. Bruta</TableHead>
-                    <TableHead className="text-right">Freq. Normalizada</TableHead>
-                    <TableHead className="text-right">Log-Likelihood</TableHead>
-                    <TableHead className="text-right">MI Score</TableHead>
-                    <TableHead>Significância</TableHead>
-                    <TableHead>Efeito</TableHead>
+                  <TableRow className="hover:bg-transparent border-b-2 border-border/60">
+                    <TableHead className="font-bold text-foreground">Palavra</TableHead>
+                    <TableHead className="text-right font-bold text-foreground">Freq. Bruta</TableHead>
+                    <TableHead className="text-right font-bold text-foreground">Freq. Normalizada</TableHead>
+                    <TableHead className="text-right font-bold text-foreground">Log-Likelihood</TableHead>
+                    <TableHead className="text-right font-bold text-foreground">MI Score</TableHead>
+                    <TableHead className="font-bold text-foreground">Significância</TableHead>
+                    <TableHead className="font-bold text-foreground">Efeito</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -1501,7 +1553,7 @@ E uma saudade redomona pelos cantos do galpão`}
                     return (
                       <TableRow 
                         key={index} 
-                        className="cursor-pointer hover:bg-muted/50" 
+                        className="cursor-pointer hover:bg-muted/50 transition-colors border-b border-border/30" 
                         onClick={() => handleWordClick(item.palavra)}
                       >
                         <TableCell className="font-mono font-semibold">{item.palavra}</TableCell>
@@ -1542,26 +1594,38 @@ E uma saudade redomona pelos cantos do galpão`}
                       </TableRow>
                     );
                   })}
-                </TableBody>
+                 </TableBody>
               </Table>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
 
         {/* Tab: Nuvem */}
-        <TabsContent value="nuvem" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Nuvem de Domínios Semânticos - Constelação Orbital</CardTitle>
-              <CardDescription>
+        <TabsContent value="nuvem" className="space-y-8 mt-8">
+          {/* Dica contextual */}
+          <div className="flex items-start gap-3 p-4 bg-amber-500/5 border border-amber-500/20 rounded-lg">
+            <Cloud className="h-5 w-5 text-amber-500 mt-0.5 flex-shrink-0" />
+            <div>
+              <p className="text-sm font-medium text-foreground mb-1">🌌 Navegação na Constelação</p>
+              <p className="text-xs text-muted-foreground/90">
+                <strong>Scroll do mouse:</strong> Zoom isolado | <strong>Arraste:</strong> Mover canvas | <strong>Clique palavras:</strong> Ver KWIC | Use a barra de ferramentas para controles avançados.
+              </p>
+            </div>
+          </div>
+          
+          <Card className="border-border/60 shadow-sm">
+            <CardHeader className="pb-6">
+              <CardTitle className="text-2xl font-bold text-foreground">Nuvem de Domínios Semânticos - Constelação Orbital</CardTitle>
+              <CardDescription className="text-base text-muted-foreground/80">
                 Clique e arraste para mover o gráfico. Use a roda do mouse para zoom. Arraste as palavras para movê-las na órbita. Clique nas palavras para ver concordância (KWIC).
               </CardDescription>
             </CardHeader>
-            <CardContent className="p-2">
+            <CardContent className="p-6">
               <TooltipProvider>
                 <div 
                   ref={containerRef}
-                  className={`relative h-[750px] bg-gradient-to-br from-background via-muted/10 to-background rounded-lg border overflow-hidden ${isPanning ? 'cursor-grabbing' : 'cursor-grab'}`}
+                  className={`relative h-[750px] bg-gradient-to-br from-background via-muted/10 to-background rounded-lg border-2 border-border/40 overflow-hidden ${isPanning ? 'cursor-grabbing' : 'cursor-grab'}`}
                   style={{ height: isFullscreen ? 'calc(100vh - 200px)' : '750px' }}
                   onMouseDown={handleCanvasMouseDown}
                   onMouseMove={handleCanvasPanMove}
@@ -1791,22 +1855,22 @@ E uma saudade redomona pelos cantos do galpão`}
                 </div>
               </TooltipProvider>
               
-              <div className="mt-4 grid grid-cols-4 gap-2 text-xs">
-                <div className="p-2.5 rounded-lg bg-muted/40 border">
-                  <div className="font-semibold mb-1 text-sm">Órbita 1</div>
-                  <div className="text-muted-foreground">20-30% de freq.</div>
+              <div className="mt-6 grid grid-cols-4 gap-3 text-xs">
+                <div className="p-3.5 rounded-lg bg-muted/50 border-2 border-border/40 hover:border-primary/30 transition-colors">
+                  <div className="font-semibold mb-1.5 text-sm text-foreground">Órbita 1</div>
+                  <div className="text-muted-foreground/80">20-30% de freq.</div>
                 </div>
-                <div className="p-2.5 rounded-lg bg-muted/40 border">
-                  <div className="font-semibold mb-1 text-sm">Órbita 2</div>
-                  <div className="text-muted-foreground">15-20% de freq.</div>
+                <div className="p-3.5 rounded-lg bg-muted/50 border-2 border-border/40 hover:border-primary/30 transition-colors">
+                  <div className="font-semibold mb-1.5 text-sm text-foreground">Órbita 2</div>
+                  <div className="text-muted-foreground/80">15-20% de freq.</div>
                 </div>
-                <div className="p-2.5 rounded-lg bg-muted/40 border">
-                  <div className="font-semibold mb-1 text-sm">Órbita 3</div>
-                  <div className="text-muted-foreground">10-15% de freq.</div>
+                <div className="p-3.5 rounded-lg bg-muted/50 border-2 border-border/40 hover:border-primary/30 transition-colors">
+                  <div className="font-semibold mb-1.5 text-sm text-foreground">Órbita 3</div>
+                  <div className="text-muted-foreground/80">10-15% de freq.</div>
                 </div>
-                <div className="p-2.5 rounded-lg bg-muted/40 border">
-                  <div className="font-semibold mb-1 text-sm">Órbita 4</div>
-                  <div className="text-muted-foreground">{'<'}10% de freq.</div>
+                <div className="p-3.5 rounded-lg bg-muted/50 border-2 border-border/40 hover:border-primary/30 transition-colors">
+                  <div className="font-semibold mb-1.5 text-sm text-foreground">Órbita 4</div>
+                  <div className="text-muted-foreground/80">{'<'}10% de freq.</div>
                 </div>
               </div>
             </CardContent>
