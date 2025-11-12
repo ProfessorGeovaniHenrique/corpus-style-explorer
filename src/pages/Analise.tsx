@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -187,6 +187,19 @@ export default function Analise() {
   const [selectedWord, setSelectedWord] = useState("");
   const [domainModalOpen, setDomainModalOpen] = useState(false);
   const [selectedDomain, setSelectedDomain] = useState<typeof dominiosData[0] | null>(null);
+  
+  // Estado para posições dos domínios na nuvem
+  const [domainPositions, setDomainPositions] = useState({
+    "Natureza e Paisagem Campeira": { top: 48, left: 50 },
+    "Cavalo e Aperos": { top: 6, left: 10 },
+    "Vida no Galpão": { top: 8, right: 10 },
+    "Sentimentos e Poesia": { bottom: 10, left: 16 },
+    "Tradição Gaúcha": { bottom: 12, right: 16 },
+  });
+  
+  const [draggingDomain, setDraggingDomain] = useState<string | null>(null);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const handleWordClick = (word: string) => {
     setSelectedWord(word);
@@ -194,11 +207,69 @@ export default function Analise() {
   };
 
   const handleDomainClick = (domainName: string) => {
+    if (draggingDomain) return; // Não abre modal se estiver arrastando
     const domain = dominiosData.find(d => d.dominio === domainName);
     if (domain) {
       setSelectedDomain(domain);
       setDomainModalOpen(true);
     }
+  };
+
+  const handleMouseDown = (e: React.MouseEvent, domainName: string) => {
+    if (!containerRef.current) return;
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const rect = containerRef.current.getBoundingClientRect();
+    const pos = domainPositions[domainName as keyof typeof domainPositions];
+    
+    // Calcula posição atual do elemento
+    let elementX = 0;
+    let elementY = 0;
+    
+    if ('top' in pos) {
+      elementY = (pos.top / 100) * rect.height;
+    } else if ('bottom' in pos) {
+      elementY = rect.height - (pos.bottom / 100) * rect.height;
+    }
+    
+    if ('left' in pos) {
+      elementX = (pos.left / 100) * rect.width;
+    } else if ('right' in pos) {
+      elementX = rect.width - (pos.right / 100) * rect.width;
+    }
+    
+    setDragOffset({
+      x: e.clientX - rect.left - elementX,
+      y: e.clientY - rect.top - elementY,
+    });
+    
+    setDraggingDomain(domainName);
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!draggingDomain || !containerRef.current) return;
+    
+    const rect = containerRef.current.getBoundingClientRect();
+    const x = e.clientX - rect.left - dragOffset.x;
+    const y = e.clientY - rect.top - dragOffset.y;
+    
+    // Converte para porcentagem
+    const leftPercent = (x / rect.width) * 100;
+    const topPercent = (y / rect.height) * 100;
+    
+    // Limita os valores para manter dentro do container
+    const clampedLeft = Math.max(5, Math.min(85, leftPercent));
+    const clampedTop = Math.max(5, Math.min(85, topPercent));
+    
+    setDomainPositions(prev => ({
+      ...prev,
+      [draggingDomain]: { top: clampedTop, left: clampedLeft }
+    }));
+  };
+
+  const handleMouseUp = () => {
+    setDraggingDomain(null);
   };
 
   return (
@@ -633,16 +704,29 @@ export default function Analise() {
           <Card>
             <CardHeader>
               <CardTitle>Nuvem de Domínios Semânticos</CardTitle>
-              <CardDescription>Domínios principais com suas palavras-chave satélites. Tamanho proporcional à relevância estatística.</CardDescription>
+              <CardDescription>Arraste os domínios para reorganizar. As palavras satélites acompanham o movimento.</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="relative min-h-[800px] bg-muted/20 rounded-lg p-16">
+              <div 
+                ref={containerRef}
+                className="relative min-h-[800px] bg-muted/20 rounded-lg p-16 cursor-default select-none"
+                onMouseMove={handleMouseMove}
+                onMouseUp={handleMouseUp}
+                onMouseLeave={handleMouseUp}
+              >
                 {/* Natureza e Paisagem Campeira - Centro (mais saliente: 28.2%) */}
-                <div className="absolute top-[48%] left-[50%] -translate-x-1/2 -translate-y-1/2">
+                <div 
+                  className="absolute -translate-x-1/2 -translate-y-1/2"
+                  style={{
+                    top: `${domainPositions["Natureza e Paisagem Campeira"].top}%`,
+                    left: `${domainPositions["Natureza e Paisagem Campeira"].left}%`,
+                  }}
+                >
                   <div className="relative">
                     <Badge
+                      onMouseDown={(e) => handleMouseDown(e, "Natureza e Paisagem Campeira")}
                       onClick={() => handleDomainClick("Natureza e Paisagem Campeira")}
-                      className="text-3xl font-bold px-8 py-4 hover:scale-110 transition-all cursor-pointer shadow-lg border-0"
+                      className="text-3xl font-bold px-8 py-4 hover:scale-110 transition-all cursor-move shadow-lg border-0"
                       style={{ backgroundColor: "hsl(142, 35%, 25%)", color: "hsl(142, 80%, 75%)" }}
                     >
                       Natureza e Paisagem Campeira
@@ -660,11 +744,18 @@ export default function Analise() {
                 </div>
 
                 {/* Cavalo e Aperos - Top Left (22.4%) */}
-                <div className="absolute top-[6%] left-[10%]">
+                <div 
+                  className="absolute"
+                  style={{
+                    top: `${domainPositions["Cavalo e Aperos"].top}%`,
+                    left: `${domainPositions["Cavalo e Aperos"].left}%`,
+                  }}
+                >
                   <div className="relative">
                     <Badge
+                      onMouseDown={(e) => handleMouseDown(e, "Cavalo e Aperos")}
                       onClick={() => handleDomainClick("Cavalo e Aperos")}
-                      className="text-2xl font-bold px-6 py-3 hover:scale-110 transition-all cursor-pointer shadow-lg border-0"
+                      className="text-2xl font-bold px-6 py-3 hover:scale-110 transition-all cursor-move shadow-lg border-0"
                       style={{ backgroundColor: "hsl(221, 40%, 25%)", color: "hsl(221, 85%, 75%)" }}
                     >
                       Cavalo e Aperos
@@ -681,11 +772,18 @@ export default function Analise() {
                 </div>
 
                 {/* Vida no Galpão - Top Right (18.8%) */}
-                <div className="absolute top-[8%] right-[10%]">
+                <div 
+                  className="absolute"
+                  style={{
+                    top: `${domainPositions["Vida no Galpão"].top}%`,
+                    right: `${domainPositions["Vida no Galpão"].right}%`,
+                  }}
+                >
                   <div className="relative">
                     <Badge
+                      onMouseDown={(e) => handleMouseDown(e, "Vida no Galpão")}
                       onClick={() => handleDomainClick("Vida no Galpão")}
-                      className="text-xl font-bold px-5 py-3 hover:scale-110 transition-all cursor-pointer shadow-lg border-0"
+                      className="text-xl font-bold px-5 py-3 hover:scale-110 transition-all cursor-move shadow-lg border-0"
                       style={{ backgroundColor: "hsl(45, 40%, 25%)", color: "hsl(45, 95%, 75%)" }}
                     >
                       Vida no Galpão
@@ -702,11 +800,18 @@ export default function Analise() {
                 </div>
 
                 {/* Sentimentos e Poesia - Bottom Left (16.5%) */}
-                <div className="absolute bottom-[10%] left-[16%]">
+                <div 
+                  className="absolute"
+                  style={{
+                    bottom: `${domainPositions["Sentimentos e Poesia"].bottom}%`,
+                    left: `${domainPositions["Sentimentos e Poesia"].left}%`,
+                  }}
+                >
                   <div className="relative">
                     <Badge
+                      onMouseDown={(e) => handleMouseDown(e, "Sentimentos e Poesia")}
                       onClick={() => handleDomainClick("Sentimentos e Poesia")}
-                      className="text-xl font-bold px-5 py-2.5 hover:scale-110 transition-all cursor-pointer shadow-lg border-0"
+                      className="text-xl font-bold px-5 py-2.5 hover:scale-110 transition-all cursor-move shadow-lg border-0"
                       style={{ backgroundColor: "hsl(291, 35%, 25%)", color: "hsl(291, 75%, 75%)" }}
                     >
                       Sentimentos e Poesia
@@ -722,11 +827,18 @@ export default function Analise() {
                 </div>
 
                 {/* Tradição Gaúcha - Bottom Right (14.1%) */}
-                <div className="absolute bottom-[12%] right-[16%]">
+                <div 
+                  className="absolute"
+                  style={{
+                    bottom: `${domainPositions["Tradição Gaúcha"].bottom}%`,
+                    right: `${domainPositions["Tradição Gaúcha"].right}%`,
+                  }}
+                >
                   <div className="relative">
                     <Badge
+                      onMouseDown={(e) => handleMouseDown(e, "Tradição Gaúcha")}
                       onClick={() => handleDomainClick("Tradição Gaúcha")}
-                      className="text-lg font-bold px-4 py-2 hover:scale-110 transition-all cursor-pointer shadow-lg border-0"
+                      className="text-lg font-bold px-4 py-2 hover:scale-110 transition-all cursor-move shadow-lg border-0"
                       style={{ backgroundColor: "hsl(0, 35%, 25%)", color: "hsl(0, 80%, 75%)" }}
                     >
                       Tradição Gaúcha
