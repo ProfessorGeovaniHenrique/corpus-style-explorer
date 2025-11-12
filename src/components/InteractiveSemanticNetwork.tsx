@@ -7,7 +7,6 @@ interface NetworkNode {
   y: number;
   distance: number;
   frequency: number;
-  prosody: "positive" | "neutral" | "melancholic" | "contemplative";
 }
 
 interface InteractiveSemanticNetworkProps {
