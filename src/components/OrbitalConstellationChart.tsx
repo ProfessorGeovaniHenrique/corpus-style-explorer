@@ -422,8 +422,9 @@ export const OrbitalConstellationChart = ({
                 
                 <text
                   x={pos.x}
-                  y={pos.y - 9 * scale}
+                  y={pos.y}
                   textAnchor="middle"
+                  dominantBaseline="middle"
                   className="fill-foreground font-medium"
                   style={{ 
                     fontSize: `${8 * scale}px`, 
@@ -433,20 +434,6 @@ export const OrbitalConstellationChart = ({
                   }}
                 >
                   {word.word}
-                </text>
-                <text
-                  x={pos.x}
-                  y={pos.y + 13 * scale}
-                  textAnchor="middle"
-                  className="fill-muted-foreground"
-                  style={{ 
-                    fontSize: `${7 * scale}px`, 
-                    pointerEvents: 'none', 
-                    userSelect: 'none',
-                    textShadow: '0 1px 2px rgba(0, 0, 0, 0.3)'
-                  }}
-                >
-                  {word.strength}%
                 </text>
               </g>
             );
@@ -561,19 +548,12 @@ export const OrbitalConstellationChart = ({
                   {/* Texto da palavra */}
                   <text
                     x={x}
-                    y={y - 12}
+                    y={y}
                     textAnchor="middle"
+                    dominantBaseline="middle"
                     className="fill-foreground font-medium text-xs"
                   >
                     {word.word}
-                  </text>
-                  <text
-                    x={x}
-                    y={y + 18}
-                    textAnchor="middle"
-                    className="fill-muted-foreground text-xs"
-                  >
-                    {word.strength}%
                   </text>
                 </g>
               );
