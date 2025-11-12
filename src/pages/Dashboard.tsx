@@ -37,7 +37,7 @@ export default function Dashboard() {
               Corpus de Estudo - Clássicos Gaúchos
             </CardTitle>
             <CardDescription>
-              Explore nossa coleção pré-carregada de obras clássicas da literatura gaúcha
+              Explore os insights da canção "Quando o verso vem pras casa" de Luiz Marenco
             </CardDescription>
           </CardHeader>
           <CardContent>
