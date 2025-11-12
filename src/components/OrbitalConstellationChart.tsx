@@ -244,31 +244,38 @@ export const OrbitalConstellationChart = ({
     );
   };
 
-  // Renderiza o gráfico orbital "Mãe"
+  // Renderiza o gráfico orbital "Mãe" com todas as palavras
   const renderMotherOrbital = () => {
     const centerX = 600;
     const centerY = 400;
-    const systemRadius = 320;
+    
+    // Coleta todas as palavras de todos os sistemas
+    const allWords = orbitalSystems.flatMap(system => 
+      system.words.map(word => ({ ...word, system: system.centerWord }))
+    );
+    
+    // Calcula a distribuição circular de todas as palavras
+    const totalWords = allWords.length;
+    const radius = 280; // Raio para distribuir todas as palavras
     
     return (
       <svg width="1200" height="800" viewBox="0 0 1200 800" className="w-full h-auto">
-        {/* Linhas conectando sistemas ao centro */}
-        {orbitalSystems.map((system, index) => {
-          const angle = (index / orbitalSystems.length) * 2 * Math.PI - Math.PI / 2;
-          const x = centerX + systemRadius * Math.cos(angle);
-          const y = centerY + systemRadius * Math.sin(angle);
+        {/* Linhas conectando palavras ao centro */}
+        {allWords.map((word, index) => {
+          const angle = (index / totalWords) * 2 * Math.PI - Math.PI / 2;
+          const x = centerX + radius * Math.cos(angle);
+          const y = centerY + radius * Math.sin(angle);
           
           return (
             <line
-              key={`line-${system.centerWord}`}
+              key={`line-${word.word}-${index}`}
               x1={centerX}
               y1={centerY}
               x2={x}
               y2={y}
-              stroke="hsl(var(--border))"
-              strokeWidth="1"
-              strokeDasharray="4 4"
-              opacity="0.2"
+              stroke={word.color}
+              strokeWidth="0.5"
+              opacity="0.15"
             />
           );
         })}
@@ -278,13 +285,13 @@ export const OrbitalConstellationChart = ({
           <Tooltip>
             <TooltipTrigger asChild>
               <g 
-                className="cursor-pointer transition-all hover:opacity-80"
+                className="cursor-pointer transition-all duration-300 hover:opacity-80"
                 onClick={() => setViewMode('systems')}
               >
                 <circle
                   cx={centerX}
                   cy={centerY}
-                  r="50"
+                  r="55"
                   fill="hsl(var(--primary))"
                   opacity="0.9"
                 />
@@ -317,22 +324,56 @@ export const OrbitalConstellationChart = ({
           </Tooltip>
         </TooltipProvider>
 
-        {/* Sistemas orbitais completos em miniatura ao redor */}
-        {orbitalSystems.map((system, index) => {
-          const angle = (index / orbitalSystems.length) * 2 * Math.PI - Math.PI / 2;
-          const x = centerX + systemRadius * Math.cos(angle);
-          const y = centerY + systemRadius * Math.sin(angle);
+        {/* Todas as palavras distribuídas ao redor */}
+        {allWords.map((word, index) => {
+          const angle = (index / totalWords) * 2 * Math.PI - Math.PI / 2;
+          const x = centerX + radius * Math.cos(angle);
+          const y = centerY + radius * Math.sin(angle);
+          
+          // Tamanho do ponto baseado na força de associação
+          const dotSize = 3 + (word.strength / 100) * 4;
           
           return (
             <g 
-              key={system.centerWord}
-              className="cursor-pointer transition-all hover:opacity-80"
-              onClick={() => {
-                setSelectedSystem(system.centerWord);
-                setViewMode('zoomed');
-              }}
+              key={`word-${word.word}-${index}`}
+              className="cursor-pointer transition-all duration-200 hover:opacity-100"
+              style={{ opacity: 0.8 }}
             >
-              {renderOrbitalSystem(system, x, y, false)}
+              {/* Glow effect */}
+              <circle
+                cx={x}
+                cy={y}
+                r={dotSize * 1.5}
+                fill={word.color}
+                opacity="0.2"
+              />
+              <circle
+                cx={x}
+                cy={y}
+                r={dotSize}
+                fill={word.color}
+                opacity="1"
+                stroke="hsl(var(--background))"
+                strokeWidth="0.5"
+              />
+              <text
+                x={x}
+                y={y - (dotSize + 6)}
+                textAnchor="middle"
+                className="fill-foreground font-medium pointer-events-none"
+                style={{ fontSize: '9px' }}
+              >
+                {word.word}
+              </text>
+              <text
+                x={x}
+                y={y + (dotSize + 12)}
+                textAnchor="middle"
+                className="fill-muted-foreground pointer-events-none"
+                style={{ fontSize: '8px' }}
+              >
+                {word.strength}%
+              </text>
             </g>
           );
         })}
@@ -344,7 +385,7 @@ export const OrbitalConstellationChart = ({
   const renderSystemsGrid = () => {
     return (
       <>
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-4 animate-fade-in">
           <h3 className="text-lg font-semibold">Sistemas Orbitais - Prosódia Semântica</h3>
           <button
             onClick={() => setViewMode('mother')}
@@ -353,7 +394,7 @@ export const OrbitalConstellationChart = ({
             ← Voltar ao gráfico geral
           </button>
         </div>
-        <svg width="1200" height="700" viewBox="0 0 1200 700" className="w-full h-auto">
+        <svg width="1200" height="700" viewBox="0 0 1200 700" className="w-full h-auto animate-fade-in">
           {/* Grid de sistemas orbitais: 3 colunas x 2 linhas */}
           {orbitalSystems.map((system, index) => {
             const col = index % 3;
@@ -364,7 +405,7 @@ export const OrbitalConstellationChart = ({
             return (
               <g 
                 key={system.centerWord}
-                className="cursor-pointer"
+                className="cursor-pointer transition-all duration-200 hover:opacity-80"
                 onClick={() => {
                   setSelectedSystem(system.centerWord);
                   setViewMode('zoomed');
@@ -386,7 +427,7 @@ export const OrbitalConstellationChart = ({
 
     return (
       <>
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-4 animate-fade-in">
           <div>
             <h3 className="text-lg font-semibold flex items-center gap-2">
               <span 
@@ -406,7 +447,7 @@ export const OrbitalConstellationChart = ({
             ← Voltar aos sistemas
           </button>
         </div>
-        <svg width="800" height="600" viewBox="0 0 800 600" className="w-full h-auto">
+        <svg width="800" height="600" viewBox="0 0 800 600" className="w-full h-auto animate-scale-in">
           {renderOrbitalSystem(system, 400, 300, true)}
         </svg>
         <div className="mt-4 p-4 bg-muted/30 rounded-lg">
@@ -439,10 +480,16 @@ export const OrbitalConstellationChart = ({
 
   return (
     <div className="space-y-4">
-      <div className="relative w-full bg-gradient-to-br from-background to-muted/20 rounded-lg border p-4 overflow-hidden">
-        {viewMode === 'mother' && renderMotherOrbital()}
-        {viewMode === 'systems' && renderSystemsGrid()}
-        {viewMode === 'zoomed' && renderZoomedSystem()}
+      <div className="relative w-full bg-gradient-to-br from-background to-muted/20 rounded-lg border p-4 overflow-hidden transition-all duration-500">
+        <div className={`transition-opacity duration-300 ${viewMode === 'mother' ? 'opacity-100' : 'opacity-0 hidden'}`}>
+          {viewMode === 'mother' && renderMotherOrbital()}
+        </div>
+        <div className={`transition-opacity duration-300 ${viewMode === 'systems' ? 'opacity-100' : 'opacity-0 hidden'}`}>
+          {viewMode === 'systems' && renderSystemsGrid()}
+        </div>
+        <div className={`transition-opacity duration-300 ${viewMode === 'zoomed' ? 'opacity-100' : 'opacity-0 hidden'}`}>
+          {viewMode === 'zoomed' && renderZoomedSystem()}
+        </div>
       </div>
 
       {/* Legenda */}
