@@ -1071,7 +1071,7 @@ E uma saudade redomona pelos cantos do galpão`}
           </div>
         </TabsContent>
 
-        {/* Tab: Domínios */}
+        {/* Tab: Domínios - Seção Refatorada */}
         <TabsContent value="dominios" className="space-y-6">
           <div className="grid gap-6 lg:grid-cols-3">
             <div className="lg:col-span-2 space-y-6">
@@ -1122,13 +1122,13 @@ E uma saudade redomona pelos cantos do galpão`}
                               </TooltipTrigger>
                               <TooltipContent className="max-w-sm">
                                 <div className="space-y-2">
-                                  <p className="font-semibold">Representatividade no corpus</p>
-                                  <p className="text-xs">
+                                  <p className="font-semibold text-foreground">{item.dominio}</p>
+                                  <p className="text-xs text-foreground">
                                     Este domínio representa <strong>{item.percentual}%</strong> do total de palavras analisadas, 
                                     com <strong>{item.ocorrencias} ocorrências</strong> distribuídas em {item.palavras.length} palavras-chave.
                                   </p>
-                                  <div className="pt-2 border-t">
-                                    <p className="text-xs font-medium">Densidade lexical:</p>
+                                  <div className="pt-2 border-t border-border">
+                                    <p className="text-xs font-medium text-foreground">Densidade lexical:</p>
                                     <p className="text-xs text-muted-foreground">
                                       {(item.ocorrencias / item.palavras.length).toFixed(1)} ocorrências por palavra
                                     </p>
@@ -1161,12 +1161,12 @@ E uma saudade redomona pelos cantos do galpão`}
                         {/* Palavras com tooltips individuais */}
                         <div className="flex flex-wrap gap-2">
                           {item.palavras.map((palavra, idx) => {
-                            // Buscar dados estatísticos da palavra
                             const palavraChave = palavrasChaveData.find(p => p.palavra === palavra);
                             const stats = palavraStats[palavra];
+                            const kwicEntries = kwicDataMap[palavra];
                             
                             return (
-                              <UITooltip key={idx}>
+                              <UITooltip key={idx} delayDuration={200}>
                                 <TooltipTrigger asChild>
                                   <Badge 
                                     className="cursor-pointer hover:scale-110 transition-all border-0 shadow-sm" 
@@ -1179,24 +1179,27 @@ E uma saudade redomona pelos cantos do galpão`}
                                     {palavra}
                                   </Badge>
                                 </TooltipTrigger>
-                                <TooltipContent className="max-w-md">
+                                <TooltipContent className="max-w-md p-4">
                                   <div className="space-y-3">
                                     <div className="flex items-center justify-between gap-4">
-                                      <p className="font-bold text-lg">{palavra}</p>
+                                      <p className="font-bold text-lg text-foreground">{palavra}</p>
                                       {palavraChave && (
-                                        <Badge variant="secondary" className="text-xs">
+                                        <Badge 
+                                          variant={palavraChave.significancia === "Alta" ? "default" : "secondary"} 
+                                          className="text-xs"
+                                        >
                                           {palavraChave.significancia}
                                         </Badge>
                                       )}
                                     </div>
                                     
-                                    {/* Estatísticas */}
+                                    {/* Estatísticas detalhadas */}
                                     {(palavraChave || stats) && (
-                                      <div className="grid grid-cols-2 gap-3 py-2 border-y">
+                                      <div className="grid grid-cols-2 gap-3 py-2 border-y border-border">
                                         <div>
                                           <p className="text-xs text-muted-foreground">Frequência no Corpus</p>
-                                          <p className="text-sm font-semibold">
-                                            {palavraChave?.frequenciaBruta || stats?.frequenciaBruta || kwicDataMap[palavra]?.length || 1}x
+                                          <p className="text-sm font-semibold text-foreground">
+                                            {palavraChave?.frequenciaBruta || stats?.frequenciaBruta || kwicEntries?.length || 1}x
                                           </p>
                                         </div>
                                         {palavraChave && (
@@ -1204,7 +1207,7 @@ E uma saudade redomona pelos cantos do galpão`}
                                             <div>
                                               <p className="text-xs text-muted-foreground">Significância</p>
                                               <div className="flex items-center gap-1">
-                                                <p className="text-sm font-semibold">{palavraChave.significancia}</p>
+                                                <p className="text-sm font-semibold text-foreground">{palavraChave.significancia}</p>
                                                 {palavraChave.significancia === "Alta" && (
                                                   <TrendingUp className="h-3 w-3 text-success" />
                                                 )}
@@ -1212,35 +1215,43 @@ E uma saudade redomona pelos cantos do galpão`}
                                             </div>
                                             <div>
                                               <p className="text-xs text-muted-foreground">Log-Likelihood</p>
-                                              <p className="text-sm font-semibold">{palavraChave.ll.toFixed(1)}</p>
+                                              <p className="text-sm font-semibold text-foreground">{palavraChave.ll.toFixed(1)}</p>
                                             </div>
                                             <div>
                                               <p className="text-xs text-muted-foreground">Efeito</p>
-                                              <p className="text-sm font-semibold">{palavraChave.efeito}</p>
+                                              <div className="flex items-center gap-1">
+                                                <p className="text-sm font-semibold text-foreground">{palavraChave.efeito}</p>
+                                                {palavraChave.efeito === "Sobre-uso" && (
+                                                  <TrendingUp className="h-3 w-3 text-success" />
+                                                )}
+                                              </div>
                                             </div>
                                           </>
                                         )}
                                       </div>
                                     )}
                                     
-                                    {/* Contexto */}
+                                    {/* Contexto KWIC */}
                                     <div className="text-xs space-y-1">
                                       <p className="text-muted-foreground font-medium">Contexto na música:</p>
-                                      {kwicDataMap[palavra] && kwicDataMap[palavra].length > 0 && (
+                                      {kwicEntries && kwicEntries.length > 0 ? (
                                         <div className="bg-muted/50 p-2 rounded">
-                                          <p className="italic">
-                                            "{kwicDataMap[palavra][0].leftContext} <strong className="text-primary">{palavra}</strong> {kwicDataMap[palavra][0].rightContext}"
+                                          <p className="italic text-foreground">
+                                            "{kwicEntries[0].leftContext}{" "}
+                                            <span className="font-bold text-primary">{palavra}</span>
+                                            {" "}{kwicEntries[0].rightContext}"
                                           </p>
                                         </div>
-                                      )}
-                                      {!kwicDataMap[palavra] && (
+                                      ) : (
                                         <p className="italic text-muted-foreground">
                                           Palavra presente no domínio "{item.dominio}"
                                         </p>
                                       )}
                                       <div className="pt-2 flex justify-between items-center text-xs">
-                                        <span>Total de ocorrências: {kwicDataMap[palavra]?.length || 1}</span>
-                                        <span className="text-primary font-medium">Clique para KWIC</span>
+                                        <span className="text-foreground">
+                                          Total: {kwicEntries?.length || 1} ocorrência{(kwicEntries?.length || 1) > 1 ? 's' : ''}
+                                        </span>
+                                        <span className="text-primary font-medium">Clique para KWIC completo</span>
                                       </div>
                                     </div>
                                   </div>
@@ -1258,32 +1269,52 @@ E uma saudade redomona pelos cantos do galpão`}
                           <div className="space-y-1">
                             {index === 0 && (
                               <>
-                                <p className="text-xs italic">"A calma do <strong>tarumã</strong>, ganhou <strong>sombra</strong> mais copada"</p>
-                                <p className="text-xs italic">"Pela <strong>várzea</strong> espichada com o <strong>sol</strong> da tarde caindo"</p>
+                                <p className="text-xs italic text-foreground">
+                                  "A calma do <strong className="text-primary">tarumã</strong>, ganhou <strong className="text-primary">sombra</strong> mais copada"
+                                </p>
+                                <p className="text-xs italic text-foreground">
+                                  "Pela <strong className="text-primary">várzea</strong> espichada com o <strong className="text-primary">sol</strong> da tarde caindo"
+                                </p>
                               </>
                             )}
                             {index === 1 && (
                               <>
-                                <p className="text-xs italic">"No <strong>lombo</strong> de uma <strong>gateada</strong> frente aberta de respeito"</p>
-                                <p className="text-xs italic">"Ficaram <strong>arreios</strong> suados e o silencio de <strong>esporas</strong>"</p>
+                                <p className="text-xs italic text-foreground">
+                                  "No <strong className="text-primary">lombo</strong> de uma <strong className="text-primary">gateada</strong> frente aberta de respeito"
+                                </p>
+                                <p className="text-xs italic text-foreground">
+                                  "Ficaram <strong className="text-primary">arreios</strong> suados e o silencio de <strong className="text-primary">esporas</strong>"
+                                </p>
                               </>
                             )}
                             {index === 2 && (
                               <>
-                                <p className="text-xs italic">"Prá <strong>querência</strong> galponeira, onde o verso é mais caseiro"</p>
-                                <p className="text-xs italic">"Uma <strong>cuia</strong> e uma <strong>bomba</strong> recostada na <strong>cambona</strong>"</p>
+                                <p className="text-xs italic text-foreground">
+                                  "Prá <strong className="text-primary">querência</strong> galponeira, onde o verso é mais caseiro"
+                                </p>
+                                <p className="text-xs italic text-foreground">
+                                  "Uma <strong className="text-primary">cuia</strong> e uma <strong className="text-primary">bomba</strong> recostada na <strong className="text-primary">cambona</strong>"
+                                </p>
                               </>
                             )}
                             {index === 3 && (
                               <>
-                                <p className="text-xs italic">"E o <strong>verso</strong> que tinha <strong>sonhos</strong> prá rondar na madrugada"</p>
-                                <p className="text-xs italic">"A <strong>mansidão</strong> da campanha traz <strong>saudade</strong> feito açoite"</p>
+                                <p className="text-xs italic text-foreground">
+                                  "E o <strong className="text-primary">verso</strong> que tinha <strong className="text-primary">sonhos</strong> prá rondar na madrugada"
+                                </p>
+                                <p className="text-xs italic text-foreground">
+                                  "A <strong className="text-primary">mansidão</strong> da campanha traz <strong className="text-primary">saudade</strong> feito açoite"
+                                </p>
                               </>
                             )}
                             {index === 4 && (
                               <>
-                                <p className="text-xs italic">"Um pañuelo <strong>maragato</strong> se abriu no horizonte"</p>
-                                <p className="text-xs italic">"Cevou um <strong>mate</strong> pura-folha, jujado de <strong>maçanilha</strong>"</p>
+                                <p className="text-xs italic text-foreground">
+                                  "Um pañuelo <strong className="text-primary">maragato</strong> se abriu no horizonte"
+                                </p>
+                                <p className="text-xs italic text-foreground">
+                                  "Cevou um <strong className="text-primary">mate</strong> pura-folha, jujado de <strong className="text-primary">maçanilha</strong>"
+                                </p>
                               </>
                             )}
                           </div>
@@ -1305,12 +1336,14 @@ E uma saudade redomona pelos cantos do galpão`}
                 </CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={240}>
-                    <BarChart data={dominiosData.map(d => ({ 
-                      nome: d.dominio.split(' ').slice(0, 2).join(' '), 
-                      nomeCompleto: d.dominio,
-                      valor: d.ocorrencias,
-                      cor: d.cor 
-                    }))}>
+                    <BarChart 
+                      data={dominiosData.map(d => ({ 
+                        nome: d.dominio.split(' ').slice(0, 2).join(' '), 
+                        nomeCompleto: d.dominio,
+                        valor: d.ocorrencias,
+                        cor: d.cor 
+                      }))}
+                    >
                       <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
                       <XAxis 
                         dataKey="nome" 
@@ -1318,20 +1351,25 @@ E uma saudade redomona pelos cantos do galpão`}
                         angle={-45} 
                         textAnchor="end" 
                         height={80}
+                        stroke="hsl(var(--foreground))"
                       />
-                      <YAxis fontSize={10} />
+                      <YAxis 
+                        fontSize={10}
+                        stroke="hsl(var(--foreground))"
+                      />
                       <Tooltip 
+                        cursor={{ fill: 'hsl(var(--muted))', opacity: 0.3 }}
                         contentStyle={{ 
-                          backgroundColor: 'hsl(var(--background))', 
+                          backgroundColor: 'hsl(var(--popover))', 
                           border: '1px solid hsl(var(--border))',
                           borderRadius: '8px',
                           padding: '12px',
-                          color: 'hsl(var(--foreground))'
+                          color: 'hsl(var(--popover-foreground))'
                         }}
                         formatter={(value: number, name: string, props: any) => {
                           return [
-                            `${value} ocorrências`,
-                            props.payload.nomeCompleto
+                            <span className="font-semibold text-foreground">{value} ocorrências</span>,
+                            <span className="font-medium text-foreground">{props.payload.nomeCompleto}</span>
                           ];
                         }}
                         labelFormatter={() => ''}
@@ -1357,35 +1395,35 @@ E uma saudade redomona pelos cantos do galpão`}
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
                     <div className="flex items-start gap-2">
-                      <div className="w-2 h-2 rounded-full bg-success mt-1" />
+                      <div className="w-2 h-2 rounded-full bg-success mt-1.5" />
                       <div className="flex-1">
                         <p className="text-sm font-medium">Domínio Dominante</p>
                         <p className="text-xs text-muted-foreground">
-                          "Natureza e Paisagem" lidera com {dominiosData[0].percentual}%, evidenciando 
-                          a centralidade do ambiente campeiro na construção poética
+                          "Natureza e Paisagem Campeira" lidera com {dominiosData[0].percentual}%, evidenciando 
+                          a centralidade do ambiente pampeano na construção poética
                         </p>
                       </div>
                     </div>
                     
                     <div className="flex items-start gap-2">
-                      <div className="w-2 h-2 rounded-full bg-primary mt-1" />
+                      <div className="w-2 h-2 rounded-full bg-primary mt-1.5" />
                       <div className="flex-1">
                         <p className="text-sm font-medium">Equilíbrio Temático</p>
                         <p className="text-xs text-muted-foreground">
                           Os 5 domínios cobrem {dominiosData.reduce((acc, d) => acc + d.percentual, 0).toFixed(1)}% 
-                          do corpus, demonstrando coesão semântica
+                          do corpus, demonstrando forte coesão semântica
                         </p>
                       </div>
                     </div>
 
                     <div className="flex items-start gap-2">
-                      <div className="w-2 h-2 rounded-full bg-purple-500 mt-1" />
+                      <div className="w-2 h-2 rounded-full bg-purple-500 mt-1.5" />
                       <div className="flex-1">
                         <p className="text-sm font-medium">Densidade Lexical</p>
                         <p className="text-xs text-muted-foreground">
                           Média de {(dominiosData.reduce((acc, d) => acc + d.ocorrencias, 0) / 
                           dominiosData.reduce((acc, d) => acc + d.palavras.length, 0)).toFixed(1)} 
-                          ocorrências por palavra-chave
+                          ocorrências por palavra-chave no corpus
                         </p>
                       </div>
                     </div>
