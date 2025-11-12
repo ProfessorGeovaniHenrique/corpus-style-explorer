@@ -725,12 +725,12 @@ export const OrbitalConstellationChart = ({
           })}
 
           {/* Centro */}
-          <circle cx={centerX} cy={centerY} r={28} fill={systemColors[system.category]} opacity="0.1" className="animate-pulse" />
-          <circle cx={centerX} cy={centerY} r={23} fill={systemColors[system.category]} opacity="0.2" />
+          <circle cx={centerX} cy={centerY} r={35} fill={systemColors[system.category]} opacity="0.1" className="animate-pulse" />
+          <circle cx={centerX} cy={centerY} r={28} fill={systemColors[system.category]} opacity="0.2" />
           <circle 
             cx={centerX} 
             cy={centerY} 
-            r={18} 
+            r={22} 
             fill={systemColors[system.category]} 
             opacity="0.85"
             style={{ filter: 'drop-shadow(0 4px 12px rgba(0, 0, 0, 0.4))' }}
@@ -738,7 +738,7 @@ export const OrbitalConstellationChart = ({
           <circle 
             cx={centerX} 
             cy={centerY} 
-            r={18} 
+            r={22} 
             fill="none" 
             stroke="hsl(var(--background))" 
             strokeWidth="1.5" 
@@ -749,7 +749,7 @@ export const OrbitalConstellationChart = ({
             y={centerY} 
             textAnchor="middle" 
             dominantBaseline="middle" 
-            className="fill-primary-foreground font-bold text-[14px]"
+            className="fill-primary-foreground font-bold text-[16px]"
           >
             {system.centerWord}
           </text>
@@ -773,12 +773,12 @@ export const OrbitalConstellationChart = ({
                     strokeWidth="0.5" 
                     opacity="0.15" 
                   />
-                  <circle cx={x} cy={y} r={8} fill={word.color} opacity="0.08" className="animate-pulse" />
-                  <circle cx={x} cy={y} r={6} fill={word.color} opacity="0.15" />
+                  <circle cx={x} cy={y} r={10} fill={word.color} opacity="0.08" className="animate-pulse" />
+                  <circle cx={x} cy={y} r={7.5} fill={word.color} opacity="0.15" />
                   <circle 
                     cx={x} 
                     cy={y} 
-                    r={4} 
+                    r={5} 
                     fill={word.color} 
                     opacity="0.85"
                     style={{ filter: 'drop-shadow(0 2px 6px rgba(0, 0, 0, 0.3))' }}
@@ -786,7 +786,7 @@ export const OrbitalConstellationChart = ({
                   <circle 
                     cx={x} 
                     cy={y} 
-                    r={4} 
+                    r={5} 
                     fill="none" 
                     stroke="hsl(var(--background))" 
                     strokeWidth="0.5" 
@@ -797,16 +797,16 @@ export const OrbitalConstellationChart = ({
                     y={y - 2} 
                     textAnchor="middle" 
                     dominantBaseline="middle" 
-                    className="fill-foreground font-bold text-[7px] pointer-events-none"
+                    className="fill-foreground font-bold text-[8.5px] pointer-events-none"
                   >
                     {word.word}
                   </text>
                   <text 
                     x={x} 
-                    y={y + 6} 
+                    y={y + 7} 
                     textAnchor="middle" 
                     dominantBaseline="middle" 
-                    className="fill-muted-foreground font-semibold text-[6px] pointer-events-none"
+                    className="fill-muted-foreground font-semibold text-[7px] pointer-events-none"
                   >
                     {word.strength}%
                   </text>
@@ -833,8 +833,8 @@ export const OrbitalConstellationChart = ({
           {orbitalSystems.map((system, index) => {
             const col = index % 3;
             const row = Math.floor(index / 3);
-            const x = 200 + col * 400;
-            const y = 180 + row * 350;
+            const x = 200 + col * 320;
+            const y = 180 + row * 280;
             return (
               <g 
                 key={system.centerWord} 
