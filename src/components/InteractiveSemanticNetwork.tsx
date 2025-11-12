@@ -33,32 +33,41 @@ export function InteractiveSemanticNetwork({ onWordClick }: InteractiveSemanticN
   ]);
 
   const [dragging, setDragging] = useState<string | null>(null);
-  const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const [hasDragged, setHasDragged] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const handleMouseDown = (e: React.MouseEvent, nodeId: string) => {
     e.preventDefault();
-    const node = nodes.find(n => n.id === nodeId);
-    if (node && containerRef.current) {
-      const rect = containerRef.current.getBoundingClientRect();
-      setOffset({
-        x: e.clientX - rect.left - node.x,
-        y: e.clientY - rect.top - node.y,
-      });
-      setDragging(nodeId);
-    }
+    setDragging(nodeId);
+    setHasDragged(false);
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
     if (dragging && containerRef.current) {
+      setHasDragged(true);
       const rect = containerRef.current.getBoundingClientRect();
-      const newX = e.clientX - rect.left - offset.x;
-      const newY = e.clientY - rect.top - offset.y;
+      const centerNode = nodes.find(n => n.distance === 0);
+      const draggedNode = nodes.find(n => n.id === dragging);
+      
+      if (!centerNode || !draggedNode || draggedNode.distance === 0) return;
+
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+
+      // Calcula ângulo do mouse em relação ao centro
+      const angle = Math.atan2(mouseY - centerNode.y, mouseX - centerNode.x);
+      
+      // Mantém a distância fixa baseada na força de associação
+      const radius = draggedNode.distance * 200; // distância em pixels
+      
+      // Nova posição orbital mantendo a distância
+      const newX = centerNode.x + Math.cos(angle) * radius;
+      const newY = centerNode.y + Math.sin(angle) * radius;
 
       setNodes(prev =>
         prev.map(node =>
           node.id === dragging
-            ? { ...node, x: Math.max(30, Math.min(rect.width - 30, newX)), y: Math.max(30, Math.min(rect.height - 30, newY)) }
+            ? { ...node, x: newX, y: newY }
             : node
         )
       );
@@ -67,6 +76,12 @@ export function InteractiveSemanticNetwork({ onWordClick }: InteractiveSemanticN
 
   const handleMouseUp = () => {
     setDragging(null);
+  };
+
+  const handleClick = (nodeId: string, label: string) => {
+    if (!hasDragged) {
+      onWordClick(label);
+    }
   };
 
   useEffect(() => {
@@ -109,7 +124,6 @@ export function InteractiveSemanticNetwork({ onWordClick }: InteractiveSemanticN
         {/* Nós da rede */}
         {nodes.map(node => {
           const isCenter = node.distance === 0;
-          const size = isCenter ? "large" : node.distance < 0.25 ? "medium" : "small";
           
           return (
             <div
@@ -123,18 +137,17 @@ export function InteractiveSemanticNetwork({ onWordClick }: InteractiveSemanticN
               onMouseDown={(e) => handleMouseDown(e, node.id)}
               onClick={(e) => {
                 e.stopPropagation();
-                if (!dragging) onWordClick(node.label);
+                handleClick(node.id, node.label);
               }}
             >
               <Badge
                 className={`
-                  ${isCenter ? 'text-lg px-6 py-3 font-bold border-2' : size === 'medium' ? 'text-base px-4 py-2 font-semibold' : 'text-sm px-3 py-1.5'}
-                  shadow-lg cursor-pointer
+                  ${isCenter ? 'text-xl px-6 py-3 font-bold' : 'text-sm px-3 py-1.5 font-medium'}
+                  shadow-lg cursor-pointer border-0
                 `}
                 style={{
-                  backgroundColor: prosodyColors[node.prosody],
-                  color: 'white',
-                  borderColor: isCenter ? 'white' : 'transparent',
+                  backgroundColor: isCenter ? 'hsl(0, 0%, 20%)' : prosodyColors[node.prosody],
+                  color: isCenter ? 'hsl(0, 0%, 85%)' : 'white',
                 }}
               >
                 {node.label}
