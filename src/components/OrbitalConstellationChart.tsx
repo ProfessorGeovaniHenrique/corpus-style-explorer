@@ -147,26 +147,16 @@ export const OrbitalConstellationChart = ({
               const pos = getWordPosition(word, index, wordsInOrbit.length);
               return (
                 <g key={`word-${word.word}-${index}`}>
-                  {/* Glow effect */}
                   <circle
                     cx={pos.x}
                     cy={pos.y}
-                    r="10"
+                    r="6"
                     fill={word.color}
-                    opacity="0.2"
-                  />
-                  <circle
-                    cx={pos.x}
-                    cy={pos.y}
-                    r="7"
-                    fill={word.color}
-                    opacity="1"
-                    stroke="hsl(var(--background))"
-                    strokeWidth="1"
+                    opacity="0.8"
                   />
                   <text
                     x={pos.x}
-                    y={pos.y - 14}
+                    y={pos.y - 12}
                     textAnchor="middle"
                     className="fill-foreground text-xs font-medium"
                     style={{ fontSize: '11px' }}
@@ -175,7 +165,7 @@ export const OrbitalConstellationChart = ({
                   </text>
                   <text
                     x={pos.x}
-                    y={pos.y + 20}
+                    y={pos.y + 18}
                     textAnchor="middle"
                     className="fill-muted-foreground text-xs"
                     style={{ fontSize: '9px' }}
