@@ -147,40 +147,28 @@ export const OrbitalConstellationChart = ({
       };
     };
 
-    // Handler para drag de palavras
-    const handleWordDrag = (word: WordData, event: React.MouseEvent<SVGGElement>) => {
-      if (!isZoomed) return; // Só permite drag no modo zoom
-      
-      event.preventDefault();
-      event.stopPropagation();
+    // Handler para drag de palavras - versão simplificada e robusta
+    const handleWordMouseDown = (word: WordData, svgElement: SVGSVGElement | null) => {
+      if (!isZoomed || !svgElement) return;
       
       const wordKey = `${system.centerWord}-${word.word}`;
       setDraggedWord(wordKey);
       
-      // Captura a referência do SVG antes de criar os listeners
-      const svg = event.currentTarget.closest('svg');
-      if (!svg) return;
-      
       const handleMouseMove = (e: MouseEvent) => {
-        e.preventDefault();
+        const rect = svgElement.getBoundingClientRect();
+        const viewBox = svgElement.viewBox.baseVal;
         
-        const rect = svg.getBoundingClientRect();
-        const mouseX = e.clientX - rect.left;
-        const mouseY = e.clientY - rect.top;
-        
-        // Converte coordenadas do mouse para viewBox
-        const viewBox = svg.viewBox.baseVal;
+        // Coordenadas do mouse no SVG
         const scaleX = viewBox.width / rect.width;
         const scaleY = viewBox.height / rect.height;
-        const x = mouseX * scaleX;
-        const y = mouseY * scaleY;
+        const x = (e.clientX - rect.left) * scaleX;
+        const y = (e.clientY - rect.top) * scaleY;
         
-        // Calcula o ângulo relativo ao centro do sistema
+        // Calcula o ângulo relativo ao centro
         const dx = x - centerX;
         const dy = y - centerY;
         const newAngle = Math.atan2(dy, dx);
         
-        // Atualiza a posição customizada
         setCustomPositions(prev => ({
           ...prev,
           [wordKey]: { angle: newAngle }
@@ -267,12 +255,15 @@ export const OrbitalConstellationChart = ({
                 className={isZoomed ? "cursor-grab active:cursor-grabbing" : ""}
                 onMouseDown={(e) => {
                   if (isZoomed) {
-                    handleWordDrag(word, e);
+                    e.preventDefault();
+                    const svg = e.currentTarget.closest('svg');
+                    handleWordMouseDown(word, svg);
                   }
                 }}
                 style={{ 
                   opacity: isDragging ? 0.6 : 1,
-                  transition: isDragging ? 'none' : 'all 0.2s'
+                  transition: isDragging ? 'none' : 'opacity 0.2s',
+                  userSelect: 'none'
                 }}
               >
                 {/* Glow effect */}
@@ -282,7 +273,7 @@ export const OrbitalConstellationChart = ({
                   r={6 * scale}
                   fill={word.color}
                   opacity="0.2"
-                  className="pointer-events-none"
+                  style={{ pointerEvents: 'none' }}
                 />
                 <circle
                   cx={pos.x}
@@ -292,14 +283,14 @@ export const OrbitalConstellationChart = ({
                   opacity="1"
                   stroke="hsl(var(--background))"
                   strokeWidth={0.5 * scale}
-                  className="pointer-events-none"
+                  style={{ pointerEvents: 'none' }}
                 />
                 <text
                   x={pos.x}
                   y={pos.y - (9 * scale)}
                   textAnchor="middle"
-                  className="fill-foreground font-medium pointer-events-none"
-                  style={{ fontSize: `${8 * scale}px` }}
+                  className="fill-foreground font-medium"
+                  style={{ fontSize: `${8 * scale}px`, pointerEvents: 'none', userSelect: 'none' }}
                 >
                   {word.word}
                 </text>
@@ -307,8 +298,8 @@ export const OrbitalConstellationChart = ({
                   x={pos.x}
                   y={pos.y + (13 * scale)}
                   textAnchor="middle"
-                  className="fill-muted-foreground pointer-events-none"
-                  style={{ fontSize: `${7 * scale}px` }}
+                  className="fill-muted-foreground"
+                  style={{ fontSize: `${7 * scale}px`, pointerEvents: 'none', userSelect: 'none' }}
                 >
                   {word.strength}%
                 </text>
