@@ -1073,26 +1073,53 @@ export default function Dashboard2() {
     });
   }, [zoomLevel, panOffset]);
   const handleZoomIn = () => {
+    if (!containerRef.current) return;
+    const container = containerRef.current;
+    const rect = container.getBoundingClientRect();
+    
+    // Centro da viewport
+    const centerX = rect.width / 2;
+    const centerY = rect.height / 2;
+    
     const newZoom = Math.min(3, zoomLevel + 0.2);
+    const zoomRatio = newZoom / zoomLevel;
+    
+    // Ajusta pan para manter o centro fixo
+    const newPanX = centerX - (centerX - panOffset.x) * zoomRatio;
+    const newPanY = centerY - (centerY - panOffset.y) * zoomRatio;
+    
     setZoomLevel(newZoom);
+    setPanOffset({ x: newPanX, y: newPanY });
   };
+  
   const handleZoomOut = () => {
+    if (!containerRef.current) return;
+    const container = containerRef.current;
+    const rect = container.getBoundingClientRect();
+    
+    // Centro da viewport
+    const centerX = rect.width / 2;
+    const centerY = rect.height / 2;
+    
     const newZoom = Math.max(0.5, zoomLevel - 0.2);
+    const zoomRatio = newZoom / zoomLevel;
+    
+    // Ajusta pan para manter o centro fixo
+    const newPanX = centerX - (centerX - panOffset.x) * zoomRatio;
+    const newPanY = centerY - (centerY - panOffset.y) * zoomRatio;
+    
     setZoomLevel(newZoom);
+    setPanOffset({ x: newPanX, y: newPanY });
   };
+  
   const handleResetZoom = () => {
     setZoomLevel(1);
-    setPanOffset({
-      x: 0,
-      y: 0
-    });
+    setPanOffset({ x: 0, y: 0 });
   };
+  
   const handleFitToView = () => {
     setZoomLevel(1);
-    setPanOffset({
-      x: 0,
-      y: 0
-    });
+    setPanOffset({ x: 0, y: 0 });
   };
   const handleToggleFullscreen = () => {
     setIsFullscreen(!isFullscreen);
