@@ -83,12 +83,12 @@ export const OrbitalConstellationChart = ({ onWordClick, dominiosData, palavrasC
       hidden: false
     });
     
-    // TODAS as palavras do corpus ordenadas por Log-Likelihood
-    const allWords = [...palavrasChaveData].sort((a, b) => b.ll - a.ll);
+    // TODAS as palavras do corpus ordenadas por Frequência Normalizada (%)
+    const allWords = [...palavrasChaveData].sort((a, b) => b.frequenciaNormalizada - a.frequenciaNormalizada);
     
-    // Calcular min/max LL para normalização
-    const minLL = Math.min(...allWords.map(w => w.ll));
-    const maxLL = Math.max(...allWords.map(w => w.ll));
+    // Calcular min/max Frequência Normalizada para normalização
+    const minFreq = Math.min(...allWords.map(w => w.frequenciaNormalizada));
+    const maxFreq = Math.max(...allWords.map(w => w.frequenciaNormalizada));
     
     // Agrupar palavras por faixa de relevância (0-20%, 20-40%, 40-60%, 60-80%, 80-100%)
     const orbitGroups: { [key: number]: Array<typeof allWords[0]> } = {
@@ -100,7 +100,7 @@ export const OrbitalConstellationChart = ({ onWordClick, dominiosData, palavrasC
     };
     
     allWords.forEach(wordData => {
-      const relevancePercent = ((wordData.ll - minLL) / (maxLL - minLL)) * 100;
+      const relevancePercent = ((wordData.frequenciaNormalizada - minFreq) / (maxFreq - minFreq)) * 100;
       
       if (relevancePercent >= 80) orbitGroups[0].push(wordData);
       else if (relevancePercent >= 60) orbitGroups[1].push(wordData);
@@ -128,11 +128,11 @@ export const OrbitalConstellationChart = ({ onWordClick, dominiosData, palavrasC
         const x = 0.5 + Math.cos(angle) * orbitRadius;
         const y = 0.5 + Math.sin(angle) * orbitRadius;
         
-        // Tamanho baseado em LL (normalizado entre 15-30)
-        const normalizedSize = 15 + ((wordData.ll - minLL) / (maxLL - minLL)) * 15;
+        // Tamanho baseado em Frequência Normalizada (normalizado entre 8-25)
+        const normalizedSize = 8 + ((wordData.frequenciaNormalizada - minFreq) / (maxFreq - minFreq)) * 17;
         
         // Calcular percentual de relevância
-        const relevancePercent = ((wordData.ll - minLL) / (maxLL - minLL)) * 100;
+        const relevancePercent = ((wordData.frequenciaNormalizada - minFreq) / (maxFreq - minFreq)) * 100;
         
         // Busca cor do domínio
         const { cor } = getWordDomain(wordData.palavra);
