@@ -8,13 +8,16 @@ interface SpaceHUDTooltipProps {
     prosody?: string;
     sentiment?: string;
     miScore?: number;
+    associationStrength?: number;
+    level?: string;
   } | null;
   position: { x: number; y: number };
   visible: boolean;
   containerRect?: DOMRect;
+  level?: string;
 }
 
-export const SpaceHUDTooltip = ({ word, position, visible, containerRect }: SpaceHUDTooltipProps) => {
+export const SpaceHUDTooltip = ({ word, position, visible, containerRect, level }: SpaceHUDTooltipProps) => {
   if (!visible || !word) return null;
 
   // Smart positioning to avoid UI collision
@@ -129,6 +132,22 @@ export const SpaceHUDTooltip = ({ word, position, visible, containerRect }: Spac
             <span className="text-purple-400 font-mono">{word.miScore.toFixed(2)}</span>
           </div>
         )}
+        
+        {/* Força de Associação - FASE 4 */}
+        {word.associationStrength && (
+          <div className="space-y-1">
+            <div className="flex justify-between text-xs">
+              <span className="text-cyan-300/80 uppercase tracking-wide">Força de Associação:</span>
+              <span className="text-yellow-400 font-bold">{word.associationStrength}%</span>
+            </div>
+            <div className="h-1 bg-black/40 rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-gradient-to-r from-yellow-500 to-yellow-300 transition-all duration-500"
+                style={{ width: `${word.associationStrength}%` }}
+              ></div>
+            </div>
+          </div>
+        )}
 
         {/* Prosódia */}
         <div className="flex justify-between text-xs items-center">
@@ -150,6 +169,16 @@ export const SpaceHUDTooltip = ({ word, position, visible, containerRect }: Spac
           <span className="text-yellow-400 italic">{word.sentiment || 'Indefinido'}</span>
         </div>
       </div>
+
+      {/* FASE 4: Dica de drag para nível stellar */}
+      {(level === 'stellar' || word.level === 'stellar') && word.id !== 'system-center' && (
+        <div className="border-t border-cyan-400/20 mt-3 pt-2">
+          <p className="text-[10px] text-cyan-400 flex items-center gap-2 uppercase tracking-wider justify-center">
+            <span className="text-yellow-400 text-sm">🖱️</span>
+            <span>Clique e arraste para reposicionar na órbita</span>
+          </p>
+        </div>
+      )}
 
       {/* Footer */}
       <div className="border-t border-cyan-400/20 mt-3 pt-2 text-center">
