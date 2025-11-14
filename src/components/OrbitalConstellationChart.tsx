@@ -541,7 +541,7 @@ export const OrbitalConstellationChart = ({ onWordClick, dominiosData, palavrasC
       graphRef.current.clear();
       graphRef.current.import(newGraph.export());
       sigmaRef.current.refresh();
-    } else if (level === 'galaxy' && selectedSystem) {
+    } else if (level === 'galaxy') {
       const newGraph = buildGalaxyView();
       graphRef.current.clear();
       graphRef.current.import(newGraph.export());
