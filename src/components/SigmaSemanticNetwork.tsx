@@ -265,6 +265,19 @@ export const SigmaSemanticNetwork: React.FC = () => {
   const [zoomLevel, setZoomLevel] = useState(100);
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
   
+  // Tooltip state
+  const [tooltip, setTooltip] = useState<{
+    visible: boolean;
+    word: string | null;
+    position: { x: number; y: number };
+    stats: any | null;
+  }>({
+    visible: false,
+    word: null,
+    position: { x: 0, y: 0 },
+    stats: null
+  });
+  
   const allCategories = SEMANTIC_DOMAINS.map(d => d.name);
   const [filters, setFilters] = useState<FilterState>({
     minFrequency: 1,
