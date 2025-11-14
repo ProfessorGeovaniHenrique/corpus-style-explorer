@@ -457,18 +457,88 @@ export const OrbitalConstellationChart = ({ onWordClick, dominiosData, palavrasC
       {/* Sigma container */}
       <div ref={containerRef} className="w-full h-full relative z-10" />
 
-      {/* HUD Tooltip */}
-      {hoveredNode && hoveredNode.label && (
-        <div className="absolute pointer-events-none z-50" style={{ left: tooltipPos.x + 10, top: tooltipPos.y + 10 }}>
-          <div className="bg-black/90 text-cyan-400 px-3 py-2 rounded border border-cyan-500/50 text-sm">
-            <div className="font-bold">{hoveredNode.label}</div>
-            {hoveredNode.freq && <div>Freq: {hoveredNode.freq}</div>}
-            {hoveredNode.logLikelihood && <div>LL: {hoveredNode.logLikelihood.toFixed(1)}</div>}
-          </div>
-        </div>
+      {/* Orbital Rings (visual effect) */}
+      {level !== 'universe' && containerRect && (
+        <OrbitalRings
+          level={level}
+          isPaused={isPaused}
+          containerWidth={containerRect.width}
+          containerHeight={containerRect.height}
+        />
       )}
 
+      {/* Orbital Sliders (stellar level only) */}
+      {level === 'stellar' && containerRect && graphRef.current && (
+        <>
+          {graphRef.current.nodes().map((nodeId: string) => {
+            if (nodeId === 'center') return null;
+            
+            const node = graphRef.current.getNodeAttributes(nodeId);
+            const centerX = containerRect.width / 2;
+            const centerY = containerRect.height / 2;
+            
+            // Calculate radius and angle from center
+            const nodeX = node.x * containerRect.width;
+            const nodeY = node.y * containerRect.height;
+            const radius = Math.sqrt(Math.pow(nodeX - centerX, 2) + Math.pow(nodeY - centerY, 2));
+            const angle = Math.atan2(nodeY - centerY, nodeX - centerX);
+            
+            return (
+              <OrbitalSlider
+                key={nodeId}
+                radius={radius}
+                angle={angle}
+                percentage={Math.round((node.associationStrength || 50))}
+                color={node.color}
+                containerWidth={containerRect.width}
+                containerHeight={containerRect.height}
+              />
+            );
+          })}
+        </>
+      )}
 
+      {/* HUD Tooltip (complete version) */}
+      {hoveredNode && containerRect && (
+        <SpaceHUDTooltip
+          word={hoveredNode}
+          position={tooltipPos}
+          visible={true}
+          containerRect={containerRect}
+          level={level}
+        />
+      )}
+
+      {/* Navigation Console */}
+      <SpaceNavigationConsole
+        level={level}
+        currentSystem={selectedSystem || 'UNIVERSO'}
+        currentCoords={selectedSystem ? `Sistema: ${selectedSystem}` : 'Coord: 0.0.0'}
+        filters={{
+          minFrequency: 0,
+          prosody: 'all',
+          categories: [],
+          searchQuery: ''
+        }}
+        onNavigate={navigateToLevel}
+        onFilterChange={() => {}}
+        onReset={() => {}}
+      />
+
+      {/* Vertical Zoom Controls */}
+      <VerticalZoomControls
+        onZoomIn={handleZoomIn}
+        onZoomOut={handleZoomOut}
+        onReset={handleResetView}
+        onFit={() => sigmaRef.current?.getCamera().setState({ x: 0.5, y: 0.5, ratio: 1 })}
+        onRefresh={() => {
+          if (level === 'universe') buildUniverseView();
+          else if (level === 'galaxy') buildGalaxyView();
+          else if (level === 'stellar' && selectedSystem) buildStellarView(selectedSystem);
+        }}
+        isPaused={isPaused}
+        onPauseToggle={() => setIsPaused(!isPaused)}
+      />
     </div>
   );
 };
