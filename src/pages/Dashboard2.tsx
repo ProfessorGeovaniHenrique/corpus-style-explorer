@@ -7,7 +7,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { KWICModal } from "@/components/KWICModal";
 import { InteractiveSemanticNetwork } from "@/components/InteractiveSemanticNetwork";
 import { OrbitalConstellationChart } from "@/components/OrbitalConstellationChart";
-import { SigmaSemanticNetwork } from "@/components/SigmaSemanticNetwork";
 import { NavigationToolbar } from "@/components/NavigationToolbar";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Download, FileText, Network, Sparkles, BarChart3, FileBarChart, Cloud, HelpCircle, TrendingUp, TrendingDown, Maximize2 } from "lucide-react";
@@ -1658,50 +1657,41 @@ E uma saudade redomona pelos cantos do galpão`}
         {/* Tab: Rede */}
         <TabsContent value="rede" className="space-y-8 mt-8">
           {/* Dica contextual */}
-          <div className="flex items-start gap-3 p-4 bg-purple-500/5 border border-purple-500/20 rounded-lg">
-            <Maximize2 className="h-5 w-5 text-purple-500 mt-0.5 flex-shrink-0" />
+          <div className="flex items-start gap-3 p-4 border-2 rounded-lg"
+               style={{
+                 background: 'linear-gradient(135deg, rgba(10, 14, 39, 0.6), rgba(0, 229, 255, 0.1))',
+                 borderColor: '#00E5FF',
+                 boxShadow: '0 0 20px rgba(0, 229, 255, 0.2)'
+               }}>
+            <Maximize2 className="h-5 w-5 mt-0.5 flex-shrink-0" style={{ color: '#00E5FF' }} />
             <div>
-              <p className="text-sm font-medium text-foreground mb-1">🎯 Visualização Otimizada</p>
-              <p className="text-xs text-muted-foreground/90">
-                Este gráfico é melhor visualizado em <strong>tela cheia</strong>. Use o botão de tela cheia na barra de ferramentas flutuante.
+              <p className="text-sm font-medium mb-1" style={{ color: '#00E5FF' }}>🚀 Exploração Espacial Semântica</p>
+              <p className="text-xs" style={{ color: 'rgba(0, 229, 255, 0.7)' }}>
+                Navegue pelos três níveis hierárquicos: <strong>Universo</strong> (palavras orbitando a canção) → <strong>Galáxia</strong> (domínios semânticos) → <strong>Sistema Estelar</strong> (palavras de cada domínio). Clique nos nós para navegar e passe o mouse para ver estatísticas detalhadas no HUD.
               </p>
             </div>
           </div>
           
-          <Card className="border-border/60 shadow-sm">
-            <CardHeader className="pb-6">
+          <Card className="border-2" style={{ borderColor: '#00E5FF20', background: 'radial-gradient(circle at top, #0A0E27 0%, #000000 100%)' }}>
+            <CardHeader className="pb-6" style={{ borderBottom: '1px solid rgba(0, 229, 255, 0.2)' }}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <Network className="h-6 w-6 text-primary" />
+                  <Network className="h-6 w-6" style={{ color: '#00E5FF' }} />
                   <div>
-                    <CardTitle className="text-2xl font-bold text-foreground">Rede Semântica Interativa</CardTitle>
-                    <CardDescription className="text-base text-muted-foreground/80 mt-1">
-                      Visualização da força de associação entre palavras-chave no corpus.
+                    <CardTitle className="text-2xl font-bold" style={{ color: '#FFFFFF' }}>Sistema de Navegação Orbital</CardTitle>
+                    <CardDescription className="text-base mt-1" style={{ color: 'rgba(0, 229, 255, 0.6)' }}>
+                      Experiência espacial interativa inspirada em Mass Effect com HUD, órbitas animadas e três níveis de exploração.
                     </CardDescription>
                   </div>
                 </div>
-                <Badge variant="secondary" className="gap-1">
+                <Badge variant="secondary" className="gap-1" style={{ background: 'rgba(0, 229, 255, 0.2)', color: '#00E5FF', borderColor: '#00E5FF' }}>
                   <Network className="h-3 w-3" />
-                  6 conexões mapeadas
+                  12 palavras mapeadas
                 </Badge>
               </div>
             </CardHeader>
-            <CardContent className="p-6">
-              <div className="space-y-8">
-                <div className="space-y-6">
-                  <div className="p-5 bg-muted/30 rounded-lg border-2 border-border/40">
-                    <h4 className="font-semibold text-base mb-3 flex items-center gap-2">
-                      <Sparkles className="h-5 w-5 text-primary" />
-                      Sistema Orbital Hierárquico - Prosódia Semântica
-                    </h4>
-                    <p className="text-sm text-muted-foreground/80 leading-relaxed">
-                      Visualização hierárquica em 3 níveis: <strong>(1)</strong> Clique em "Canção Analisada" para ver os sistemas orbitais, 
-                      <strong>(2)</strong> clique em um sistema (verso, saudade, sonhos, etc.) para ver em detalhe suas palavras e força de associação semântica.
-                    </p>
-                  </div>
-                  <SigmaSemanticNetwork />
-                </div>
-              </div>
+            <CardContent className="p-0" style={{ minHeight: '800px' }}>
+              <OrbitalConstellationChart onWordClick={handleWordClick} />
             </CardContent>
           </Card>
         </TabsContent>
