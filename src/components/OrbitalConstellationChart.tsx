@@ -460,6 +460,17 @@ export const OrbitalConstellationChart = ({ onWordClick, dominiosData, palavrasC
     };
   }, [isPaused, level]);
 
+  // ============= AUTO-REBUILD ON FILTER CHANGE (FASE 3) =============
+  useEffect(() => {
+    if (!sigmaRef.current || !graphRef.current) return;
+    
+    if (level === 'universe') {
+      buildUniverseView();
+    } else if (level === 'galaxy' && selectedSystem) {
+      buildGalaxyView();
+    }
+  }, [activeFilters, level, selectedSystem, buildUniverseView, buildGalaxyView]);
+
   const handleZoomIn = () => {
     if (sigmaRef.current) {
       const camera = sigmaRef.current.getCamera();
@@ -523,12 +534,40 @@ export const OrbitalConstellationChart = ({ onWordClick, dominiosData, palavrasC
         />
       )}
 
-      {/* Navigation Console */}
+      {/* Filter Panel (FASE 1) */}
+      <FilterPanel
+        isOpen={isFilterPanelOpen}
+        onToggle={() => setIsFilterPanelOpen(!isFilterPanelOpen)}
+        filters={activeFilters}
+        onFilterChange={setActiveFilters}
+        availableDomains={dominiosData.map(d => ({
+          label: d.dominio,
+          color: d.cor,
+          corTexto: d.corTexto
+        }))}
+      />
+
+      {/* Navigation Console (FASE 2) */}
       <SpaceNavigationConsole
         level={level}
         onNavigate={navigateToLevel}
-        onFilterChange={() => {}}
-        onReset={() => {}}
+        onFilterChange={setActiveFilters}
+        onReset={() => {
+          setActiveFilters({
+            minFrequency: 0,
+            prosody: [],
+            domains: [],
+            searchQuery: ''
+          });
+        }}
+        isFilterPanelOpen={isFilterPanelOpen}
+        onToggleFilterPanel={() => setIsFilterPanelOpen(!isFilterPanelOpen)}
+        activeFilterCount={
+          (activeFilters.minFrequency > 0 ? 1 : 0) +
+          activeFilters.prosody.length +
+          activeFilters.domains.length +
+          (activeFilters.searchQuery ? 1 : 0)
+        }
       />
 
       {/* Vertical Zoom Controls */}
