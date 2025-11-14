@@ -170,16 +170,6 @@ export const SpaceHUDTooltip = ({ word, position, visible, containerRect, level 
         </div>
       </div>
 
-      {/* FASE 4: Dica de drag para nível stellar */}
-      {(level === 'stellar' || word.level === 'stellar') && word.id !== 'system-center' && (
-        <div className="border-t border-cyan-400/20 mt-3 pt-2">
-          <p className="text-[10px] text-cyan-400 flex items-center gap-2 uppercase tracking-wider justify-center">
-            <span className="text-yellow-400 text-sm">🖱️</span>
-            <span>Clique e arraste para reposicionar na órbita</span>
-          </p>
-        </div>
-      )}
-
       {/* Footer */}
       <div className="border-t border-cyan-400/20 mt-3 pt-2 text-center">
         <span className="text-[10px] text-cyan-300 tracking-widest animate-pulse">

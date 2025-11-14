@@ -7,7 +7,7 @@ import { VerticalZoomControls } from './VerticalZoomControls';
 import { OrbitalRings } from './OrbitalRings';
 import { OrbitalSlider } from './OrbitalSlider';
 
-type NavigationLevel = 'universe' | 'galaxy' | 'stellar';
+type NavigationLevel = 'universe' | 'galaxy';
 
 interface OrbitalConstellationChartProps {
   onWordClick?: (word: string) => void;
@@ -192,124 +192,17 @@ export const OrbitalConstellationChart = ({ onWordClick, dominiosData, palavrasC
     return graph;
   }, [dominiosData]);
 
-  // Constrói visualização de sistema estelar (palavras do domínio selecionado) - DADOS REAIS
-  const buildStellarView = useCallback((systemId: string) => {
-    const graph: any = new Graph();
-    const system = dominiosData.find(d => d.dominio === systemId);
-    if (!system) return graph;
-    
-    // Nó central (o domínio) - SEM TYPE para evitar erro Sigma
-    graph.addNode('center', {
-      x: 0.5,
-      y: 0.5,
-      size: 40,
-      label: system.dominio.toUpperCase(),
-      color: system.cor,
-      hidden: false
-    });
-    
-    // Filtrar palavras deste domínio que estão em palavrasChaveData
-    const domainWords = palavrasChaveData.filter(word => 
-      system.palavras.includes(word.palavra)
-    );
-    
-    // Ordenar por MI Score
-    const sortedWords = [...domainWords].sort((a, b) => b.mi - a.mi);
-    
-    // Calcular min/max MI para normalização
-    const minMI = Math.min(...sortedWords.map(w => w.mi));
-    const maxMI = Math.max(...sortedWords.map(w => w.mi));
-    
-    // Agrupar palavras por faixa de relevância MI (0-20%, 20-40%, 40-60%, 60-80%, 80-100%)
-    const orbitGroups: { [key: number]: Array<typeof sortedWords[0]> } = {
-      0: [], // 80-100% (mais interna)
-      1: [], // 60-80%
-      2: [], // 40-60%
-      3: [], // 20-40%
-      4: []  // 0-20% (mais externa)
-    };
-    
-    sortedWords.forEach(wordData => {
-      const relevancePercent = ((wordData.mi - minMI) / (maxMI - minMI || 1)) * 100;
-      
-      if (relevancePercent >= 80) orbitGroups[0].push(wordData);
-      else if (relevancePercent >= 60) orbitGroups[1].push(wordData);
-      else if (relevancePercent >= 40) orbitGroups[2].push(wordData);
-      else if (relevancePercent >= 20) orbitGroups[3].push(wordData);
-      else orbitGroups[4].push(wordData);
-    });
-    
-    // Definir raios das 5 órbitas (proporcional ao container)
-    const orbitRadii = [0.10, 0.16, 0.22, 0.28, 0.34];
-    const orbitLabels = ['80-100%', '60-80%', '40-60%', '20-40%', '0-20%'];
-    
-    // Adicionar palavras em suas respectivas órbitas
-    Object.keys(orbitGroups).forEach(groupKey => {
-      const groupIdx = parseInt(groupKey);
-      const wordsInOrbit = orbitGroups[groupIdx];
-      const orbitRadius = orbitRadii[groupIdx];
-      const orbitLabel = orbitLabels[groupIdx];
-      
-      if (wordsInOrbit.length === 0) return;
-      
-      const angleStep = (2 * Math.PI) / wordsInOrbit.length;
-      
-      wordsInOrbit.forEach((wordData, idx) => {
-        const angle = idx * angleStep;
-        const x = 0.5 + Math.cos(angle) * orbitRadius;
-        const y = 0.5 + Math.sin(angle) * orbitRadius;
-        
-        // Tamanho baseado em frequência bruta (normalizado entre 18-28)
-        const minFreq = Math.min(...sortedWords.map(w => w.frequenciaBruta));
-        const maxFreq = Math.max(...sortedWords.map(w => w.frequenciaBruta));
-        const normalizedSize = 18 + ((wordData.frequenciaBruta - minFreq) / (maxFreq - minFreq || 1)) * 10;
-        
-        // Relevância em porcentagem
-        const relevancePercent = ((wordData.mi - minMI) / (maxMI - minMI || 1)) * 100;
-        
-        // Association strength baseado em MI Score (normalizado para %)
-        const associationStrength = Math.round(50 + ((wordData.mi - minMI) / (maxMI - minMI || 1)) * 50);
-        
-        graph.addNode(wordData.palavra, {
-          x,
-          y,
-          size: normalizedSize,
-          label: wordData.palavra,
-          color: system.corTexto,
-          freq: wordData.frequenciaBruta,
-          normalized: wordData.frequenciaNormalizada,
-          logLikelihood: wordData.ll,
-          miScore: wordData.mi,
-          orbitRadius,
-          orbitAngle: angle,
-          relevancePercent,
-          orbitGroup: orbitLabel,
-          associationStrength
-        });
-      });
-    });
-    
-    console.log('✅ Stellar graph created with', graph.order, 'nodes');
-    console.log('📊 Orbit distribution:', Object.entries(orbitGroups).map(([k, v]) => `${orbitLabels[parseInt(k)]}: ${v.length}`));
-    return graph;
-  }, [dominiosData, palavrasChaveData]);
 
-  // Navega entre níveis (universe, galaxy, stellar)
-  const navigateToLevel = useCallback((targetLevel: NavigationLevel, systemId?: string) => {
+  // Navega entre níveis (universe, galaxy)
+  const navigateToLevel = useCallback((targetLevel: NavigationLevel) => {
     if (!sigmaRef.current || !graphRef.current) return;
     
-    console.log('Navigating to level:', targetLevel, 'System:', systemId);
+    console.log('Navigating to level:', targetLevel);
     
     // Atualiza refs (FASE 1: evita stale closure)
     levelRef.current = targetLevel;
-    if (systemId) {
-      selectedSystemRef.current = systemId;
-    }
     
     setLevel(targetLevel);
-    if (systemId) {
-      setSelectedSystem(systemId);
-    }
     
     // Animação de fade out
     const container = sigmaRef.current.getContainer();
@@ -326,12 +219,8 @@ export const OrbitalConstellationChart = ({ onWordClick, dominiosData, palavrasC
         const newGraph = buildUniverseView();
         graph.clear();
         graph.import(newGraph.export());
-      } else if (targetLevel === 'galaxy') {
-        const newGraph = buildGalaxyView();
-        graph.clear();
-        graph.import(newGraph.export());
-      } else if (targetLevel === 'stellar' && systemId) {
-        const newGraph = buildStellarView(systemId);
+      } else {
+        const newGraph = buildUniverseView();
         graph.clear();
         graph.import(newGraph.export());
       }
@@ -343,7 +232,7 @@ export const OrbitalConstellationChart = ({ onWordClick, dominiosData, palavrasC
         sigmaRef.current.getCamera().animate({ x: 0.5, y: 0.5, ratio: 0.8 }, { duration: 800 });
       }
     }, 300);
-  }, [buildUniverseView, buildGalaxyView, buildStellarView]);
+  }, [buildUniverseView, buildGalaxyView]);
 
   // Inicializar Sigma.js (executa UMA VEZ)
   useEffect(() => {
@@ -402,9 +291,11 @@ export const OrbitalConstellationChart = ({ onWordClick, dominiosData, palavrasC
       setTooltipPos(displayPoint);
       setIsPaused(true);
       
-      // FASE 2: Cursor interativo
-      if (currentLevel === 'stellar' && node !== 'center') {
-        sigma.getContainer().style.cursor = 'grab';
+      // Cursor pointer para nós clicáveis
+      if (node === 'center') {
+        sigma.getContainer().style.cursor = 'pointer';
+      } else {
+        sigma.getContainer().style.cursor = 'pointer';
       }
     };
     
@@ -427,15 +318,19 @@ export const OrbitalConstellationChart = ({ onWordClick, dominiosData, palavrasC
         return;
       }
       
-      // Clique em domínio no nível galaxy: ir para stellar
+      // Clique em domínio no nível galaxy: abrir modal KWIC com primeira palavra do domínio
       if (currentLevel === 'galaxy' && node !== 'center') {
-        navigateToLevel('stellar', node);
+        const nodeData = graph.getNodeAttributes(node);
+        const words = nodeData.words || [];
+        if (words.length > 0 && onWordClick) {
+          // Abre KWIC da primeira palavra do domínio
+          onWordClick(words[0]);
+        }
         return;
       }
       
-      // Clique em palavra no nível stellar: abrir modal KWIC com dados reais
-      if (currentLevel === 'stellar' && node !== 'center') {
-        // Busca dados KWIC reais da palavra
+      // Clique em palavra no nível universe: abrir modal KWIC
+      if (currentLevel === 'universe' && node !== 'center') {
         const kwicData = kwicDataMap[node];
         if (kwicData && kwicData.length > 0) {
           onWordClick?.(node);
@@ -445,70 +340,17 @@ export const OrbitalConstellationChart = ({ onWordClick, dominiosData, palavrasC
         return;
       }
       
-      // Clique no centro no nível stellar: voltar para galaxy
-      if (currentLevel === 'stellar' && node === 'center') {
-        navigateToLevel('galaxy');
+      // Clique no centro no nível galaxy: voltar para universe
+      if (currentLevel === 'galaxy' && node === 'center') {
+        navigateToLevel('universe');
         return;
       }
     };
     
-    // FASE 2: Implementar drag circular
-    const downNodeHandler = ({ node, event }: any) => {
-      const currentLevel = levelRef.current;
-      if (currentLevel !== 'stellar') return;
-      if (node === 'center') return;
-      
-      setIsDragging(true);
-      setDraggedNode(node);
-      sigma.getContainer().style.cursor = 'grabbing';
-      event.preventSigmaDefault();
-    };
-
-    const handleMouseMove = (event: MouseEvent) => {
-      if (!isDragging || !draggedNode || !sigmaRef.current || !graphRef.current) return;
-      
-      const sigma = sigmaRef.current;
-      const graph = graphRef.current;
-      
-      const nodeX = graph.getNodeAttribute(draggedNode, 'x');
-      const nodeY = graph.getNodeAttribute(draggedNode, 'y');
-      const centerX = 0.5;
-      const centerY = 0.5;
-      
-      // Calcular distância (raio da órbita)
-      const radius = Math.sqrt(
-        Math.pow(nodeX - centerX, 2) + 
-        Math.pow(nodeY - centerY, 2)
-      );
-      
-      // Converter posição do mouse para coordenadas do grafo
-      const containerRect = sigma.getContainer().getBoundingClientRect();
-      const graphMousePos = sigma.viewportToGraph({
-        x: event.clientX - containerRect.left,
-        y: event.clientY - containerRect.top
-      });
-      
-      // Calcular novo ângulo
-      const dx = graphMousePos.x - centerX;
-      const dy = graphMousePos.y - centerY;
-      const angle = Math.atan2(dy, dx);
-      
-      // Nova posição mantendo o raio
-      const newX = centerX + Math.cos(angle) * radius;
-      const newY = centerY + Math.sin(angle) * radius;
-      
-      graph.setNodeAttribute(draggedNode, 'x', newX);
-      graph.setNodeAttribute(draggedNode, 'y', newY);
-      graph.setNodeAttribute(draggedNode, 'angle', angle);
-    };
-
-    const handleMouseUp = () => {
-      if (isDragging && sigmaRef.current) {
-        setIsDragging(false);
-        setDraggedNode(null);
-        sigmaRef.current.getContainer().style.cursor = 'default';
-      }
-    };
+    // Drag handlers removidos (não há mais nível stellar)
+    const downNodeHandler = () => {};
+    const handleMouseMove = () => {};
+    const handleMouseUp = () => {};
 
     sigma.on('enterNode', enterNodeHandler);
     sigma.on('leaveNode', leaveNodeHandler);
@@ -526,7 +368,7 @@ export const OrbitalConstellationChart = ({ onWordClick, dominiosData, palavrasC
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [navigateToLevel, isDragging, draggedNode, onWordClick, kwicDataMap]);
+  }, [navigateToLevel, onWordClick, kwicDataMap]);
 
   const handleZoomIn = () => {
     if (sigmaRef.current) {
@@ -579,36 +421,6 @@ export const OrbitalConstellationChart = ({ onWordClick, dominiosData, palavrasC
         />
       )}
 
-      {/* Orbital Sliders (stellar level only) */}
-      {level === 'stellar' && containerRect && graphRef.current && (
-        <>
-          {graphRef.current.nodes().map((nodeId: string) => {
-            if (nodeId === 'center') return null;
-            
-            const node = graphRef.current.getNodeAttributes(nodeId);
-            const centerX = containerRect.width / 2;
-            const centerY = containerRect.height / 2;
-            
-            // Calculate radius and angle from center
-            const nodeX = node.x * containerRect.width;
-            const nodeY = node.y * containerRect.height;
-            const radius = Math.sqrt(Math.pow(nodeX - centerX, 2) + Math.pow(nodeY - centerY, 2));
-            const angle = Math.atan2(nodeY - centerY, nodeX - centerX);
-            
-            return (
-              <OrbitalSlider
-                key={nodeId}
-                radius={radius}
-                angle={angle}
-                percentage={Math.round((node.associationStrength || 50))}
-                color={node.color}
-                containerWidth={containerRect.width}
-                containerHeight={containerRect.height}
-              />
-            );
-          })}
-        </>
-      )}
 
       {/* HUD Tooltip (complete version) */}
       {hoveredNode && containerRect && (
@@ -624,14 +436,6 @@ export const OrbitalConstellationChart = ({ onWordClick, dominiosData, palavrasC
       {/* Navigation Console */}
       <SpaceNavigationConsole
         level={level}
-        currentSystem={selectedSystem || 'UNIVERSO'}
-        currentCoords={selectedSystem ? `Sistema: ${selectedSystem}` : 'Coord: 0.0.0'}
-        filters={{
-          minFrequency: 0,
-          prosody: 'all',
-          categories: [],
-          searchQuery: ''
-        }}
         onNavigate={navigateToLevel}
         onFilterChange={() => {}}
         onReset={() => {}}
@@ -646,7 +450,6 @@ export const OrbitalConstellationChart = ({ onWordClick, dominiosData, palavrasC
         onRefresh={() => {
           if (level === 'universe') buildUniverseView();
           else if (level === 'galaxy') buildGalaxyView();
-          else if (level === 'stellar' && selectedSystem) buildStellarView(selectedSystem);
         }}
         isPaused={isPaused}
         onPauseToggle={() => setIsPaused(!isPaused)}

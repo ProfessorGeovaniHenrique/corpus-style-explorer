@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 
 interface OrbitalRingsProps {
-  level: 'universe' | 'galaxy' | 'stellar';
+  level: 'universe' | 'galaxy';
   isPaused: boolean;
   containerWidth: number;
   containerHeight: number;
@@ -36,14 +36,6 @@ export const OrbitalRings = ({ level, isPaused, containerWidth, containerHeight 
           { radius: baseRadius * 2.0, speed: 0.6, dashArray: '15 8', label: '40-60%' },
           { radius: baseRadius * 2.5, speed: 0.4, dashArray: '18 10', label: '20-40%' },
           { radius: baseRadius * 3.0, speed: 0.3, dashArray: '20 12', label: '0-20%' }    // Órbita mais externa
-        ];
-      case 'stellar':
-        return [
-          { radius: baseRadius * 0.83, speed: 1.0, dashArray: '10 5', label: '80-100%' },  // Órbita mais interna
-          { radius: baseRadius * 1.33, speed: 0.8, dashArray: '12 6', label: '60-80%' },
-          { radius: baseRadius * 1.83, speed: 0.6, dashArray: '15 8', label: '40-60%' },
-          { radius: baseRadius * 2.33, speed: 0.4, dashArray: '18 10', label: '20-40%' },
-          { radius: baseRadius * 2.83, speed: 0.3, dashArray: '20 12', label: '0-20%' }    // Órbita mais externa
         ];
       default:
         return [];
@@ -148,8 +140,8 @@ export const OrbitalRings = ({ level, isPaused, containerWidth, containerHeight 
         </g>
       ))}
       
-      {/* Orbit labels (for universe and stellar levels) */}
-      {(level === 'universe' || level === 'stellar') && orbits.map((orbit, index) => {
+      {/* Orbit labels (only for universe level) */}
+      {level === 'universe' && orbits.map((orbit, index) => {
         if (!orbit.label) return null;
         const labelY = centerY - orbit.radius - 15;
         return (
