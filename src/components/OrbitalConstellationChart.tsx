@@ -5,6 +5,7 @@ import { SpaceNavigationConsole } from './SpaceNavigationConsole';
 import { SpaceHUDTooltip } from './SpaceHUDTooltip';
 import { VerticalZoomControls } from './VerticalZoomControls';
 import { OrbitalRings } from './OrbitalRings';
+import { OrbitalSlider } from './OrbitalSlider';
 import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from './ui/tooltip';
 
 type NavigationLevel = 'universe' | 'galaxy' | 'stellar';
@@ -21,6 +22,7 @@ interface WordData {
   miScore?: number;
   prosody?: string;
   sentiment?: string;
+  associationStrength?: number;
 }
 
 interface DomainData {
@@ -41,12 +43,20 @@ export const OrbitalConstellationChart = ({ onWordClick }: OrbitalConstellationC
   const sigmaRef = useRef<Sigma | null>(null);
   const graphRef = useRef<any>(null);
   
+  // Refs para evitar stale closure nos event handlers (FASE 1)
+  const levelRef = useRef<NavigationLevel>('universe');
+  const selectedSystemRef = useRef<string | null>(null);
+  
   const [level, setLevel] = useState<NavigationLevel>('universe');
   const [selectedSystem, setSelectedSystem] = useState<string | null>(null);
   const [hoveredNode, setHoveredNode] = useState<any>(null);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
   const [isPaused, setIsPaused] = useState(false);
   const [containerRect, setContainerRect] = useState<DOMRect | null>(null);
+  
+  // Estados para drag circular (FASE 2)
+  const [isDragging, setIsDragging] = useState(false);
+  const [draggedNode, setDraggedNode] = useState<string | null>(null);
   
   const [filters, setFilters] = useState({
     minFrequency: 1,
@@ -55,25 +65,25 @@ export const OrbitalConstellationChart = ({ onWordClick }: OrbitalConstellationC
     searchQuery: ''
   });
 
-  // Dados do Universo Semântico
+  // Dados do Universo Semântico (FASE 3: adicionado associationStrength)
   const universeWords: WordData[] = [
     // Órbita interna (alta frequência)
-    { id: 'verso', label: 'verso', size: 18, color: '#1B5E20', freq: 8, normalized: 12.3, orbit: 150, logLikelihood: 15.2, prosody: 'Neutra', sentiment: 'Contemplativo' },
-    { id: 'campo', label: 'campo', size: 17, color: '#1B5E20', freq: 7, normalized: 10.8, orbit: 150, logLikelihood: 14.1, prosody: 'Positiva', sentiment: 'Serenidade' },
-    { id: 'casa', label: 'casa', size: 16, color: '#F57F17', freq: 6, normalized: 9.2, orbit: 150, logLikelihood: 12.8, prosody: 'Positiva', sentiment: 'Acolhimento' },
-    { id: 'galpão', label: 'galpão', size: 15, color: '#C62828', freq: 5, normalized: 7.7, orbit: 150, logLikelihood: 11.2, prosody: 'Neutra', sentiment: 'Tradição' },
+    { id: 'verso', label: 'verso', size: 18, color: '#1B5E20', freq: 8, normalized: 12.3, orbit: 150, logLikelihood: 15.2, prosody: 'Neutra', sentiment: 'Contemplativo', associationStrength: 95 },
+    { id: 'campo', label: 'campo', size: 17, color: '#1B5E20', freq: 7, normalized: 10.8, orbit: 150, logLikelihood: 14.1, prosody: 'Positiva', sentiment: 'Serenidade', associationStrength: 92 },
+    { id: 'casa', label: 'casa', size: 16, color: '#F57F17', freq: 6, normalized: 9.2, orbit: 150, logLikelihood: 12.8, prosody: 'Positiva', sentiment: 'Acolhimento', associationStrength: 88 },
+    { id: 'galpão', label: 'galpão', size: 15, color: '#C62828', freq: 5, normalized: 7.7, orbit: 150, logLikelihood: 11.2, prosody: 'Neutra', sentiment: 'Tradição', associationStrength: 85 },
     
     // Órbita média (média frequência)
-    { id: 'saudade', label: 'saudade', size: 13, color: '#C62828', freq: 3, normalized: 4.6, orbit: 220, logLikelihood: 8.2, prosody: 'Negativa', sentiment: 'Nostalgia' },
-    { id: 'mate', label: 'mate', size: 13, color: '#F57F17', freq: 3, normalized: 4.6, orbit: 220, logLikelihood: 7.9, prosody: 'Positiva', sentiment: 'Pertencimento' },
-    { id: 'noite', label: 'noite', size: 12, color: '#00E5FF', freq: 3, normalized: 4.6, orbit: 220, logLikelihood: 7.5, prosody: 'Neutra', sentiment: 'Mistério' },
+    { id: 'saudade', label: 'saudade', size: 13, color: '#C62828', freq: 3, normalized: 4.6, orbit: 220, logLikelihood: 8.2, prosody: 'Negativa', sentiment: 'Nostalgia', associationStrength: 72 },
+    { id: 'mate', label: 'mate', size: 13, color: '#F57F17', freq: 3, normalized: 4.6, orbit: 220, logLikelihood: 7.9, prosody: 'Positiva', sentiment: 'Pertencimento', associationStrength: 70 },
+    { id: 'noite', label: 'noite', size: 12, color: '#00E5FF', freq: 3, normalized: 4.6, orbit: 220, logLikelihood: 7.5, prosody: 'Neutra', sentiment: 'Mistério', associationStrength: 68 },
     
     // Órbita externa (baixa frequência)
-    { id: 'tarumã', label: 'tarumã', size: 11, color: '#1B5E20', freq: 2, normalized: 3.1, orbit: 290, logLikelihood: 6.2, prosody: 'Neutra', sentiment: 'Natureza' },
-    { id: 'coxilha', label: 'coxilha', size: 11, color: '#1B5E20', freq: 2, normalized: 3.1, orbit: 290, logLikelihood: 5.8, prosody: 'Neutra', sentiment: 'Paisagem' },
-    { id: 'silêncio', label: 'silêncio', size: 10, color: '#00E5FF', freq: 2, normalized: 3.1, orbit: 290, logLikelihood: 5.4, prosody: 'Neutra', sentiment: 'Quietude' },
-    { id: 'sonho', label: 'sonho', size: 10, color: '#C62828', freq: 2, normalized: 3.1, orbit: 290, logLikelihood: 5.1, prosody: 'Positiva', sentiment: 'Esperança' },
-    { id: 'sombra', label: 'sombra', size: 10, color: '#00E5FF', freq: 2, normalized: 3.1, orbit: 290, logLikelihood: 4.9, prosody: 'Neutra', sentiment: 'Proteção' }
+    { id: 'tarumã', label: 'tarumã', size: 11, color: '#1B5E20', freq: 2, normalized: 3.1, orbit: 290, logLikelihood: 6.2, prosody: 'Neutra', sentiment: 'Natureza', associationStrength: 55 },
+    { id: 'coxilha', label: 'coxilha', size: 11, color: '#1B5E20', freq: 2, normalized: 3.1, orbit: 290, logLikelihood: 5.8, prosody: 'Neutra', sentiment: 'Paisagem', associationStrength: 52 },
+    { id: 'silêncio', label: 'silêncio', size: 10, color: '#00E5FF', freq: 2, normalized: 3.1, orbit: 290, logLikelihood: 5.4, prosody: 'Neutra', sentiment: 'Quietude', associationStrength: 50 },
+    { id: 'sonho', label: 'sonho', size: 10, color: '#C62828', freq: 2, normalized: 3.1, orbit: 290, logLikelihood: 5.1, prosody: 'Positiva', sentiment: 'Esperança', associationStrength: 48 },
+    { id: 'sombra', label: 'sombra', size: 10, color: '#00E5FF', freq: 2, normalized: 3.1, orbit: 290, logLikelihood: 4.9, prosody: 'Neutra', sentiment: 'Proteção', associationStrength: 45 }
   ];
 
   // Dados da Galáxia de Domínios
@@ -240,7 +250,9 @@ export const OrbitalConstellationChart = ({ onWordClick }: OrbitalConstellationC
   // Navegação entre níveis
   const navigateToLevel = useCallback((newLevel: NavigationLevel, systemId?: string) => {
     setLevel(newLevel);
+    levelRef.current = newLevel; // FASE 1: Atualizar ref
     setSelectedSystem(systemId || null);
+    selectedSystemRef.current = systemId || null; // FASE 1: Atualizar ref
     
     if (!graphRef.current) return;
     
@@ -303,38 +315,110 @@ export const OrbitalConstellationChart = ({ onWordClick }: OrbitalConstellationC
     // Set initial camera position
     sigma.getCamera().setState({ x: 0.5, y: 0.5, ratio: 0.8 });
     
-    // Event handlers
+    // Event handlers (FASE 1: usar refs para evitar stale closure)
     sigma.on('enterNode', ({ node, event }) => {
+      const currentLevel = levelRef.current;
       const wordData = universeWords.find(w => w.id === node);
       const displayPoint = { x: event.x, y: event.y };
       
-      setHoveredNode(wordData || { id: node, label: node, freq: 0, normalized: 0 });
+      setHoveredNode(wordData ? { ...wordData, level: currentLevel } : { id: node, label: node, freq: 0, normalized: 0, level: currentLevel });
       setTooltipPos(displayPoint);
       setIsPaused(true);
+      
+      // FASE 2: Cursor interativo
+      if (currentLevel === 'stellar' && node !== 'system-center') {
+        sigma.getContainer().style.cursor = 'grab';
+      }
     });
     
     sigma.on('leaveNode', () => {
       setHoveredNode(null);
       setTimeout(() => setIsPaused(false), 2000);
+      if (!isDragging) {
+        sigma.getContainer().style.cursor = 'default';
+      }
     });
     
     sigma.on('clickNode', ({ node }) => {
-      if (level === 'universe' && node === 'song-center') {
+      const currentLevel = levelRef.current;
+      
+      console.log('Node clicked:', node, 'Current level:', currentLevel);
+      
+      if (currentLevel === 'universe' && node === 'song-center') {
         navigateToLevel('galaxy');
-      } else if (level === 'galaxy') {
+      } else if (currentLevel === 'galaxy') {
         navigateToLevel('stellar', node);
-      } else if (level === 'stellar' && node !== 'system-center') {
+      } else if (currentLevel === 'stellar' && node !== 'system-center') {
         onWordClick?.(node);
-      } else if (level === 'stellar' && node === 'system-center') {
-        // Clicar na estrela central volta para galaxy
+      } else if (currentLevel === 'stellar' && node === 'system-center') {
         navigateToLevel('galaxy');
       }
     });
     
+    // FASE 2: Implementar drag circular
+    sigma.on('downNode', ({ node, event }) => {
+      const currentLevel = levelRef.current;
+      if (currentLevel !== 'stellar') return;
+      if (node === 'system-center') return;
+      
+      setIsDragging(true);
+      setDraggedNode(node);
+      sigma.getContainer().style.cursor = 'grabbing';
+      event.preventSigmaDefault();
+    });
+
+    const handleMouseMove = (event: MouseEvent) => {
+      if (!isDragging || !draggedNode || !sigmaRef.current || !graphRef.current) return;
+      
+      const sigma = sigmaRef.current;
+      const graph = graphRef.current;
+      
+      const nodeX = graph.getNodeAttribute(draggedNode, 'x');
+      const nodeY = graph.getNodeAttribute(draggedNode, 'y');
+      const centerX = 0.5;
+      const centerY = 0.5;
+      
+      // Calcular distância (raio da órbita)
+      const radius = Math.sqrt(
+        Math.pow(nodeX - centerX, 2) + 
+        Math.pow(nodeY - centerY, 2)
+      );
+      
+      // Converter posição do mouse para coordenadas do grafo
+      const containerRect = sigma.getContainer().getBoundingClientRect();
+      const viewportX = event.clientX - containerRect.left;
+      const viewportY = event.clientY - containerRect.top;
+      const graphCoords = sigma.viewportToGraph({ x: viewportX, y: viewportY });
+      
+      // Calcular novo ângulo baseado na posição do mouse
+      const newAngle = Math.atan2(graphCoords.y - centerY, graphCoords.x - centerX);
+      
+      // Atualizar posição do nó mantendo o raio constante
+      graph.setNodeAttribute(draggedNode, 'x', centerX + radius * Math.cos(newAngle));
+      graph.setNodeAttribute(draggedNode, 'y', centerY + radius * Math.sin(newAngle));
+      
+      sigma.refresh();
+    };
+
+    const handleMouseUp = () => {
+      if (isDragging && sigmaRef.current) {
+        setIsDragging(false);
+        setDraggedNode(null);
+        if (sigmaRef.current.getContainer()) {
+          sigmaRef.current.getContainer().style.cursor = 'default';
+        }
+      }
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    
     return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
       sigma.kill();
     };
-  }, []);
+  }, [isDragging, draggedNode]);
 
   // Atualizar quando filtros mudarem
   useEffect(() => {
@@ -490,7 +574,46 @@ export const OrbitalConstellationChart = ({ onWordClick }: OrbitalConstellationC
         position={tooltipPos}
         visible={!!hoveredNode}
         containerRect={containerRect || undefined}
+        level={level}
       />
+      
+      {/* FASE 3: Renderizar sliders de força de associação */}
+      {level === 'stellar' && containerRect && graphRef.current && sigmaRef.current && (
+        <>
+          {graphRef.current.nodes()
+            .filter((nodeId: string) => nodeId !== 'system-center')
+            .map((nodeId: string) => {
+              const node = graphRef.current.getNodeAttributes(nodeId);
+              const wordData = universeWords.find(w => w.id === nodeId);
+              
+              if (!wordData?.associationStrength) return null;
+              
+              // Calcular raio e ângulo em pixels
+              const centerX = containerRect.width / 2;
+              const centerY = containerRect.height / 2;
+              
+              // Converter coordenadas normalizadas para pixels
+              const viewportCoords = sigmaRef.current.graphToViewport({ x: node.x, y: node.y });
+              const radius = Math.sqrt(
+                Math.pow(viewportCoords.x - centerX, 2) + 
+                Math.pow(viewportCoords.y - centerY, 2)
+              );
+              const angle = Math.atan2(viewportCoords.y - centerY, viewportCoords.x - centerX);
+              
+              return (
+                <OrbitalSlider
+                  key={nodeId}
+                  radius={radius}
+                  angle={angle}
+                  percentage={wordData.associationStrength}
+                  color={node.color}
+                  containerWidth={containerRect.width}
+                  containerHeight={containerRect.height}
+                />
+              );
+            })}
+        </>
+      )}
       
       <style>{`
         @keyframes rotate-orbit {
