@@ -1,6 +1,50 @@
 import { NodeDisplayData, PartialButFor } from 'sigma/types';
 
 /**
+ * Gera um seed numérico baseado no label da palavra
+ * Usado para criar variações consistentes e únicas para cada planeta
+ */
+function generateSeed(label: string): number {
+  let hash = 0;
+  for (let i = 0; i < label.length; i++) {
+    hash = ((hash << 5) - hash) + label.charCodeAt(i);
+    hash = hash & hash; // Convert to 32bit integer
+  }
+  return Math.abs(hash);
+}
+
+/**
+ * Gera parâmetros visuais únicos baseados no seed
+ */
+function getPlanetVariation(seed: number) {
+  const random = (offset: number) => {
+    const x = Math.sin(seed + offset) * 10000;
+    return x - Math.floor(x);
+  };
+  
+  return {
+    // Variação de brilho (0.7 a 1.3)
+    brightness: 0.7 + random(1) * 0.6,
+    
+    // Número de anéis (1 a 3)
+    numRings: Math.floor(random(2) * 3) + 1,
+    
+    // Posição do highlight (variação de -0.5 a -0.3)
+    highlightX: -0.3 - random(3) * 0.2,
+    highlightY: -0.3 - random(4) * 0.2,
+    
+    // Intensidade do glow (0.5 a 1.0)
+    glowIntensity: 0.5 + random(5) * 0.5,
+    
+    // Padrão de superfície (0-3: liso, listras, pontos, manchas)
+    surfacePattern: Math.floor(random(6) * 4),
+    
+    // Velocidade de pulso (0.5x a 2x)
+    pulseSpeed: 0.5 + random(7) * 1.5
+  };
+}
+
+/**
  * Custom Sigma.js node renderer for Mass Effect-style planets
  * Creates multi-layered planets with glow effects, pulsing rings, and radial gradients
  */
@@ -10,6 +54,10 @@ export function drawPlanetNode(
   settings: any
 ): void {
   const { x, y, size, color, label } = data;
+  
+  // ✨ GERAR VARIAÇÕES ÚNICAS PARA ESTE PLANETA
+  const seed = generateSeed(label || 'default');
+  const variant = getPlanetVariation(seed);
   
   // Save context state
   context.save();
@@ -21,8 +69,9 @@ export function drawPlanetNode(
   for (let i = 4; i >= 1; i--) {
     const glowRadius = size * (1 + i * 0.15);
     const gradient = context.createRadialGradient(0, 0, size, 0, 0, glowRadius);
+    const opacity = Math.floor((20 / i) * variant.glowIntensity);
     gradient.addColorStop(0, `${color}00`);
-    gradient.addColorStop(0.5, `${color}${Math.floor(20 / i).toString(16).padStart(2, '0')}`);
+    gradient.addColorStop(0.5, `${color}${opacity.toString(16).padStart(2, '0')}`);
     gradient.addColorStop(1, `${color}00`);
     
     context.fillStyle = gradient;
@@ -31,18 +80,20 @@ export function drawPlanetNode(
     context.fill();
   }
   
-  // === LAYER 2: Pulsing Ring (animated via opacity) ===
-  const time = Date.now() / 1000; // seconds
-  const pulseOpacity = 0.6 + 0.4 * Math.sin(time * 2); // oscillates between 0.6 and 1.0
-  const ringRadius = size * 1.3;
-  
-  context.strokeStyle = `#00E5FF${Math.floor(pulseOpacity * 255).toString(16).padStart(2, '0')}`;
-  context.lineWidth = 2;
-  context.setLineDash([5, 3]);
-  context.beginPath();
-  context.arc(0, 0, ringRadius, 0, Math.PI * 2);
-  context.stroke();
-  context.setLineDash([]); // reset dash
+  // === LAYER 2: Múltiplos Anéis Pulsantes ===
+  const time = Date.now() / 1000;
+  for (let i = 0; i < variant.numRings; i++) {
+    const pulseOpacity = 0.4 + 0.3 * Math.sin(time * variant.pulseSpeed + i);
+    const ringRadius = size * (1.2 + i * 0.15);
+    
+    context.strokeStyle = `#00E5FF${Math.floor(pulseOpacity * 255).toString(16).padStart(2, '0')}`;
+    context.lineWidth = 1.5;
+    context.setLineDash([5, 3]);
+    context.beginPath();
+    context.arc(0, 0, ringRadius, 0, Math.PI * 2);
+    context.stroke();
+  }
+  context.setLineDash([]);
   
   // === LAYER 3: Core Planet with Radial Gradient ===
   const coreGradient = context.createRadialGradient(
@@ -73,18 +124,73 @@ export function drawPlanetNode(
   context.arc(0, 0, size, 0, Math.PI * 2);
   context.fill();
   
-  // === LAYER 4: Highlight (small bright spot for 3D effect) ===
+  // === LAYER 3.5: Padrões de Superfície (Bolinhas de Gude) ===
+  context.save();
+  context.globalAlpha = 0.3;
+  
+  switch (variant.surfacePattern) {
+    case 1: // Listras
+      for (let i = 0; i < 5; i++) {
+        const angle = (i * Math.PI * 2) / 5;
+        context.strokeStyle = darkerColor;
+        context.lineWidth = size * 0.15;
+        context.beginPath();
+        context.arc(0, 0, size * 0.7, angle, angle + Math.PI / 8);
+        context.stroke();
+      }
+      break;
+      
+    case 2: // Pontos (crateras)
+      for (let i = 0; i < 8; i++) {
+        const angle = (i * Math.PI * 2) / 8 + seed;
+        const dist = size * (0.3 + (i % 3) * 0.2);
+        const dotX = Math.cos(angle) * dist;
+        const dotY = Math.sin(angle) * dist;
+        
+        context.fillStyle = darkerColor;
+        context.beginPath();
+        context.arc(dotX, dotY, size * 0.1, 0, Math.PI * 2);
+        context.fill();
+      }
+      break;
+      
+    case 3: // Manchas (nuvens)
+      for (let i = 0; i < 3; i++) {
+        const angle = (i * Math.PI * 2) / 3;
+        const spotX = Math.cos(angle) * size * 0.4;
+        const spotY = Math.sin(angle) * size * 0.4;
+        
+        const spotGradient = context.createRadialGradient(
+          spotX, spotY, 0,
+          spotX, spotY, size * 0.4
+        );
+        spotGradient.addColorStop(0, `${darkerColor}80`);
+        spotGradient.addColorStop(1, `${darkerColor}00`);
+        
+        context.fillStyle = spotGradient;
+        context.beginPath();
+        context.arc(spotX, spotY, size * 0.4, 0, Math.PI * 2);
+        context.fill();
+      }
+      break;
+      
+    // case 0: Liso (sem padrão adicional)
+  }
+  
+  context.restore();
+  
+  // === LAYER 4: Highlight com posição variável ===
   const highlightGradient = context.createRadialGradient(
-    -size * 0.4, -size * 0.4, 0,
-    -size * 0.4, -size * 0.4, size * 0.5
+    size * variant.highlightX, size * variant.highlightY, 0,
+    size * variant.highlightX, size * variant.highlightY, size * 0.5
   );
-  highlightGradient.addColorStop(0, 'rgba(255, 255, 255, 0.6)');
-  highlightGradient.addColorStop(0.5, 'rgba(255, 255, 255, 0.2)');
+  highlightGradient.addColorStop(0, `rgba(255, 255, 255, ${0.6 * variant.brightness})`);
+  highlightGradient.addColorStop(0.5, `rgba(255, 255, 255, ${0.2 * variant.brightness})`);
   highlightGradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
   
   context.fillStyle = highlightGradient;
   context.beginPath();
-  context.arc(-size * 0.4, -size * 0.4, size * 0.5, 0, Math.PI * 2);
+  context.arc(size * variant.highlightX, size * variant.highlightY, size * 0.5, 0, Math.PI * 2);
   context.fill();
   
   // === LAYER 5: Border ===

@@ -7,6 +7,7 @@ import { VerticalZoomControls } from './VerticalZoomControls';
 import { OrbitalRings } from './OrbitalRings';
 import { OrbitalSlider } from './OrbitalSlider';
 import { FilterPanel } from './FilterPanel';
+import { drawPlanetNode, drawPlanetNodeHover } from '@/lib/planetRenderer';
 
 type NavigationLevel = 'universe' | 'galaxy';
 
@@ -301,7 +302,25 @@ export const OrbitalConstellationChart = ({ onWordClick, dominiosData, palavrasC
       defaultNodeColor: '#F57F17',
       allowInvalidContainer: true,
       minCameraRatio: 0.3,
-      maxCameraRatio: 2.5
+      maxCameraRatio: 2.5,
+      
+      // ✨ NODE REDUCER para aplicar cores dos domínios
+      nodeReducer: (node, data) => {
+        const res = { ...data };
+        
+        // Usar a cor definida no atributo do nó
+        if (data.color) {
+          res.color = data.color;
+        }
+        
+        // Destaque para nó central
+        if (node === 'center') {
+          res.color = '#FFD700';
+          res.size = 15;
+        }
+        
+        return res;
+      }
     });
     
     sigmaRef.current = sigma;
