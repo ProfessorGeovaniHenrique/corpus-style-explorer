@@ -305,30 +305,34 @@ export const OrbitalConstellationChart = ({ onWordClick, dominiosData, palavrasC
       maxCameraRatio: 2.5,
       
       // ✨ NODE REDUCER para aplicar cores dos domínios
-      nodeReducer: (node, data) => {
-        const res = { ...data };
+      nodeReducer: (node, attrs) => {
+        // Copiar todos os atributos do nó
+        const result = { ...attrs };
         
-        // Usar a cor definida no atributo do nó
-        if (data.color) {
-          res.color = data.color;
+        // Garantir que a cor definida no atributo seja usada
+        if (attrs.color) {
+          result.color = attrs.color;
         }
         
-        // Destaque para nó central
+        // Destaque especial para nó central
         if (node === 'center') {
-          res.color = '#FFD700';
-          res.size = 15;
+          result.color = '#FFD700';
+          result.size = 40;
         }
         
-        return res;
+        return result;
       }
     });
     
     sigmaRef.current = sigma;
     
-    // Set initial camera position
-    sigma.getCamera().setState({ x: 0.5, y: 0.5, ratio: 0.8 });
-    
-    console.log('✅ Sigma.js initialized successfully');
+      // Set initial camera position
+      sigma.getCamera().setState({ x: 0.5, y: 0.5, ratio: 0.8 });
+
+      // Forçar refresh para aplicar cores
+      sigma.refresh();
+
+      console.log('✅ Sigma.js initialized successfully');
     
     return () => {
       console.log('🧹 Cleaning up Sigma.js');
