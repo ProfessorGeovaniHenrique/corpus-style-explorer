@@ -490,9 +490,15 @@ export const OrbitalConstellationChart = ({ onWordClick, dominiosData, palavrasC
     if (!sigmaRef.current || !graphRef.current) return;
     
     if (level === 'universe') {
-      buildUniverseView();
+      const newGraph = buildUniverseView();
+      graphRef.current.clear();
+      graphRef.current.import(newGraph.export());
+      sigmaRef.current.refresh();
     } else if (level === 'galaxy' && selectedSystem) {
-      buildGalaxyView();
+      const newGraph = buildGalaxyView();
+      graphRef.current.clear();
+      graphRef.current.import(newGraph.export());
+      sigmaRef.current.refresh();
     }
   }, [activeFilters, level, selectedSystem, buildUniverseView, buildGalaxyView]);
 
