@@ -16,6 +16,7 @@ export function CanvasGalaxyView({ nodes, onNodeClick, onNodeHover }: CanvasGala
   const [hoveredNode, setHoveredNode] = useState<GalaxyNode | null>(null);
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+  const [cursorStyle, setCursorStyle] = useState<'grab' | 'pointer' | 'grabbing'>('grab');
 
   // Calcular nós visíveis usando viewport culling
   const visibleNodes = useCallback(() => {
@@ -97,6 +98,7 @@ export function CanvasGalaxyView({ nodes, onNodeClick, onNodeHover }: CanvasGala
       if (node !== hoveredNode) {
         setHoveredNode(node);
         onNodeHover?.(node);
+        setCursorStyle(node ? 'pointer' : 'grab');
         setIsDirty(true);
       }
     }, 16),
@@ -107,14 +109,24 @@ export function CanvasGalaxyView({ nodes, onNodeClick, onNodeHover }: CanvasGala
   const handleMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     setIsPanning(true);
     setPanStart({ x: e.clientX, y: e.clientY });
+    setCursorStyle('grabbing');
   }, []);
 
   // Mouse up - finalizar pan ou clicar
   const handleMouseUp = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    const rect = canvasRef.current?.getBoundingClientRect();
+    
     if (isPanning) {
       setIsPanning(false);
+      
+      // Restaurar cursor baseado se há nó sob o mouse
+      if (rect) {
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        const node = getNodeAtPosition(x, y, nodes, camera);
+        setCursorStyle(node ? 'pointer' : 'grab');
+      }
     } else {
-      const rect = canvasRef.current?.getBoundingClientRect();
       if (!rect) return;
 
       const x = e.clientX - rect.left;
@@ -148,6 +160,7 @@ export function CanvasGalaxyView({ nodes, onNodeClick, onNodeHover }: CanvasGala
       onMouseUp={handleMouseUp}
       onMouseLeave={() => {
         setIsPanning(false);
+        setCursorStyle('grab');
         if (hoveredNode) {
           setHoveredNode(null);
           onNodeHover?.(null);
@@ -155,11 +168,12 @@ export function CanvasGalaxyView({ nodes, onNodeClick, onNodeHover }: CanvasGala
         }
       }}
       onWheel={handleWheel}
-      className="w-full h-full cursor-grab active:cursor-grabbing"
+      className="w-full h-full"
       style={{
         maxWidth: '100%',
         height: 'auto',
-        aspectRatio: '1400 / 800'
+        aspectRatio: '1400 / 800',
+        cursor: cursorStyle
       }}
     />
   );
