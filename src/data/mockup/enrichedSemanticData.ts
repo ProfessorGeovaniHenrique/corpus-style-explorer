@@ -217,6 +217,11 @@ export function enrichSemanticWords(): SemanticWord[] {
       // Órbitas mais distantes são mais elípticas
       const orbitalEccentricity = normalizedDistance * 0.4; // 0 a 0.4
 
+      // 🔍 DEBUG: Log temporário para verificar distribuição orbital
+      if (i < 3) { // Log apenas primeiras 3 palavras de cada domínio
+        console.log(`🪐 ${domain.dominio} | ${palavra}: freq=${frequency}, MI=${miScore.toFixed(2)}, radius=${orbitalRadius.toFixed(2)}, angle=${(orbitalAngle * 180 / Math.PI).toFixed(0)}°, prosody=${prosody}`);
+      }
+
       // ===== 7. CRIAR PALAVRA ENRIQUECIDA =====
       const enrichedWord: SemanticWord = {
         palavra,

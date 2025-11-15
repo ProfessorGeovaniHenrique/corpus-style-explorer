@@ -149,13 +149,14 @@ export function miScoreToOrbitalRadius(miScore: number): number {
   // Inverter: MI alto = distância baixa
   const distanceFromCore = 1.0 - normalizedMI;
   
-  // Mapear para raios orbitais
-  // Camada 1 (MI > 4.5): 0.5 - 1.0 (núcleo)
-  // Camada 2 (MI 3.0-4.5): 1.0 - 1.8
-  // Camada 3 (MI 1.5-3.0): 1.8 - 2.8
-  // Camada 4 (MI < 1.5): 2.8 - 4.0
-  const minRadius = 0.5;
-  const maxRadius = 4.0;
+  // Mapear para raios orbitais - AJUSTADO para garantir visibilidade
+  // Todos os planetas ficam FORA da FOG (raio > 1.5)
+  // Camada 1 (MI > 4.5): 1.8 - 2.2 (próximo, mas fora da FOG)
+  // Camada 2 (MI 3.0-4.5): 2.2 - 3.0
+  // Camada 3 (MI 1.5-3.0): 3.0 - 3.8
+  // Camada 4 (MI < 1.5): 3.8 - 4.5
+  const minRadius = 1.8;  // ERA 0.5 - agora garantidamente fora da FOG
+  const maxRadius = 4.5;  // ERA 4.0 - órbitas mais distantes
   
   return minRadius + (distanceFromCore * (maxRadius - minRadius));
 }
