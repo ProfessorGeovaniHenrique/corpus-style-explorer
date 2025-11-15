@@ -24,7 +24,7 @@ interface OrbitalConstellationChartProps {
     comparacaoCorpus: 'super-representado' | 'equilibrado' | 'sub-representado';
     diferencaCorpus: number;
     percentualCorpusNE: number;
-    palavras: Array<{ palavra: string; ocorrencias: number }>;
+    palavras: string[];
     cor: string;
     corTexto: string;
   }>;
@@ -105,7 +105,7 @@ export const OrbitalConstellationChart = ({ onWordClick, dominiosData, palavrasC
   // Função auxiliar para mapear domínio de uma palavra
   const getWordDomain = useCallback((palavra: string): { cor: string; corTexto: string } => {
     for (const dominio of dominiosData) {
-      if (dominio.palavras.some(p => p.palavra === palavra)) {
+      if (dominio.palavras.some(p => p === palavra)) {
         return { cor: dominio.cor, corTexto: dominio.corTexto };
       }
     }
@@ -152,7 +152,7 @@ export const OrbitalConstellationChart = ({ onWordClick, dominiosData, palavrasC
     if (activeFilters.domains.length > 0) {
       allWords = allWords.filter(w => {
         for (const dominio of dominiosData) {
-          if (dominio.palavras.some(p => p.palavra === w.palavra) && activeFilters.domains.includes(dominio.dominio)) {
+          if (dominio.palavras.some(p => p === w.palavra) && activeFilters.domains.includes(dominio.dominio)) {
             return true;
           }
         }

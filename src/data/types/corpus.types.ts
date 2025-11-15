@@ -16,6 +16,12 @@ export interface DominioSemantico {
   percentual: number;
   palavras: string[];
   cor: string;
+  corTexto: string;
+  frequenciaNormalizada: number;
+  percentualTematico: number;
+  comparacaoCorpus: 'super-representado' | 'equilibrado' | 'sub-representado';
+  diferencaCorpus: number;
+  percentualCorpusNE: number;
 }
 
 export interface PalavraChave {

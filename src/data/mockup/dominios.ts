@@ -14,7 +14,13 @@ export const dominiosData: DominioSemantico[] = [
       "lonjuras", "maragato", "mate", "pañuelo", "prenda", 
       "pura-folha", "quarto", "querência", "ramada", "templado", "tropa"
     ],
-    cor: "hsl(142, 71%, 45%)"
+    cor: "hsl(142, 71%, 45%)",
+    corTexto: "hsl(0, 0%, 100%)",
+    frequenciaNormalizada: 13.21,
+    percentualTematico: 34.15,
+    comparacaoCorpus: 'super-representado',
+    diferencaCorpus: 8.42,
+    percentualCorpusNE: 15.73
   },
   {
     dominio: "Natureza e Paisagem",
@@ -27,7 +33,13 @@ export const dominiosData: DominioSemantico[] = [
       "fogo", "horizonte", "madrugada", "manhã", "manhãs",
       "maçanilha", "noite", "primavera", "reponte", "ventito"
     ],
-    cor: "hsl(221, 83%, 53%)"
+    cor: "hsl(221, 83%, 53%)",
+    corTexto: "hsl(0, 0%, 100%)",
+    frequenciaNormalizada: 12.26,
+    percentualTematico: 31.71,
+    comparacaoCorpus: 'equilibrado',
+    diferencaCorpus: 1.12,
+    percentualCorpusNE: 11.14
   },
   {
     dominio: "Sentimentos e Abstrações",
@@ -40,7 +52,13 @@ export const dominiosData: DominioSemantico[] = [
       "figura", "fim", "jeito", "luz", "mansidão", "respeito",
       "silencio"
     ],
-    cor: "hsl(280, 65%, 60%)"
+    cor: "hsl(280, 65%, 60%)",
+    corTexto: "hsl(0, 0%, 100%)",
+    frequenciaNormalizada: 9.43,
+    percentualTematico: 24.39,
+    comparacaoCorpus: 'super-representado',
+    diferencaCorpus: 5.21,
+    percentualCorpusNE: 4.22
   },
   {
     dominio: "Ações e Processos",
@@ -57,7 +75,13 @@ export const dominiosData: DominioSemantico[] = [
       "ganhar", "ganhou", "pontear", "queimar", "queimando",
       "rondar", "ter", "tinha"
     ],
-    cor: "hsl(0, 72%, 51%)"
+    cor: "hsl(0, 72%, 51%)",
+    corTexto: "hsl(0, 0%, 100%)",
+    frequenciaNormalizada: 11.32,
+    percentualTematico: 29.27,
+    comparacaoCorpus: 'equilibrado',
+    diferencaCorpus: 0.82,
+    percentualCorpusNE: 10.50
   },
   {
     dominio: "Qualidades e Estados",
@@ -71,7 +95,13 @@ export const dominiosData: DominioSemantico[] = [
       "lindo", "negro", "negros", "novo", "recostado", "recostada",
       "redomona", "suado", "suados", "vestido", "vestidos"
     ],
-    cor: "hsl(45, 93%, 47%)"
+    cor: "hsl(45, 93%, 47%)",
+    corTexto: "hsl(0, 0%, 20%)",
+    frequenciaNormalizada: 7.55,
+    percentualTematico: 19.51,
+    comparacaoCorpus: 'sub-representado',
+    diferencaCorpus: -3.15,
+    percentualCorpusNE: 10.70
   },
   {
     dominio: "Partes do Corpo e Seres",
@@ -81,6 +111,12 @@ export const dominiosData: DominioSemantico[] = [
     palavras: [
       "olho", "olhos", "galo"
     ],
-    cor: "hsl(30, 100%, 50%)"
+    cor: "hsl(30, 100%, 50%)",
+    corTexto: "hsl(0, 0%, 20%)",
+    frequenciaNormalizada: 1.42,
+    percentualTematico: 3.66,
+    comparacaoCorpus: 'sub-representado',
+    diferencaCorpus: -2.34,
+    percentualCorpusNE: 3.76
   }
 ];
