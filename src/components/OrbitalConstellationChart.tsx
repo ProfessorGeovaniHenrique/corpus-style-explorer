@@ -894,7 +894,7 @@ export const OrbitalConstellationChart = ({ onWordClick, dominiosData, palavrasC
         {/* Toolbar - Sempre visível */}
         <ControlToolbar
           isMinimized={consoleMode === 'minimized'}
-          onExpandConsole={handleExpandConsole}
+          onToggleConsole={handleExpandConsole}
           onZoomIn={handleZoomIn}
           onZoomOut={handleZoomOut}
           onReset={handleResetView}

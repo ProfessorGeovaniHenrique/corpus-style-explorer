@@ -1,10 +1,10 @@
-import { Home, ZoomIn, ZoomOut, Maximize, Pause, Play, Sparkles, Map, Rocket, PanelLeft } from 'lucide-react';
+import { Home, ZoomIn, ZoomOut, Maximize, Pause, Play, Sparkles, Map, Rocket, PanelLeft, Minimize2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface ControlToolbarProps {
   isMinimized?: boolean;
-  onExpandConsole?: () => void;
+  onToggleConsole?: () => void;
   onZoomIn: () => void;
   onZoomOut: () => void;
   onReset: () => void;
@@ -21,7 +21,7 @@ interface ControlToolbarProps {
 
 export const ControlToolbar = ({ 
   isMinimized = false,
-  onExpandConsole,
+  onToggleConsole,
   onZoomIn,
   onZoomOut,
   onReset,
@@ -45,14 +45,14 @@ export const ControlToolbar = ({
           boxShadow: '-10px 0 30px hsl(var(--primary) / 0.2), inset 0 0 20px hsl(var(--primary) / 0.1)'
         }}
       >
-        {/* Botão Expandir Console (quando minimizado) */}
-        {isMinimized && onExpandConsole && (
+        {/* Botão Toggle Console (sempre visível) */}
+        {onToggleConsole && (
           <>
             <ToolbarButton 
-              icon={PanelLeft} 
-              onClick={onExpandConsole} 
-              tooltip="Expandir Console"
-              active={true}
+              icon={isMinimized ? PanelLeft : Minimize2} 
+              onClick={onToggleConsole} 
+              tooltip={isMinimized ? "Expandir Console" : "Retrair Console"}
+              active={!isMinimized}
             />
             <ToolbarDivider />
           </>
