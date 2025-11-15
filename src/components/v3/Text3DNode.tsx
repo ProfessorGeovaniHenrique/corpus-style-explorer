@@ -1,12 +1,12 @@
 import { Text, Billboard } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import { ThreeEvent } from '@react-three/fiber';
-import { ThreeCloudNode } from '@/hooks/useThreeSemanticData';
+import { VisualNode } from '@/data/types/threeVisualization.types';
 import { useRef } from 'react';
 import * as THREE from 'three';
 
 interface Text3DNodeProps {
-  node: ThreeCloudNode;
+  node: VisualNode;
   font: string;
   isHovered: boolean;
   onPointerOver: (e: ThreeEvent<PointerEvent>) => void;
@@ -21,7 +21,7 @@ export function Text3DNode({ node, font, isHovered, onPointerOver, onPointerOut,
   
   // Pulse animation para domínios SUPER-REPRESENTADOS (textualWeight > 20%)
   useFrame((state) => {
-    if (isDomain && node.textualWeight && node.textualWeight > 20 && groupRef.current) {
+    if (isDomain && 'rawData' in node && node.rawData.textualWeight && node.rawData.textualWeight > 20 && groupRef.current) {
       const pulse = 1 + Math.sin(state.clock.elapsedTime * 2) * 0.05;
       groupRef.current.scale.setScalar(pulse);
     }

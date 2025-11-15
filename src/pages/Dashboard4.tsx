@@ -7,7 +7,7 @@ import { ThreeControlPanel } from '@/components/v3/ThreeControlPanel';
 import { StatisticalFooter } from '@/components/v3/StatisticalFooter';
 import { SmartTooltip3D } from '@/components/v3/SmartTooltip3D';
 import { DetailedAnalysisModal } from '@/components/v3/DetailedAnalysisModal';
-import { useThreeSemanticData, ViewMode, ThreeCloudNode } from '@/hooks/useThreeSemanticData';
+import { useThreeSemanticData, ViewMode, VisualNode, VisualWordNode, VisualDomainNode } from '@/hooks/useThreeSemanticData';
 import { Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import gsap from 'gsap';
@@ -18,8 +18,8 @@ export default function Dashboard4() {
   
   const { nodes, stats, connections } = useThreeSemanticData(viewMode, selectedDomainId);
   
-  const [selectedWord, setSelectedWord] = useState<ThreeCloudNode | null>(null);
-  const [hoveredNode, setHoveredNode] = useState<ThreeCloudNode | null>(null);
+  const [selectedWord, setSelectedWord] = useState<VisualNode | null>(null);
+  const [hoveredNode, setHoveredNode] = useState<VisualNode | null>(null);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   
   const [font, setFont] = useState('Orbitron');
@@ -37,34 +37,39 @@ export default function Dashboard4() {
   const filteredNodeIds = useMemo(() => {
     const filtered = new Set<string>();
     nodes.forEach(node => {
-      const passFrequency = node.frequency >= minFrequency;
-      const passProsody = prosodyFilter === 'all' || node.prosody === prosodyFilter;
-      const passDomain = selectedDomains.length === 0 || selectedDomains.includes(node.domain);
-      
-      let passKeyword = true;
-      if (showOnlyKeywords && node.type === 'word') {
-        const domainWords = nodes
-          .filter(n => n.type === 'word' && n.domain === node.domain)
-          .sort((a, b) => b.frequency - a.frequency)
-          .slice(0, 10)
-          .map(n => n.id);
-        passKeyword = domainWords.includes(node.id);
-      }
-      
-      if (passFrequency && passProsody && passDomain && passKeyword) {
+      if (node.type === 'word') {
+        const wordNode = node as VisualWordNode;
+        const passFrequency = wordNode.frequency >= minFrequency;
+        const passProsody = prosodyFilter === 'all' || wordNode.prosody === prosodyFilter;
+        const passDomain = selectedDomains.length === 0 || selectedDomains.includes(wordNode.domain);
+        
+        let passKeyword = true;
+        if (showOnlyKeywords) {
+          const domainWords = nodes
+            .filter(n => n.type === 'word' && (n as VisualWordNode).domain === wordNode.domain)
+            .sort((a, b) => (b as VisualWordNode).frequency - (a as VisualWordNode).frequency)
+            .slice(0, 10)
+            .map(n => n.id);
+          passKeyword = domainWords.includes(node.id);
+        }
+        
+        if (passFrequency && passProsody && passDomain && passKeyword) {
+          filtered.add(node.id);
+        }
+      } else {
         filtered.add(node.id);
       }
     });
     return filtered;
   }, [nodes, minFrequency, prosodyFilter, selectedDomains, showOnlyKeywords]);
   
-  const handleWordClick = useCallback((node: ThreeCloudNode) => {
+  const handleWordClick = useCallback((node: VisualNode) => {
     if (node.type === 'word') setSelectedWord(node);
   }, []);
   
-  const handleDomainClick = useCallback((node: ThreeCloudNode) => {
+  const handleDomainClick = useCallback((node: VisualNode) => {
     if (node.type === 'domain' && viewMode === 'constellation') {
-      setSelectedDomainId(node.domain);
+      setSelectedDomainId(node.label);
       setViewMode('orbital');
       if (cameraRef.current) {
         gsap.to(cameraRef.current.position, {
@@ -98,7 +103,7 @@ export default function Dashboard4() {
     const domains = new Map<string, { name: string; color: string }>();
     nodes.forEach(node => {
       if (node.type === 'domain') {
-        domains.set(node.domain, { name: node.domain, color: node.color });
+        domains.set(node.label, { name: node.label, color: node.color });
       }
     });
     return Array.from(domains.values());
@@ -158,12 +163,20 @@ export default function Dashboard4() {
                 <SmartTooltip3D
                   data={{
                     title: hoveredNode.label,
-                    domain: { name: hoveredNode.domain, color: hoveredNode.color },
-                    frequency: { raw: hoveredNode.frequency, normalized: (hoveredNode.frequency / 10000) * 100 },
-                    prosody: { type: hoveredNode.prosody },
+                    domain: { 
+                      name: hoveredNode.type === 'word' ? (hoveredNode as VisualWordNode).domain : hoveredNode.label, 
+                      color: hoveredNode.color 
+                    },
+                    frequency: { 
+                      raw: hoveredNode.type === 'word' ? (hoveredNode as VisualWordNode).frequency : (hoveredNode as VisualDomainNode).rawData.rawFrequency, 
+                      normalized: hoveredNode.type === 'word' ? (hoveredNode as VisualWordNode).frequency : 0 
+                    },
+                    prosody: { 
+                      type: hoveredNode.type === 'word' ? (hoveredNode as VisualWordNode).prosody : 'Neutra' 
+                    },
                     type: hoveredNode.type,
-                    lexicalRichness: hoveredNode.lexicalRichness,
-                    textualWeight: hoveredNode.textualWeight
+                    lexicalRichness: hoveredNode.type === 'domain' ? (hoveredNode as VisualDomainNode).rawData.lexicalRichness : undefined,
+                    textualWeight: hoveredNode.type === 'domain' ? (hoveredNode as VisualDomainNode).rawData.textualWeight : undefined
                   }}
                   position={mousePosition}
                 />

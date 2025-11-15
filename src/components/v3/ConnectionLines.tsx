@@ -1,6 +1,6 @@
 import { Line } from '@react-three/drei';
 import * as THREE from 'three';
-import { ThreeCloudNode } from '@/hooks/useThreeSemanticData';
+import { VisualNode } from '@/data/types/threeVisualization.types';
 
 interface DomainConnection {
   from: string;
@@ -10,7 +10,7 @@ interface DomainConnection {
 
 interface ConnectionLinesProps {
   connections: DomainConnection[];
-  nodes: ThreeCloudNode[];
+  nodes: VisualNode[];
   visible: boolean;
 }
 
@@ -20,8 +20,8 @@ export function ConnectionLines({ connections, nodes, visible }: ConnectionLines
   return (
     <group>
       {connections.map((conn, i) => {
-        const fromNode = nodes.find(n => n.domain === conn.from && n.type === 'domain');
-        const toNode = nodes.find(n => n.domain === conn.to && n.type === 'domain');
+        const fromNode = nodes.find(n => n.type === 'domain' && n.label === conn.from);
+        const toNode = nodes.find(n => n.type === 'domain' && n.label === conn.to);
         
         if (!fromNode || !toNode) return null;
         

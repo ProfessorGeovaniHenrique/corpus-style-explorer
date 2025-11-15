@@ -1,7 +1,7 @@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { ThreeCloudNode } from '@/hooks/useThreeSemanticData';
+import { VisualNode, VisualWordNode } from '@/data/types/threeVisualization.types';
 import { kwicDataMap } from '@/data/mockup/kwic';
 import { Sparkles, BarChart3, Network } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -9,12 +9,13 @@ import { cn } from '@/lib/utils';
 interface DetailedAnalysisModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  node: ThreeCloudNode | null;
+  node: VisualNode | null;
 }
 
 export function DetailedAnalysisModal({ open, onOpenChange, node }: DetailedAnalysisModalProps) {
-  if (!node) return null;
-
+  if (!node || node.type !== 'word') return null;
+  
+  const wordNode = node as VisualWordNode;
   const concordances = kwicDataMap[node.label] || [];
 
   return (
@@ -24,11 +25,11 @@ export function DetailedAnalysisModal({ open, onOpenChange, node }: DetailedAnal
           <DialogTitle className="text-2xl flex items-center gap-3">
             <span style={{ color: node.color }}>{node.label}</span>
             <Badge style={{ backgroundColor: `${node.color}33`, color: node.color }}>
-              {node.domain}
+              {wordNode.domain}
             </Badge>
           </DialogTitle>
           <DialogDescription>
-            Análise linguística detalhada da {node.type === 'domain' ? 'domínio semântico' : 'palavra'}
+            Análise linguística detalhada da palavra
           </DialogDescription>
         </DialogHeader>
 
@@ -59,7 +60,7 @@ export function DetailedAnalysisModal({ open, onOpenChange, node }: DetailedAnal
                   </div>
                   <div className="flex justify-between">
                     <span className="text-sm">Tipo:</span>
-                    <span className="font-semibold capitalize">{node.type === 'domain' ? 'Domínio' : 'Palavra'}</span>
+                    <span className="font-semibold capitalize">Palavra</span>
                   </div>
                 </div>
               </div>

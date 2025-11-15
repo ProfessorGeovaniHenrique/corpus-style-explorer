@@ -1,23 +1,25 @@
-import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { OrbitControls, Stars, PerspectiveCamera } from '@react-three/drei';
+import { Canvas, useFrame } from '@react-three/fiber';
+import { OrbitControls, Stars, PerspectiveCamera, Environment } from '@react-three/drei';
 import { EffectComposer, Bloom } from '@react-three/postprocessing';
 import { Suspense, useState, useRef, useEffect } from 'react';
-import { Text3DNode } from './Text3DNode';
+import { DomainSphere } from './DomainSphere';
+import { WordText } from './WordText';
 import { ConnectionLines } from './ConnectionLines';
-import { ThreeCloudNode, DomainConnection } from '@/hooks/useThreeSemanticData';
+import { VisualNode, DomainConnection } from '@/data/types/threeVisualization.types';
 import * as THREE from 'three';
-import gsap from 'gsap';
+import { animateHoverCascade } from '@/lib/gsapAnimations';
+import { COSMIC_STYLE } from '@/config/visualStyle';
 
 interface ThreeSemanticCloudProps {
-  nodes: ThreeCloudNode[];
+  nodes: VisualNode[];
   connections: DomainConnection[];
   font: string;
   autoRotate: boolean;
   bloomEnabled: boolean;
   showConnections: boolean;
-  onWordClick: (node: ThreeCloudNode) => void;
-  onWordHover: (node: ThreeCloudNode | null) => void;
-  onDomainClick?: (node: ThreeCloudNode) => void;
+  onWordClick: (node: VisualNode) => void;
+  onWordHover: (node: VisualNode | null) => void;
+  onDomainClick?: (node: VisualNode) => void;
   cameraRef?: React.MutableRefObject<any>;
   filteredNodeIds?: Set<string>;
 }
@@ -45,29 +47,26 @@ function Scene({
     }
   });
   
-  const handlePointerOver = (node: ThreeCloudNode) => (e: any) => {
+  const handlePointerOver = (node: VisualNode) => (e: any) => {
     e.stopPropagation();
     setHoveredNodeId(node.id);
     onWordHover(node);
     document.body.style.cursor = 'pointer';
     
-    // Hover cascade effect
-    if (node.type === 'word') {
-      const sameDomainNodes = nodes
-        .filter(n => n.domain === node.domain && n.id !== node.id)
-        .map(n => n.id);
-      setCascadeNodes(new Set(sameDomainNodes));
-    }
+    // Hover cascade effect usando GSAP
+    animateHoverCascade(node.id, nodesRef.current, nodes, 'enter');
   };
   
   const handlePointerOut = () => {
     setHoveredNodeId(null);
     onWordHover(null);
-    setCascadeNodes(new Set());
     document.body.style.cursor = 'auto';
+    
+    // Reset hover cascade
+    animateHoverCascade('', nodesRef.current, nodes, 'leave');
   };
   
-  const handleClick = (node: ThreeCloudNode) => (e: any) => {
+  const handleClick = (node: VisualNode) => (e: any) => {
     e.stopPropagation();
     
     if (node.type === 'domain' && onDomainClick) {
@@ -77,47 +76,7 @@ function Scene({
     }
   };
   
-  // Aplicar cascade opacity effect
-  useEffect(() => {
-    if (cascadeNodes.size > 0) {
-      nodes.forEach(node => {
-        const nodeGroup = nodesRef.current.get(node.id);
-        if (!nodeGroup) return;
-        
-        // Navegar até o material do Text mesh
-        const billboard = nodeGroup.children[0];
-        if (billboard && billboard.children[0]) {
-          const textMesh = billboard.children[0] as THREE.Mesh;
-          if (textMesh.material) {
-            const targetOpacity = cascadeNodes.has(node.id) ? 0.8 : 
-                                 hoveredNodeId === node.id ? 1.0 : 0.2;
-            
-            gsap.to(textMesh.material, {
-              opacity: targetOpacity,
-              duration: 0.3
-            });
-          }
-        }
-      });
-    } else if (!hoveredNodeId) {
-      // Reset all opacities
-      nodes.forEach(node => {
-        const nodeGroup = nodesRef.current.get(node.id);
-        if (nodeGroup) {
-          const billboard = nodeGroup.children[0];
-          if (billboard && billboard.children[0]) {
-            const textMesh = billboard.children[0] as THREE.Mesh;
-            if (textMesh.material) {
-              gsap.to(textMesh.material, {
-                opacity: node.baseOpacity,
-                duration: 0.3
-              });
-            }
-          }
-        }
-      });
-    }
-  }, [cascadeNodes, hoveredNodeId, nodes]);
+  // Hover cascade agora é gerenciado por animateHoverCascade
   
   return (
     <>
@@ -125,6 +84,7 @@ function Scene({
         {nodes.map(node => {
           const isFiltered = filteredNodeIds && !filteredNodeIds.has(node.id);
           const opacity = isFiltered ? 0.05 : node.baseOpacity;
+          const isHovered = hoveredNodeId === node.id;
           
           return (
             <group 
@@ -133,14 +93,26 @@ function Scene({
                 if (ref) nodesRef.current.set(node.id, ref);
               }}
             >
-              <Text3DNode
-                node={{ ...node, baseOpacity: opacity }}
-                font={font}
-                isHovered={hoveredNodeId === node.id}
-                onPointerOver={handlePointerOver(node)}
-                onPointerOut={handlePointerOut}
-                onClick={handleClick(node)}
-              />
+              {node.type === 'domain' ? (
+                <DomainSphere
+                  node={node}
+                  isHovered={isHovered}
+                  isSelected={false}
+                  opacity={opacity}
+                  onPointerOver={handlePointerOver(node)}
+                  onPointerOut={handlePointerOut}
+                  onClick={handleClick(node)}
+                />
+              ) : (
+                <WordText
+                  node={node}
+                  isHovered={isHovered}
+                  opacity={opacity}
+                  onPointerOver={handlePointerOver(node)}
+                  onPointerOut={handlePointerOut}
+                  onClick={handleClick(node)}
+                />
+              )}
             </group>
           );
         })}
@@ -194,16 +166,18 @@ export function ThreeSemanticCloud({
         <pointLight position={[10, 10, 10]} intensity={1} />
         <pointLight position={[-10, -10, -10]} intensity={0.5} color="#06b6d4" />
         
-        {/* Background de estrelas */}
+        {/* Background de estrelas e ambiente */}
         <Stars
-          radius={100}
+          radius={COSMIC_STYLE.environment.backgroundStars.radius}
           depth={50}
-          count={5000}
+          count={COSMIC_STYLE.environment.backgroundStars.count}
           factor={4}
           saturation={0}
           fade
           speed={1}
         />
+        
+        <Environment preset={COSMIC_STYLE.environment.preset} />
         
         {/* Renderizar nós */}
         <Suspense fallback={null}>
