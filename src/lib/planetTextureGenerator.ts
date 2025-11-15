@@ -8,16 +8,31 @@ export function generateEquirectangularTexture(
   sourceTexture: THREE.Texture,
   targetWidth: number = 2048,
   targetHeight: number = 1024
-): THREE.CanvasTexture {
+): THREE.CanvasTexture | null {
+  // ✅ FASE 1: Validação de carregamento
+  const img = sourceTexture.image as HTMLImageElement;
+  
+  // Verificar se a imagem está completamente carregada
+  if (!img || !img.complete || img.naturalWidth === 0) {
+    console.warn('⚠️ Textura ainda não carregada, aguardando...', {
+      hasImage: !!img,
+      complete: img?.complete,
+      naturalWidth: img?.naturalWidth
+    });
+    return null;
+  }
+  
+  console.log(`✅ Processando textura: ${img.width}x${img.height} (${img.src})`);
+  
   const canvas = document.createElement('canvas');
   canvas.width = targetWidth;
   canvas.height = targetHeight;
   
   const ctx = canvas.getContext('2d');
-  if (!ctx) throw new Error('Canvas 2D context not available');
-  
-  // Carregar a imagem source
-  const img = sourceTexture.image as CanvasImageSource;
+  if (!ctx) {
+    console.error('❌ Canvas 2D context não disponível');
+    return null;
+  }
   
   // ESTRATÉGIA: Repetir a imagem 4 vezes na horizontal com espelhamento
   const sectionWidth = targetWidth / 4;
@@ -64,13 +79,16 @@ const textureCache = new Map<string, THREE.CanvasTexture>();
 export function getOrCreatePlanetTexture(
   sourceTexture: THREE.Texture,
   planetId: string
-): THREE.CanvasTexture {
+): THREE.CanvasTexture | null {
   if (textureCache.has(planetId)) {
     return textureCache.get(planetId)!;
   }
   
   const processedTexture = generateEquirectangularTexture(sourceTexture);
-  textureCache.set(planetId, processedTexture);
+  
+  if (processedTexture) {
+    textureCache.set(planetId, processedTexture);
+  }
   
   return processedTexture;
 }

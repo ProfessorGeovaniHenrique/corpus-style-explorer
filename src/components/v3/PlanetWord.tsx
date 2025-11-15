@@ -1,4 +1,4 @@
-import { useRef, useMemo, useEffect } from 'react';
+import { useRef, useMemo, useEffect, useState } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { Text, useTexture } from '@react-three/drei';
 import { useSpring, animated } from '@react-spring/three';
@@ -40,21 +40,52 @@ export function PlanetWord({
   // States
   const isHovered = hover.hoveredNodeId === word.palavra;
   
-  // Carregar textura do planeta
+  // ✅ FASE 2: Refatoração com useState + useEffect
+  // Carregar textura bruta do planeta
   const rawTexture = useTexture(word.planetTexture) as THREE.Texture;
   
-  // Processar para equiretangular (cobertura 360°)
-  const texture = useMemo(() => {
-    return getOrCreatePlanetTexture(rawTexture, word.planetTexture);
-  }, [rawTexture, word.planetTexture]);
+  // Estado para textura processada e status de carregamento
+  const [processedTexture, setProcessedTexture] = useState<THREE.CanvasTexture | null>(null);
+  const [isTextureReady, setIsTextureReady] = useState(false);
+  
+  // Processar textura quando estiver carregada
+  useEffect(() => {
+    if (!rawTexture?.image) return;
+    
+    const img = rawTexture.image as HTMLImageElement;
+    
+    // Aguardar carregamento completo da imagem
+    if (img.complete && img.naturalWidth > 0) {
+      const processed = getOrCreatePlanetTexture(rawTexture, word.planetTexture);
+      
+      if (processed) {
+        console.log(`✅ Textura processada com sucesso: ${word.palavra}`);
+        setProcessedTexture(processed);
+        setIsTextureReady(true);
+      }
+    } else {
+      // Imagem ainda não carregou - aguardar evento onload
+      const handleLoad = () => {
+        const processed = getOrCreatePlanetTexture(rawTexture, word.planetTexture);
+        if (processed) {
+          console.log(`✅ Textura carregada e processada: ${word.palavra}`);
+          setProcessedTexture(processed);
+          setIsTextureReady(true);
+        }
+      };
+      
+      img.addEventListener('load', handleLoad);
+      return () => img.removeEventListener('load', handleLoad);
+    }
+  }, [rawTexture, word.planetTexture, word.palavra]);
   
   // Configurar anisotropia para máxima qualidade
   useEffect(() => {
-    if (texture && gl) {
-      texture.anisotropy = gl.capabilities.getMaxAnisotropy();
-      texture.needsUpdate = true;
+    if (processedTexture && gl) {
+      processedTexture.anisotropy = gl.capabilities.getMaxAnisotropy();
+      processedTexture.needsUpdate = true;
     }
-  }, [texture, gl]);
+  }, [processedTexture, gl]);
   
   // Converter cor HSL para THREE.Color
   const domainColorObj = useMemo(() => new THREE.Color(domainColor), [domainColor]);
@@ -187,30 +218,29 @@ export function PlanetWord({
           gl.domElement.style.cursor = 'default';
         }}
       >
+        {/* Planeta principal */}
         <sphereGeometry args={[planetRadius, 64, 64]} />
+        {/* ✅ FASE 3: Indicador visual de carregamento */}
         <meshStandardMaterial
-          map={texture}
-          
-          // Reduzir influência da cor do domínio para preservar textura
-          color={isHovered ? '#ffffff' : new THREE.Color(domainColor).lerp(new THREE.Color('#ffffff'), 0.5)}
-          
-          // Menos rugosidade para mais brilho e detalhes
-          roughness={0.7}
-          metalness={0.15}
-          
-          // Bump map para profundidade
-          bumpMap={texture}
+          map={isTextureReady ? processedTexture : null}
+          color={
+            isTextureReady 
+              ? (isHovered ? '#ffffff' : new THREE.Color(domainColor).lerp(new THREE.Color('#ffffff'), 0.5))
+              : '#444444' // Cinza escuro enquanto carrega
+          }
+          roughness={isTextureReady ? 0.7 : 0.9}
+          metalness={isTextureReady ? 0.15 : 0.05}
+          bumpMap={isTextureReady ? processedTexture : null}
           bumpScale={0.03}
-          
-          // Normal map usando a mesma textura
-          normalMap={texture}
+          normalMap={isTextureReady ? processedTexture : null}
           normalScale={new THREE.Vector2(0.5, 0.5)}
-          
           transparent
-          opacity={finalOpacity}
+          opacity={isTextureReady ? finalOpacity : finalOpacity * 0.6}
+          emissive={isTextureReady ? '#000000' : '#222222'} // Leve brilho enquanto carrega
         />
+      </mesh>
         
-        {/* Glow Ring para indicar prosódia */}
+      {/* Glow Ring para indicar prosódia */}
         <mesh>
           <sphereGeometry args={[planetRadius * 1.05, 32, 32]} />
           <meshBasicMaterial
@@ -229,7 +259,6 @@ export function PlanetWord({
             <lineBasicMaterial color="#00ff00" opacity={0.3} transparent />
           </lineSegments>
         )}
-      </mesh>
       
       {/* Label Flutuante (aparece no hover) */}
       {isHovered && (
