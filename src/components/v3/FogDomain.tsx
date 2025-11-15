@@ -61,11 +61,27 @@ export function FogDomain({ domain, opacity }: FogDomainProps) {
           emissive={domain.cor}
           emissiveIntensity={domain.emissiveIntensity * (isHovered ? 1.5 : 1.0)}
           transparent
-          opacity={finalOpacity * domain.baseOpacity}
+          opacity={finalOpacity * domain.baseOpacity * 0.7}
           depthWrite={false}
           side={THREE.DoubleSide}
-          roughness={0.8}
-          metalness={0.2}
+          roughness={0.95}
+          metalness={0.0}
+        />
+      </mesh>
+      
+      {/* FOG Atmosphere - Camada Externa Difusa */}
+      <mesh>
+        <sphereGeometry args={[domain.fogRadius * 1.3, 24, 24]} />
+        <meshStandardMaterial
+          color={domain.cor}
+          emissive={domain.cor}
+          emissiveIntensity={domain.emissiveIntensity * 0.5}
+          transparent
+          opacity={(finalOpacity * domain.baseOpacity) * 0.25}
+          depthWrite={false}
+          side={THREE.DoubleSide}
+          roughness={1.0}
+          metalness={0.0}
         />
       </mesh>
       

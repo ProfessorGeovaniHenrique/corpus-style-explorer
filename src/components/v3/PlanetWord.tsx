@@ -1,14 +1,10 @@
 import { useRef, useMemo, useEffect } from 'react';
-import { useFrame, extend } from '@react-three/fiber';
+import { useFrame } from '@react-three/fiber';
 import { Text, useTexture } from '@react-three/drei';
 import { useSpring, animated } from '@react-spring/three';
 import { SemanticWord } from '@/data/types/fogPlanetVisualization.types';
 import { useInteractivityStore, selectHover, selectSelectedDomainId } from '@/store/interactivityStore';
-import { PlanetShaderMaterial } from '@/shaders/PlanetShaderMaterial';
 import * as THREE from 'three';
-
-// Garantir que o material está registrado no R3F
-extend({ PlanetShaderMaterial });
 
 interface PlanetWordProps {
   word: SemanticWord;
@@ -30,7 +26,6 @@ export function PlanetWord({
   // Refs
   const meshRef = useRef<THREE.Mesh>(null);
   const groupRef = useRef<THREE.Group>(null);
-  const materialRef = useRef<PlanetShaderMaterial>(null);
   const orbitalAngleRef = useRef(word.orbitalAngle);
   
   // Store
@@ -41,8 +36,8 @@ export function PlanetWord({
   const isHovered = hover.hoveredNodeId === word.palavra;
   
   // Usar textura pré-carregada se disponível, caso contrário carregar sob demanda
-  const loadedTexture = useTexture(preloadedTexture ? [] : word.planetTexture);
-  const texture = preloadedTexture || loadedTexture;
+  const loadedTexture = useTexture(preloadedTexture ? '' : word.planetTexture);
+  const texture = preloadedTexture || (loadedTexture as THREE.Texture);
   
   // Converter cor HSL para THREE.Color
   const domainColorObj = useMemo(() => new THREE.Color(domainColor), [domainColor]);
@@ -76,12 +71,6 @@ export function PlanetWord({
       const z = domainPosition[2] + b * Math.sin(orbitalAngleRef.current);
       
       groupRef.current.position.set(x, y, z);
-    }
-    
-    // Atualizar shader uniforms
-    if (materialRef.current) {
-      materialRef.current.uniforms.uTime.value = state.clock.elapsedTime;
-      materialRef.current.uniforms.uHoverIntensity.value = isHovered ? 1.0 : 0.0;
     }
     
     // Rotação suave do planeta
@@ -122,17 +111,17 @@ export function PlanetWord({
   
   return (
     <animated.group ref={groupRef} scale={springProps.scale}>
-      {/* Mini-Planeta */}
+      {/* Planeta com Material Nativo */}
       <mesh ref={meshRef}>
         <sphereGeometry args={[planetRadius, 24, 24]} />
-        <planetShaderMaterial
-          ref={materialRef}
+        <meshStandardMaterial
           map={texture}
-          uDomainColor={domainColorObj}
-          uHueShift={word.hueShift}
-          uEmissiveIntensity={0.3}
-          uHoverIntensity={0.0}
-          uColorMixStrength={0.2}
+          transparent
+          opacity={finalOpacity}
+          emissive={domainColorObj}
+          emissiveIntensity={isHovered ? 0.4 : 0.2}
+          roughness={0.7}
+          metalness={0.3}
         />
       </mesh>
       
