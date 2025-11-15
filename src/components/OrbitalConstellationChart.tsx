@@ -49,6 +49,7 @@ export const OrbitalConstellationChart = ({ onWordClick, dominiosData, palavrasC
   const sigmaRef = useRef<Sigma | null>(null);
   const graphRef = useRef<any>(null);
   const leaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const hoverDelayTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   // Refs para evitar stale closure nos event handlers
   const levelRef = useRef<NavigationLevel>('universe');
@@ -404,6 +405,8 @@ export const OrbitalConstellationChart = ({ onWordClick, dominiosData, palavrasC
     
     return () => {
       console.log('🧹 Cleaning up Sigma.js');
+      if (leaveTimeoutRef.current) clearTimeout(leaveTimeoutRef.current);
+      if (hoverDelayTimeoutRef.current) clearTimeout(hoverDelayTimeoutRef.current);
       sigma.kill();
     };
   }, []); // SEM DEPENDÊNCIAS - executa apenas uma vez
@@ -417,13 +420,9 @@ export const OrbitalConstellationChart = ({ onWordClick, dominiosData, palavrasC
     
     console.log('🔗 Setting up event handlers');
     
-    // Novo sistema de hover com timer de 5 segundos
-    const enterNodeHandler = ({ node, event }: any) => {
-      const currentLevel = levelRef.current;
-      const nodeAttrs = graph.getNodeAttributes(node);
-      const displayPoint = { x: event.x, y: event.y };
-      
-      // Cancela timer anterior se existir
+    // Função auxiliar para abrir Codex
+    const openCodexForNode = (node: string, nodeAttrs: any, displayPoint: any, currentLevel: NavigationLevel) => {
+      // Cancela timer de fechamento anterior
       if (leaveTimeoutRef.current) {
         clearTimeout(leaveTimeoutRef.current);
         leaveTimeoutRef.current = null;
@@ -441,17 +440,47 @@ export const OrbitalConstellationChart = ({ onWordClick, dominiosData, palavrasC
           setHoveredNode(null);
           setTimeout(() => setIsPaused(false), 2000);
         }
-      }, 5000); // 5 segundos
+      }, 5000);
       
       leaveTimeoutRef.current = timeoutId;
-      
-      // Cursor pointer para nós clicáveis
       sigma.getContainer().style.cursor = 'pointer';
     };
     
+    // Sistema de hover com proteção anti-acidental (300ms delay)
+    const enterNodeHandler = ({ node, event }: any) => {
+      const currentLevel = levelRef.current;
+      const nodeAttrs = graph.getNodeAttributes(node);
+      const displayPoint = { x: event.x, y: event.y };
+      
+      // Proteção anti-hover acidental: se Codex já está aberto, exigir 300ms de hover
+      if (codexState === 'auto-open' || codexState === 'pinned') {
+        // Cancela delay anterior
+        if (hoverDelayTimeoutRef.current) {
+          clearTimeout(hoverDelayTimeoutRef.current);
+          hoverDelayTimeoutRef.current = null;
+        }
+        
+        // Agenda abertura apenas se usuário permanecer 300ms no nó
+        const delayTimeout = setTimeout(() => {
+          openCodexForNode(node, nodeAttrs, displayPoint, currentLevel);
+        }, 300);
+        
+        hoverDelayTimeoutRef.current = delayTimeout;
+        sigma.getContainer().style.cursor = 'pointer';
+        return;
+      }
+      
+      // Se Codex está fechado, abrir imediatamente
+      openCodexForNode(node, nodeAttrs, displayPoint, currentLevel);
+    };
+    
     const leaveNodeHandler = () => {
-      // Não fecha imediatamente - timer já está ativo
-      // O usuário tem 5s para mover o mouse para o painel
+      // Cancela delay de hover se sair do nó antes de 300ms
+      if (hoverDelayTimeoutRef.current) {
+        clearTimeout(hoverDelayTimeoutRef.current);
+        hoverDelayTimeoutRef.current = null;
+      }
+      
       if (!isDragging) {
         sigma.getContainer().style.cursor = 'default';
       }
