@@ -1,149 +1,286 @@
 import { useMemo } from "react";
 import { dominiosNormalizados } from "@/data/mockup/dominios-normalized";
 import { getProsodiaSemantica } from "@/data/mockup/prosodias-map";
-import { calculateAllDomainStats, calculateDomainStats, DomainStats } from "@/lib/linguisticStats";
+import { calculateAllDomainStats } from "@/lib/linguisticStats";
+import { HIERARCHY_CONFIG } from "@/config/hierarchyConfig";
+import {
+  VisualNode,
+  VisualDomainNode,
+  VisualWordNode,
+  DomainConnection,
+  ViewMode,
+  RawDomainData,
+  RawWordData,
+} from "@/data/types/threeVisualization.types";
+import {
+  calculateGlowIntensity,
+  calculateProsodyOpacity,
+  normalizeWithThreshold,
+  calculatePulseSpeed,
+} from "@/lib/visualNormalization";
+import { DominioSemantico } from "@/data/types/corpus.types";
 
 // Tamanho do corpus
 const CORPUS_SIZE = 10000;
 
-export interface ThreeCloudNode {
-  id: string;
-  label: string;
-  position: [number, number, number]; // Three.js Vector3
-  scale: number; // Tamanho do objeto 3D
-  color: string;
-  type: 'domain' | 'word';
-  frequency: number;
-  domain: string;
-  prosody: 'Positiva' | 'Negativa' | 'Neutra';
-  glowIntensity: number; // 0.3-1.8
-  textualWeight?: number; // percentualTematico (apenas para domínios)
-  lexicalRichness?: number; // riquezaLexical (apenas para domínios)
-  baseOpacity: number; // opacidade base para filtros
-}
-
-export interface DomainConnection {
-  from: string;
-  to: string;
-  strength: number;
-}
-
-export type ViewMode = 'constellation' | 'orbital';
-
 /**
  * Hook para gerar dados 3D da nuvem de domínios semânticos
- * Otimizado para renderização com Three.js
+ * Refatorado com separação clara entre dados brutos e visuais
  */
-export function useThreeSemanticData(viewMode: ViewMode = 'constellation', selectedDomainId?: string) {
+export function useThreeSemanticData(
+  viewMode: ViewMode = 'constellation',
+  selectedDomainId?: string
+) {
   const { nodes, stats, connections } = useMemo(() => {
-    const result: ThreeCloudNode[] = [];
+    // ===== FASE 1: Converter dados brutos =====
+    const rawDomains = convertToRawDomains(dominiosNormalizados);
     
-    // Filtrar domínios (excluir palavras funcionais)
-    const domains = dominiosNormalizados.filter(
-      d => d.dominio !== "Palavras Funcionais"
+    // ===== FASE 2: Criar nós visuais de domínios =====
+    const domainNodes = createDomainNodes(
+      rawDomains,
+      viewMode,
+      selectedDomainId
     );
     
-    // FASE 1: Criar nós de domínios distribuídos em círculo
-    domains.forEach((dominio, index) => {
-      const angle = (index / domains.length) * Math.PI * 2;
-      const radius = 15; // Raio da órbita dos domínios
-      
-      // Calcular riqueza lexical e peso textual
-      const domainStats = calculateDomainStats(dominio);
-      const scale = 1.5 + domainStats.lexicalRichness * 3; // 1.5-4.5 unidades
-      
-      // Calcular glow intensity baseado em peso textual
-      const textualWeight = dominio.percentualTematico || 0;
-      const glowIntensity = 0.5 + (textualWeight / 100) * 1.3;
-      
-      // Posição diferente no modo orbital
-      const position: [number, number, number] = viewMode === 'orbital' && selectedDomainId === dominio.dominio
-        ? [0, 0, 0] // Domínio selecionado no centro
-        : [
-            Math.cos(angle) * radius,
-            0,
-            Math.sin(angle) * radius
-          ];
-      
-      result.push({
-        id: `domain-${dominio.dominio}`,
-        label: dominio.dominio,
-        position,
-        scale,
-        color: dominio.cor,
-        type: 'domain',
-        frequency: dominio.ocorrencias,
-        domain: dominio.dominio,
-        prosody: 'Neutra',
-        glowIntensity,
-        textualWeight,
-        lexicalRichness: domainStats.lexicalRichness,
-        baseOpacity: 1.0
-      });
-    });
+    // ===== FASE 3: Criar nós visuais de palavras =====
+    const wordNodes = createWordNodes(
+      rawDomains,
+      domainNodes,
+      viewMode,
+      selectedDomainId
+    );
     
-    // FASE 2: Criar nós de palavras orbitando seus domínios
-    domains.forEach((dominio, domainIndex) => {
-      // Encontrar o nó de domínio correspondente
-      const domainNode = result.find(n => n.id === `domain-${dominio.dominio}`);
-      if (!domainNode) return;
-      
-      // Pegar top 15 palavras mais frequentes
-      const topWords = dominio.palavrasComFrequencia
-        .sort((a, b) => b.ocorrencias - a.ocorrencias)
-        .slice(0, 15);
-      
-      topWords.forEach((palavra, wordIndex) => {
-        // Distribuir palavras em círculo ao redor do domínio
-        const angleOffset = (wordIndex / topWords.length) * Math.PI * 2;
-        const orbitRadius = 3 + Math.random() * 2; // 3-5 unidades
-        
-        // Calcular frequência normalizada para tamanho
-        const normalizedFreq = (palavra.ocorrencias / CORPUS_SIZE) * 1000;
-        const scale = 0.3 + Math.min(1, normalizedFreq / 10) * 0.7; // 0.3-1.0
-        
-        // Prosódia semântica para opacidade
-        const prosody = getProsodiaSemantica(palavra.palavra);
-        const baseOpacity = prosody === 'Positiva' ? 1.0 : prosody === 'Neutra' ? 0.7 : 0.5;
-        
-        // Ocultar palavras de outros domínios no modo orbital
-        const shouldHide = viewMode === 'orbital' && selectedDomainId && dominio.dominio !== selectedDomainId;
-        
-        if (!shouldHide) {
-          result.push({
-            id: `word-${palavra.palavra}`,
-            label: palavra.palavra,
-            position: [
-              domainNode.position[0] + Math.cos(angleOffset) * orbitRadius,
-              Math.sin(angleOffset * 2) * 2, // Variação vertical
-              domainNode.position[2] + Math.sin(angleOffset) * orbitRadius
-            ],
-            scale,
-            color: dominio.cor,
-            type: 'word',
-            frequency: palavra.ocorrencias,
-            domain: dominio.dominio,
-            prosody,
-            glowIntensity: 0.3 + normalizedFreq / 30,
-            baseOpacity
-          });
-        }
-      });
-    });
+    // ===== FASE 4: Combinar nós =====
+    const allNodes = [...domainNodes, ...wordNodes];
     
-    // Calcular estatísticas
-    const domainStats = calculateAllDomainStats(domains);
+    // ===== FASE 5: Calcular estatísticas =====
+    const domainStats = calculateAllDomainStats(
+      dominiosNormalizados.filter(d => d.dominio !== "Palavras Funcionais")
+    );
     
-    // Calcular conexões entre domínios
-    const connections: DomainConnection[] = [
-      { from: "Cultura e Lida Gaúcha", to: "Natureza e Paisagem", strength: 0.7 },
-      { from: "Sentimentos e Abstrações", to: "Qualidades e Estados", strength: 0.5 },
-      { from: "Natureza e Paisagem", to: "Sentimentos e Abstrações", strength: 0.4 },
-      { from: "Ações e Processos", to: "Cultura e Lida Gaúcha", strength: 0.6 }
-    ];
+    // ===== FASE 6: Calcular conexões =====
+    const connections = calculateDomainConnections();
     
-    return { nodes: result, stats: domainStats, connections };
+    return { nodes: allNodes, stats: domainStats, connections };
   }, [viewMode, selectedDomainId]);
   
   return { nodes, stats, connections };
 }
+
+// ===== FUNÇÕES AUXILIARES =====
+
+/**
+ * Converte dados do mockup para estrutura RawDomainData
+ */
+function convertToRawDomains(dominios: DominioSemantico[]): RawDomainData[] {
+  return dominios
+    .filter(d => d.dominio !== "Palavras Funcionais")
+    .map(dominio => ({
+      id: dominio.dominio,
+      name: dominio.dominio,
+      rawFrequency: dominio.ocorrencias,
+      normalizedFrequency: dominio.frequenciaNormalizada,
+      lexicalRichness: dominio.riquezaLexical / 100,
+      textualWeight: dominio.percentualTematico || 0,
+      comparisonStatus: dominio.comparacaoCorpus,
+      color: dominio.cor,
+      textColor: dominio.corTexto,
+      words: dominio.palavrasComFrequencia.map(p => ({
+        text: p.palavra,
+        rawFrequency: p.ocorrencias,
+        normalizedFrequency: (p.ocorrencias / CORPUS_SIZE) * 1000,
+        prosody: getProsodiaSemantica(p.palavra),
+      })),
+    }));
+}
+
+/**
+ * Cria nós visuais de domínios
+ */
+function createDomainNodes(
+  rawDomains: RawDomainData[],
+  viewMode: ViewMode,
+  selectedDomainId?: string
+): VisualDomainNode[] {
+  const config = HIERARCHY_CONFIG;
+  
+  return rawDomains.map((domain, index) => {
+    // Calcular escala baseado em riqueza lexical
+    const scale = config.domainSize.min + 
+                  domain.lexicalRichness * config.domainSize.multiplier;
+    
+    // Calcular glow intensity baseado em peso textual
+    const glowIntensity = calculateGlowIntensity(
+      domain.textualWeight,
+      config.domainGlow
+    );
+    
+    // Calcular velocidade de pulso
+    const pulseSpeed = calculatePulseSpeed(domain.textualWeight);
+    
+    // Calcular posição
+    const position = calculateDomainPosition(
+      index,
+      rawDomains.length,
+      viewMode,
+      selectedDomainId === domain.id,
+      config
+    );
+    
+    return {
+      id: `domain-${domain.id}`,
+      label: domain.name,
+      type: 'domain',
+      position,
+      scale,
+      color: domain.color,
+      glowIntensity,
+      pulseSpeed,
+      baseOpacity: 1.0,
+      rawData: domain,
+    };
+  });
+}
+
+/**
+ * Cria nós visuais de palavras
+ */
+function createWordNodes(
+  rawDomains: RawDomainData[],
+  domainNodes: VisualDomainNode[],
+  viewMode: ViewMode,
+  selectedDomainId?: string
+): VisualWordNode[] {
+  const config = HIERARCHY_CONFIG;
+  const wordNodes: VisualWordNode[] = [];
+  
+  rawDomains.forEach(domain => {
+    // Encontrar o nó de domínio correspondente
+    const domainNode = domainNodes.find(n => n.id === `domain-${domain.id}`);
+    if (!domainNode) return;
+    
+    // Ocultar palavras de outros domínios no modo orbital
+    const shouldHide = viewMode === 'orbital' && 
+                       selectedDomainId && 
+                       domain.id !== selectedDomainId;
+    
+    if (shouldHide) return;
+    
+    // Pegar top N palavras mais frequentes
+    const topWords = domain.words
+      .sort((a, b) => b.rawFrequency - a.rawFrequency)
+      .slice(0, config.topWordsPerDomain);
+    
+    topWords.forEach((word, wordIndex) => {
+      // Calcular escala baseado em frequência normalizada
+      const scale = normalizeWithThreshold(
+        word.normalizedFrequency,
+        config.wordSize.threshold,
+        { min: config.wordSize.min, max: config.wordSize.max }
+      );
+      
+      // Calcular opacidade baseado em prosódia
+      const opacity = calculateProsodyOpacity(
+        word.prosody,
+        config.wordOpacity
+      );
+      
+      // Calcular glow intensity
+      const glowIntensity = 0.3 + word.normalizedFrequency / 30;
+      
+      // Calcular posição orbital ao redor do domínio
+      const position = calculateWordPosition(
+        domainNode.position,
+        wordIndex,
+        topWords.length,
+        viewMode,
+        config
+      );
+      
+      wordNodes.push({
+        id: `word-${word.text}`,
+        label: word.text,
+        type: 'word',
+        position,
+        scale,
+        color: domain.color,
+        opacity,
+        baseOpacity: opacity,
+        glowIntensity,
+        domain: domain.name,
+        frequency: word.rawFrequency,
+        prosody: word.prosody,
+        rawData: word,
+      });
+    });
+  });
+  
+  return wordNodes;
+}
+
+/**
+ * Calcula posição do domínio
+ */
+function calculateDomainPosition(
+  index: number,
+  total: number,
+  viewMode: ViewMode,
+  isSelected: boolean,
+  config: typeof HIERARCHY_CONFIG
+): [number, number, number] {
+  // Se for o domínio selecionado no modo orbital, colocar no centro
+  if (viewMode === 'orbital' && isSelected) {
+    return [...config.layout.orbital.centerPosition];
+  }
+  
+  // Distribuir em círculo
+  const angle = (index / total) * Math.PI * 2;
+  const radius = config.layout.constellation.domainOrbitRadius;
+  
+  return [
+    Math.cos(angle) * radius,
+    0,
+    Math.sin(angle) * radius
+  ];
+}
+
+/**
+ * Calcula posição da palavra orbitando o domínio
+ */
+function calculateWordPosition(
+  domainPosition: [number, number, number],
+  wordIndex: number,
+  totalWords: number,
+  viewMode: ViewMode,
+  config: typeof HIERARCHY_CONFIG
+): [number, number, number] {
+  const layout = viewMode === 'constellation' 
+    ? config.layout.constellation 
+    : config.layout.orbital;
+  
+  // Distribuir palavras em círculo ao redor do domínio
+  const angleOffset = (wordIndex / totalWords) * Math.PI * 2;
+  const orbitRadius = layout.wordOrbitRadiusMin + 
+                      Math.random() * (layout.wordOrbitRadiusMax - layout.wordOrbitRadiusMin);
+  
+  return [
+    domainPosition[0] + Math.cos(angleOffset) * orbitRadius,
+    Math.sin(angleOffset * 2) * layout.verticalSpread, // Variação vertical
+    domainPosition[2] + Math.sin(angleOffset) * orbitRadius
+  ];
+}
+
+/**
+ * Calcula conexões entre domínios (mock estático por enquanto)
+ */
+function calculateDomainConnections(): DomainConnection[] {
+  return [
+    { from: "Cultura e Lida Gaúcha", to: "Natureza e Paisagem", strength: 0.7 },
+    { from: "Sentimentos e Abstrações", to: "Qualidades e Estados", strength: 0.5 },
+    { from: "Natureza e Paisagem", to: "Sentimentos e Abstrações", strength: 0.4 },
+    { from: "Ações e Processos", to: "Cultura e Lida Gaúcha", strength: 0.6 }
+  ];
+}
+
+// Re-exportar tipos para compatibilidade
+export type { VisualNode, VisualDomainNode, VisualWordNode, DomainConnection, ViewMode };
