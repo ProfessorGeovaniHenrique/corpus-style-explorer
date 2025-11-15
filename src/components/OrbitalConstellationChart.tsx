@@ -7,7 +7,7 @@ import { ControlToolbar } from './ControlPanel/ControlToolbar';
 import { FloatingControlPanel } from './ControlPanel/FloatingControlPanel';
 import { OrbitalRings } from './OrbitalRings';
 import { FilterPanel } from './FilterPanel';
-import { drawPlanetNode, drawPlanetNodeHover, drawGalacticCoreNode } from '@/lib/planetRenderer';
+import { drawPlanetNode, drawPlanetNodeHover } from '@/lib/planetRenderer';
 
 type NavigationLevel = 'universe' | 'galaxy';
 type ConsoleMode = 'docked' | 'minimized' | 'floating';
@@ -385,24 +385,19 @@ export const OrbitalConstellationChart = ({ onWordClick, dominiosData, palavrasC
       minCameraRatio: 0.3,
       maxCameraRatio: 2.5,
       
-      // ✨ NODE REDUCER para aplicar cores dos domínios e tipo de renderer
+      // ✨ NODE REDUCER para aplicar cores dos domínios
       nodeReducer: (node, attrs) => {
-        const currentLevel = levelRef.current;
         const result = { ...attrs };
         
         if (attrs.color) {
           result.color = attrs.color;
         }
         
-        // Nó central: aplicar renderer do núcleo galáctico quando em galaxy view
+        // Nó central: tamanho maior para detectar no renderer
         if (node === 'center') {
           result.color = '#FFD700';
           result.size = 40;
-          
-          // Aplicar renderer customizado no nível galaxy
-          if (currentLevel === 'galaxy') {
-            result.type = 'galactic-core';
-          }
+          result.label = 'Universo Gaúcho'; // Label especial para detectar
         }
         
         return result;

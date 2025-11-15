@@ -55,6 +55,12 @@ export function drawPlanetNode(
 ): void {
   const { x, y, size, color, label } = data;
   
+  // 🌌 CASO ESPECIAL: Núcleo Galáctico (centro com tamanho grande)
+  if (size >= 40 && (label === 'Universo Gaúcho' || label === 'center')) {
+    drawGalacticCore(context, x, y, size);
+    return;
+  }
+  
   // ✨ GERAR VARIAÇÕES ÚNICAS PARA ESTE PLANETA
   const seed = generateSeed(label || 'default');
   const variant = getPlanetVariation(seed);
@@ -244,15 +250,14 @@ export function drawPlanetNodeHover(
 }
 
 /**
- * Galactic Core renderer - Pulsating mass of light with multiple layers
- * Used for the central "Universo Gaúcho" node in galaxy view
+ * Internal helper: Galactic Core rendering logic
  */
-export function drawGalacticCoreNode(
+function drawGalacticCore(
   context: CanvasRenderingContext2D,
-  data: PartialButFor<NodeDisplayData, "x" | "y" | "size" | "label" | "color">,
-  settings: any
+  x: number,
+  y: number,
+  size: number
 ): void {
-  const { x, y, size } = data;
   const time = Date.now() / 1000;
   
   context.save();
