@@ -16,6 +16,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 import { toast } from "sonner";
+import { hslToRgba } from "@/lib/colorUtils";
 import { 
   dominiosData, 
   kwicDataMap, 
@@ -575,7 +576,7 @@ E uma saudade redomona pelos cantos do galpão`}
                           <div className="h-4 rounded-full transition-all duration-500 relative" style={{
                         width: `${item.percentual}%`,
                         backgroundColor: item.cor,
-                        boxShadow: `0 0 10px ${item.cor}40`
+                        boxShadow: `0 0 10px ${hslToRgba(item.cor, 0.25)}`
                       }}>
                             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer" />
                           </div>
@@ -769,7 +770,7 @@ E uma saudade redomona pelos cantos do galpão`}
             </div>
           </div>
           
-          <Card className="border-2" style={{ borderColor: '#00E5FF20', background: 'radial-gradient(circle at top, #0A0E27 0%, #000000 100%)' }}>
+          <Card className="border-2" style={{ borderColor: 'rgba(0, 229, 255, 0.125)', background: 'radial-gradient(circle at top, #0A0E27 0%, #000000 100%)' }}>
             <CardHeader className="pb-6" style={{ borderBottom: '1px solid rgba(0, 229, 255, 0.2)' }}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
