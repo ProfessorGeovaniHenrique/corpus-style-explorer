@@ -198,7 +198,7 @@ export default function Dashboard5() {
           >
             <TexturePreloader onLoaded={handleTexturesLoaded}>
               {/* Câmera */}
-              <PerspectiveCamera makeDefault position={[0, 5, 20]} fov={60} />
+              <PerspectiveCamera makeDefault position={[0, 8, 35]} fov={60} />
               
               {/* Controles de Órbita */}
               <OrbitControls

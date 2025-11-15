@@ -53,15 +53,15 @@ function calculateDomainPosition(
   domainIndex: number, 
   totalDomains: number
 ): [number, number, number] {
-  // Distribuir em círculo no plano XZ
-  const radius = 8; // Raio da constelação
+  // Distribuir em círculo no plano XZ com raio maior
+  const radius = 15;
   const angle = (domainIndex / totalDomains) * Math.PI * 2;
   
   const x = Math.cos(angle) * radius;
   const z = Math.sin(angle) * radius;
   
-  // Variação vertical aleatória (mas determinística)
-  const y = Math.sin(domainIndex * 1.3) * 2; // -2 a 2
+  // Variação vertical maior para espalhar em 3D
+  const y = Math.sin(domainIndex * 1.3) * 4;
   
   return [x, y, z];
 }
