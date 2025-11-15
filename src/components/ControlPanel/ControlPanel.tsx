@@ -141,7 +141,10 @@ export const ControlPanel = ({
             isOpen={true}
             hideToggle
           >
-            <GalaxyLegendPanel visible={true} />
+            <GalaxyLegendPanel 
+              visible={true}
+              isCodexOpen={codexState !== 'closed'}
+            />
           </PanelSection>
         )}
         
