@@ -10,7 +10,7 @@ export default function AppLayout() {
       <div className="min-h-screen flex w-full">
         <AppSidebar />
         <div className="flex-1 flex flex-col">
-          <main className="flex-1">
+          <main className="flex-1 pt-36">
             <Outlet />
           </main>
         </div>
