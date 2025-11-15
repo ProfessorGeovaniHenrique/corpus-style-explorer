@@ -140,17 +140,11 @@ export function enrichSemanticWords(): SemanticWord[] {
       const frequency = wordData.ocorrencias;
       const normalizedFreq = frequency / Math.max(...domainWords.map(w => w.ocorrencias));
       
-      // Palavras mais frequentes ficam mais próximas do centro
-      const orbitalRadius = 1.5 - (normalizedFreq * 0.8); // 0.7 a 1.5
-      
-      // Distribuir ângulos uniformemente
+      // Calcular órbita elíptica baseada na posição no domínio
       const angleStep = (Math.PI * 2) / domainWords.length;
+      const orbitalRadius = 3.0 + (i / domainWords.length) * 2.0; // 3.0 a 5.0 (mais visível)
       const orbitalAngle = i * angleStep;
-      
-      // Velocidade orbital inversamente proporcional à frequência
       const orbitalSpeed = 0.0005 + (1 - normalizedFreq) * 0.002; // 0.0005 a 0.0025
-      
-      // Excentricidade baseada em prosódia
       const orbitalEccentricity = prosody === 'Positiva' ? 0.2 : 
                                    prosody === 'Negativa' ? 0.4 : 0.1;
       

@@ -28,10 +28,10 @@ interface UseFogPlanetDataReturn {
 // ===== FILTROS DEFAULT =====
 const defaultFilters: VisualizationFilters = {
   selectedDomainId: undefined,
-  minFrequency: 2,           // Otimizado: reduzir palavras de baixa frequência
-  maxWords: 10,              // Otimizado: máximo 10 palavras por domínio
+  minFrequency: 1,           // Mostrar todas as palavras inicialmente
+  maxWords: 15,              // Aumentar para 15 palavras por domínio
   showLabels: true,
-  fogIntensity: 0.7,         // 70% de opacidade base
+  fogIntensity: 0.85,        // 85% de intensidade (mais visível)
   prosodyFilter: undefined   // Sem filtro de prosódia inicialmente
 };
 
@@ -84,7 +84,7 @@ function calculateFogProperties(
   const pulsationSpeed = domainData.comparacaoCorpus === 'super-representado' ? 0.4 : 0.25;
   
   // Intensidade do brilho baseada na frequência normalizada
-  const emissiveIntensity = 0.3 + (domainData.frequenciaNormalizada / 100) * 0.4; // 0.3 a 0.7
+  const emissiveIntensity = 0.5 + (domainData.frequenciaNormalizada / 100) * 0.5; // 0.5 a 1.0 (mais brilhante)
   
   // Escala do noise (turbulência da nuvem)
   const noiseScale = 1.5 + Math.random() * 0.5; // 1.5 a 2.0 (variação visual)
@@ -125,7 +125,11 @@ function applyFilters(
         .slice(0, filters.maxWords);
       
       // Ajustar opacidade baseado em fogIntensity
-      const adjustedOpacity = domain.baseOpacity * filters.fogIntensity;
+      // Garantir opacidade mínima para visibilidade
+      const adjustedOpacity = Math.max(
+        domain.baseOpacity * filters.fogIntensity,
+        0.5  // Mínimo 50% de opacidade
+      );
       
       return {
         ...domain,

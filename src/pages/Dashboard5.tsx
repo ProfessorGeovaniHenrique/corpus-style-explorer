@@ -51,12 +51,23 @@ export default function Dashboard5() {
   const [webglError, setWebglError] = useState(false);
 
   // Estatísticas filtradas
-  const stats = useMemo(() => ({
-    totalDomains: domains.length,
-    totalWords,
-    totalOccurrences,
-    totalConnections: connections.length
-  }), [domains.length, totalWords, totalOccurrences, connections.length]);
+  const stats = useMemo(() => {
+    // 🔍 DEBUG: Logging para diagnóstico
+    console.log('🔍 DEBUG FOG & PLANETS:');
+    console.log('  📊 Total Domains:', domains.length);
+    console.log('  📊 Total Words:', totalWords);
+    console.log('  📊 Filtros Ativos:', filters);
+    domains.forEach(domain => {
+      console.log(`  🌫️ ${domain.dominio}: ${domain.palavras.length} palavras, opacity: ${domain.baseOpacity.toFixed(2)}, radius: ${domain.fogRadius.toFixed(2)}`);
+    });
+    
+    return {
+      totalDomains: domains.length,
+      totalWords,
+      totalOccurrences,
+      totalConnections: connections.length
+    };
+  }, [domains, totalWords, totalOccurrences, connections.length, filters]);
 
   // Handler de filtro de prosódia
   const handleProsodyFilter = useCallback((prosody: ProsodiaType) => {
@@ -138,6 +149,11 @@ export default function Dashboard5() {
             <Badge variant="outline">
               {stats.totalWords} Palavras
             </Badge>
+            {stats.totalWords < 20 && (
+              <Badge variant="outline" className="bg-yellow-500/20 text-yellow-300 border-yellow-500/50">
+                ⚠️ Poucos dados - Ajuste os filtros
+              </Badge>
+            )}
           </div>
         </div>
       </div>

@@ -49,13 +49,16 @@ export function PlanetWord({
   
   // Calcular tamanho do planeta baseado na frequência
   const planetRadius = useMemo(() => {
-    const baseSize = 0.12;
-    const maxSize = 0.25;
-    const minSize = 0.08;
+    const baseSize = 0.15;  // Aumentado de 0.12
+    const maxSize = 0.35;   // Aumentado de 0.25
+    const minSize = 0.12;   // Aumentado de 0.08
     
     // Normalizar ocorrências (assumindo max ~100)
     const normalizedFreq = Math.min(word.ocorrencias / 100, 1.0);
-    return baseSize + (normalizedFreq * (maxSize - baseSize));
+    const calculatedSize = baseSize + (normalizedFreq * (maxSize - baseSize));
+    
+    // Garantir tamanho mínimo visível
+    return Math.max(calculatedSize, minSize);
   }, [word.ocorrencias]);
   
   // Movimento orbital
