@@ -76,7 +76,6 @@ export const ControlPanel = ({
               {onMinimize && <Button size="icon" variant="ghost" onClick={onMinimize} className="h-8 w-8 text-primary hover:bg-primary/20">
                   <Minimize2 className="w-4 h-4" />
                 </Button>}
-              {onFloat}
             </div>}
         </div>
       </div>
