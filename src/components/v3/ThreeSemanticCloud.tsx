@@ -1,14 +1,15 @@
-import { Canvas, useFrame } from '@react-three/fiber';
+import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Stars, PerspectiveCamera, Environment } from '@react-three/drei';
 import { EffectComposer, Bloom } from '@react-three/postprocessing';
-import { Suspense, useState, useRef, useEffect } from 'react';
-import { DomainSphere } from './DomainSphere';
-import { WordText } from './WordText';
+import { Suspense, useRef } from 'react';
+import { InteractiveDomain } from './InteractiveDomain';
+import { InteractiveWord } from './InteractiveWord';
 import { ConnectionLines } from './ConnectionLines';
 import { VisualNode, DomainConnection } from '@/data/types/threeVisualization.types';
-import * as THREE from 'three';
-import { animateHoverCascade } from '@/lib/gsapAnimations';
+import { useRaycasting } from '@/hooks/useRaycasting';
+import { useCameraAnimation } from '@/hooks/useCameraAnimation';
 import { COSMIC_STYLE } from '@/config/visualStyle';
+import * as THREE from 'three';
 
 interface ThreeSemanticCloudProps {
   nodes: VisualNode[];
@@ -17,10 +18,6 @@ interface ThreeSemanticCloudProps {
   autoRotate: boolean;
   bloomEnabled: boolean;
   showConnections: boolean;
-  onWordClick: (node: VisualNode) => void;
-  onWordHover: (node: VisualNode | null) => void;
-  onDomainClick?: (node: VisualNode) => void;
-  cameraRef?: React.MutableRefObject<any>;
   filteredNodeIds?: Set<string>;
 }
 
@@ -30,53 +27,19 @@ function Scene({
   font, 
   autoRotate,
   showConnections,
-  onWordClick, 
-  onWordHover,
-  onDomainClick,
   filteredNodeIds
-}: Omit<ThreeSemanticCloudProps, 'bloomEnabled' | 'cameraRef'>) {
-  const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
-  const [cascadeNodes, setCascadeNodes] = useState<Set<string>>(new Set());
+}: Omit<ThreeSemanticCloudProps, 'bloomEnabled'>) {
   const groupRef = useRef<THREE.Group>(null);
-  const nodesRef = useRef<Map<string, THREE.Group>>(new Map());
   
-  // Rotação automática suave
-  useFrame((state, delta) => {
-    if (autoRotate && groupRef.current) {
-      groupRef.current.rotation.y += delta * 0.1;
-    }
+  // Hook de raycasting integrado com Zustand
+  useRaycasting({ nodes, enabled: true });
+  
+  // Hook de animação de câmera integrado com Zustand
+  const { controlsTarget } = useCameraAnimation({ 
+    nodes,
+    defaultCameraPosition: new THREE.Vector3(0, 5, 30),
+    defaultCameraTarget: new THREE.Vector3(0, 0, 0)
   });
-  
-  const handlePointerOver = (node: VisualNode) => (e: any) => {
-    e.stopPropagation();
-    setHoveredNodeId(node.id);
-    onWordHover(node);
-    document.body.style.cursor = 'pointer';
-    
-    // Hover cascade effect usando GSAP
-    animateHoverCascade(node.id, nodesRef.current, nodes, 'enter');
-  };
-  
-  const handlePointerOut = () => {
-    setHoveredNodeId(null);
-    onWordHover(null);
-    document.body.style.cursor = 'auto';
-    
-    // Reset hover cascade
-    animateHoverCascade('', nodesRef.current, nodes, 'leave');
-  };
-  
-  const handleClick = (node: VisualNode) => (e: any) => {
-    e.stopPropagation();
-    
-    if (node.type === 'domain' && onDomainClick) {
-      onDomainClick(node);
-    } else if (node.type === 'word') {
-      onWordClick(node);
-    }
-  };
-  
-  // Hover cascade agora é gerenciado por animateHoverCascade
   
   return (
     <>
@@ -84,33 +47,19 @@ function Scene({
         {nodes.map(node => {
           const isFiltered = filteredNodeIds && !filteredNodeIds.has(node.id);
           const opacity = isFiltered ? 0.05 : node.baseOpacity;
-          const isHovered = hoveredNodeId === node.id;
           
           return (
-            <group 
-              key={node.id} 
-              ref={(ref) => {
-                if (ref) nodesRef.current.set(node.id, ref);
-              }}
-            >
+            <group key={node.id}>
               {node.type === 'domain' ? (
-                <DomainSphere
+                <InteractiveDomain
                   node={node}
-                  isHovered={isHovered}
-                  isSelected={false}
                   opacity={opacity}
-                  onPointerOver={handlePointerOver(node)}
-                  onPointerOut={handlePointerOut}
-                  onClick={handleClick(node)}
                 />
               ) : (
-                <WordText
+                <InteractiveWord
                   node={node}
-                  isHovered={isHovered}
                   opacity={opacity}
-                  onPointerOver={handlePointerOver(node)}
-                  onPointerOut={handlePointerOut}
-                  onClick={handleClick(node)}
+                  font={font}
                 />
               )}
             </group>
@@ -180,18 +129,15 @@ export function ThreeSemanticCloud({
         <Environment preset={COSMIC_STYLE.environment.preset} />
         
         {/* Renderizar nós */}
-        <Suspense fallback={null}>
-          <Scene
-            nodes={nodes}
-            connections={connections}
-            font={font}
-            autoRotate={autoRotate}
-            showConnections={showConnections}
-            onWordClick={onWordClick}
-            onWordHover={onWordHover}
-            onDomainClick={onDomainClick}
-            filteredNodeIds={filteredNodeIds}
-          />
+      <Suspense fallback={null}>
+        <Scene 
+          nodes={nodes}
+          connections={connections}
+          font={font}
+          autoRotate={autoRotate}
+          showConnections={showConnections}
+          filteredNodeIds={filteredNodeIds}
+        />
         </Suspense>
         
         {/* Post-processing: Bloom (glow effect) */}
