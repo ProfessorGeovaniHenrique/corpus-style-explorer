@@ -13,6 +13,7 @@ import Dashboard4 from "./pages/Dashboard4";
 import Dashboard5 from "./pages/Dashboard5";
 import Dashboard7 from "./pages/Dashboard7";
 import Dashboard8 from "./pages/Dashboard8";
+import DashboardMVP from "./pages/DashboardMVP";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -34,6 +35,7 @@ const App = () => (
               <Route path="/dashboard5" element={<Dashboard5 />} />
               <Route path="/dashboard7" element={<Dashboard7 />} />
               <Route path="/dashboard8" element={<Dashboard8 />} />
+              <Route path="/dashboard-mvp" element={<DashboardMVP />} />
             </Route>
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
