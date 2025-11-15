@@ -81,5 +81,6 @@ export interface VisualizationFilters {
   maxWords: number;
   showLabels: boolean;
   fogIntensity: number; // 0-1
+  glowIntensity: number; // 0-1.5
   prosodyFilter?: ProsodiaType[];
 }

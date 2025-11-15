@@ -9,9 +9,10 @@ import * as THREE from 'three';
 interface FogDomainProps {
   domain: FogDomainType;
   opacity: number;
+  glowIntensity?: number;
 }
 
-export function FogDomain({ domain, opacity }: FogDomainProps) {
+export function FogDomain({ domain, opacity, glowIntensity = 1.0 }: FogDomainProps) {
   // Refs
   const sphereRef = useRef<THREE.Mesh>(null);
   const groupRef = useRef<THREE.Group>(null);
@@ -57,6 +58,28 @@ export function FogDomain({ domain, opacity }: FogDomainProps) {
   
   return (
     <group ref={groupRef} position={domain.position}>
+      {/* NÚCLEO ESTELAR - Sempre visível com glow máximo */}
+      <mesh>
+        <sphereGeometry args={[domain.fogRadius * 0.35, 32, 32]} />
+        <meshBasicMaterial
+          color={domain.cor}
+          transparent
+          opacity={1.0}
+        />
+      </mesh>
+      
+      {/* Halo do Núcleo - Glow interno */}
+      <mesh>
+        <sphereGeometry args={[domain.fogRadius * 0.45, 24, 24]} />
+        <meshBasicMaterial
+          color={domain.cor}
+          transparent
+          opacity={0.8}
+          depthWrite={false}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+      
       {/* FOG Core - Núcleo mais denso */}
       <mesh 
         ref={sphereRef}
@@ -81,7 +104,7 @@ export function FogDomain({ domain, opacity }: FogDomainProps) {
         <meshStandardMaterial
           color={domain.cor}
           emissive={domain.cor}
-          emissiveIntensity={domain.emissiveIntensity * (isHovered ? 1.8 : 1.2)}
+          emissiveIntensity={domain.emissiveIntensity * (isHovered ? 1.8 : 1.2) * glowIntensity}
           transparent
           opacity={finalOpacity * domain.baseOpacity * 0.6}
           depthWrite={false}
@@ -97,7 +120,7 @@ export function FogDomain({ domain, opacity }: FogDomainProps) {
         <meshStandardMaterial
           color={domain.cor}
           emissive={domain.cor}
-          emissiveIntensity={domain.emissiveIntensity * 0.7}
+          emissiveIntensity={domain.emissiveIntensity * 0.7 * glowIntensity}
           transparent
           opacity={(finalOpacity * domain.baseOpacity) * 0.35}
           depthWrite={false}
@@ -113,7 +136,7 @@ export function FogDomain({ domain, opacity }: FogDomainProps) {
         <meshStandardMaterial
           color={domain.cor}
           emissive={domain.cor}
-          emissiveIntensity={domain.emissiveIntensity * 0.3}
+          emissiveIntensity={domain.emissiveIntensity * 0.3 * glowIntensity}
           transparent
           opacity={(finalOpacity * domain.baseOpacity) * 0.15}
           depthWrite={false}
@@ -129,7 +152,7 @@ export function FogDomain({ domain, opacity }: FogDomainProps) {
         <meshStandardMaterial
           color={domain.cor}
           emissive={domain.cor}
-          emissiveIntensity={domain.emissiveIntensity * 0.15}
+          emissiveIntensity={domain.emissiveIntensity * 0.15 * glowIntensity}
           transparent
           opacity={(finalOpacity * domain.baseOpacity) * 0.08}
           depthWrite={false}

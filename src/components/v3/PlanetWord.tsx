@@ -65,16 +65,19 @@ export function PlanetWord({
       // Atualizar ângulo orbital
       orbitalAngleRef.current += word.orbitalSpeed * delta;
       
-      // Calcular posição orbital elíptica em espiral
+      // Calcular posição orbital ELÍPTICA (sem espiral)
       const a = word.orbitalRadius; // Semi-eixo maior
       const b = word.orbitalRadius * (1 - word.orbitalEccentricity); // Semi-eixo menor
       
-      // Movimento em espiral: aumenta ligeiramente o raio com o tempo para criar efeito de espiral
-      const spiralFactor = Math.sin(orbitalAngleRef.current * 0.5) * 0.1;
+      // Posição X e Z (órbita elíptica no plano horizontal)
+      const x = domainPosition[0] + a * Math.cos(orbitalAngleRef.current);
+      const z = domainPosition[2] + b * Math.sin(orbitalAngleRef.current);
       
-      const x = domainPosition[0] + (a + spiralFactor) * Math.cos(orbitalAngleRef.current);
-      const y = domainPosition[1] + (Math.sin(orbitalAngleRef.current * 2) * 0.3); // Variação vertical
-      const z = domainPosition[2] + (b + spiralFactor) * Math.sin(orbitalAngleRef.current);
+      // Variação em Y baseada no hash da palavra (para evitar colisões)
+      // Usar um offset único por palavra baseado no seu nome
+      const wordHash = word.palavra.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+      const yOffset = ((wordHash % 100) / 100) * 0.8 - 0.4; // -0.4 a +0.4
+      const y = domainPosition[1] + yOffset;
       
       groupRef.current.position.set(x, y, z);
     }

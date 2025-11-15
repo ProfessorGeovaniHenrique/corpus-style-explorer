@@ -31,7 +31,8 @@ const defaultFilters: VisualizationFilters = {
   minFrequency: 1,           // Mostrar todas as palavras inicialmente
   maxWords: 15,              // Aumentar para 15 palavras por domínio
   showLabels: true,
-  fogIntensity: 0.85,        // 85% de intensidade (mais visível)
+  fogIntensity: 0.5,         // 50% de intensidade (default)
+  glowIntensity: 0.7,        // 70% de intensidade de glow
   prosodyFilter: undefined   // Sem filtro de prosódia inicialmente
 };
 
@@ -51,20 +52,29 @@ function groupWordsByDomain(words: SemanticWord[]): Map<string, SemanticWord[]> 
 // ===== FUNÇÃO: Calcular Posição 3D do Domínio =====
 function calculateDomainPosition(
   domainIndex: number, 
-  totalDomains: number
+  totalDomains: number,
+  domainName?: string
 ): [number, number, number] {
   const radius = 18; // Aumentar raio para maior espaçamento
   const angle = (domainIndex / totalDomains) * Math.PI * 2;
   
-  // Adicionar offset para evitar sobreposição exata
-  const angleOffset = (domainIndex % 2) * 0.3;
+  // Offset especial para "Seres Vivos" evitar sobreposição
+  let angleOffset = (domainIndex % 2) * 0.3;
+  if (domainName === "Partes do Corpo e Seres Vivos") {
+    angleOffset += 0.8; // Adicionar 0.8 radianos (~45 graus) de offset
+  }
+  
   const finalAngle = angle + angleOffset;
   
   const x = Math.cos(finalAngle) * radius;
   const z = Math.sin(finalAngle) * radius;
   
   // Variação em Y para espalhar verticalmente
-  const y = Math.sin(domainIndex * 1.5) * 5;
+  // "Seres Vivos" fica em uma altura diferente
+  let y = Math.sin(domainIndex * 1.5) * 5;
+  if (domainName === "Partes do Corpo e Seres Vivos") {
+    y += 2; // Elevar 2 unidades
+  }
   
   return [x, y, z];
 }
@@ -210,7 +220,7 @@ function createFogDomains(words: SemanticWord[]): FogDomain[] {
     if (domainWords.length === 0) continue;
     
     // Calcular posição 3D
-    const position = calculateDomainPosition(domainIndex, 6); // 6 domínios temáticos
+    const position = calculateDomainPosition(domainIndex, 6, domainName); // 6 domínios temáticos
     
     // Calcular propriedades FOG
     const fogProps = calculateFogProperties(domainInfo, domainWords.length);

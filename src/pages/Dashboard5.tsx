@@ -148,11 +148,14 @@ export default function Dashboard5() {
   // Handler de seleção de domínio
   const handleDomainSelect = useCallback((domainId: string) => {
     if (filters.selectedDomainId === domainId) {
+      // Desselecionar
       setFilters({ selectedDomainId: undefined });
-      setAutoRotate(true); // Reativar auto-rotação ao desselecionar
+      setAutoRotate(true); // Reativar auto-rotação
     } else {
+      // Selecionar
       setFilters({ selectedDomainId: domainId });
-      setAutoRotate(false); // Pausar auto-rotação ao selecionar domínio
+      setAutoRotate(false); // PAUSAR auto-rotação
+      toast.info(`Domínio "${domainId}" selecionado`);
     }
   }, [filters.selectedDomainId, setFilters]);
   
@@ -311,6 +314,7 @@ export default function Dashboard5() {
                   key={domain.dominio}
                   domain={domain}
                   opacity={filters.selectedDomainId && filters.selectedDomainId !== domain.dominio ? 0.15 : 1.0}
+                  glowIntensity={filters.glowIntensity}
                 />
               ))}
 
@@ -418,20 +422,35 @@ export default function Dashboard5() {
                 Filtros
               </h3>
 
-              {/* Opacidade do FOG */}
-              <div className="space-y-2">
-                <Label className="text-xs">
-                  Opacidade FOG: {(filters.fogIntensity * 100).toFixed(0)}%
-                </Label>
-                <Slider
-                  value={[filters.fogIntensity]}
-                  onValueChange={([v]) => setFilters({ fogIntensity: v })}
-                  min={0.1}
-                  max={1.0}
-                  step={0.05}
-                  className="w-full"
-                />
-              </div>
+            {/* Opacidade do FOG */}
+            <div className="space-y-2">
+              <Label className="text-xs">
+                Opacidade FOG: {(filters.fogIntensity * 100).toFixed(0)}%
+              </Label>
+              <Slider
+                value={[filters.fogIntensity]}
+                onValueChange={([v]) => setFilters({ fogIntensity: v })}
+                min={0.2}
+                max={1.0}
+                step={0.05}
+                className="w-full"
+              />
+            </div>
+
+            {/* Intensidade do Glow */}
+            <div className="space-y-2">
+              <Label className="text-xs">
+                Intensidade Glow: {(filters.glowIntensity * 100).toFixed(0)}%
+              </Label>
+              <Slider
+                value={[filters.glowIntensity]}
+                onValueChange={([v]) => setFilters({ glowIntensity: v })}
+                min={0.1}
+                max={1.5}
+                step={0.1}
+                className="w-full"
+              />
+            </div>
 
               {/* Frequência Mínima */}
               <div className="space-y-2">
