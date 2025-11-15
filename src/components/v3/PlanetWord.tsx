@@ -143,7 +143,6 @@ export function PlanetWord({
           anchorY="bottom"
           outlineWidth={0.015}
           outlineColor="#000000"
-          font="/fonts/Inter-Bold.woff"
         >
           {word.palavra}
           <animated.meshBasicMaterial

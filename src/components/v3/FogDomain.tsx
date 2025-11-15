@@ -117,7 +117,6 @@ export function FogDomain({ domain, opacity }: FogDomainProps) {
         anchorY="bottom"
         outlineWidth={0.02}
         outlineColor="#000000"
-        font="/fonts/Inter-Bold.woff"
       >
         {domain.dominio}
         <animated.meshBasicMaterial
