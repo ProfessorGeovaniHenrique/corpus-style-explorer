@@ -147,17 +147,17 @@ export class FogShaderMaterial extends THREE.ShaderMaterial {
           float edgeFade = 1.0 - smoothstep(0.7, 1.0, vDistanceToCenter);
           float volumetricFade = centerFade * edgeFade;
           
-          // Cor base com emissive
-          vec3 fogColor = uColor * uEmissiveIntensity;
+          // Cor base com emissive (aumentado para maior visibilidade)
+          vec3 fogColor = uColor * uEmissiveIntensity * 1.8;
           
-          // Adicionar Fresnel glow (mais suave que no DomainShader)
-          fogColor += uColor * fresnel * 1.5;
+          // Adicionar Fresnel glow (aumentado para FOGs mais brilhantes)
+          fogColor += uColor * fresnel * 2.5;
           
           // Extra glow no hover
           fogColor += vec3(1.0, 1.0, 1.0) * uHoverIntensity * fresnel * 0.8;
           
-          // Opacidade final (combinando todos os fades)
-          float finalOpacity = uOpacity * volumetricFade * (0.5 + fresnel * 0.5);
+          // Opacidade final (corrigido: remover multiplicação extra do fresnel)
+          float finalOpacity = uOpacity * volumetricFade;
           
           gl_FragColor = vec4(fogColor, finalOpacity);
         }

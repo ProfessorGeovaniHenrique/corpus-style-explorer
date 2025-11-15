@@ -213,15 +213,17 @@ export default function Dashboard5() {
                 minPolarAngle={Math.PI / 6}
               />
 
-              {/* Iluminação */}
-              <ambientLight intensity={0.3} />
+              {/* Iluminação - Aumentada para melhor visibilidade dos FOGs */}
+              <ambientLight intensity={0.6} />
               <directionalLight
                 position={[10, 10, 5]}
-                intensity={0.5}
+                intensity={1.0}
                 castShadow
               />
-              <pointLight position={[-10, -10, -5]} intensity={0.3} color="#4fc3f7" />
-              <pointLight position={[10, 10, 10]} intensity={0.2} color="#ab47bc" />
+              <pointLight position={[-10, -10, -5]} intensity={0.6} color="#4fc3f7" />
+              <pointLight position={[10, 10, 10]} intensity={0.5} color="#ab47bc" />
+              {/* Luz central para iluminar os FOGs por dentro */}
+              <pointLight position={[0, 0, 0]} intensity={0.8} color="#ffffff" distance={40} decay={1.8} />
 
               {/* Background: Estrelas */}
               <Stars
