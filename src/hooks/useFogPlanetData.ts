@@ -89,8 +89,8 @@ function calculateFogProperties(
   // Escala do noise (turbulência da nuvem)
   const noiseScale = 1.5 + Math.random() * 0.5; // 1.5 a 2.0 (variação visual)
   
-  // Opacidade base
-  const baseOpacity = 0.6 + (domainData.percentualTematico / 100) * 0.3; // 0.6 a 0.9
+  // Opacidade base (aumentada para melhor visibilidade)
+  const baseOpacity = 0.75 + (domainData.percentualTematico / 100) * 0.25; // 0.75 a 1.0
   
   return {
     fogRadius,
