@@ -27,6 +27,7 @@ export interface DominioSemantico {
 
 export interface PalavraChave {
   palavra: string;
+  lema?: string;
   ll: number;
   mi: number;
   frequenciaBruta: number;

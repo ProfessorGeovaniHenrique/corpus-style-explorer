@@ -186,6 +186,41 @@ export const prosodiasLemasMap: Record<string, ProsodiaInfo> = {
     prosody: "Positiva",
     justificativa: "Um vento leve, uma brisa agradável que traz inspiração (\"coplas\")."
   },
+  "sombra": {
+    lema: "sombra",
+    prosody: "Positiva",
+    justificativa: "Refúgio do sol, conforto e descanso durante a lida campeira."
+  },
+  "sol": {
+    lema: "sol",
+    prosody: "Positiva",
+    justificativa: "Luz e calor, vida e energia do dia campeiro."
+  },
+  "campo": {
+    lema: "campo",
+    prosody: "Positiva",
+    justificativa: "O espaço da lida e da identidade gaúcha, território de pertencimento."
+  },
+  "campanha": {
+    lema: "campanha",
+    prosody: "Positiva",
+    justificativa: "Região característica do Rio Grande do Sul, terra natal e identidade."
+  },
+  "horizonte": {
+    lema: "horizonte",
+    prosody: "Positiva",
+    justificativa: "Promessa de expansão, beleza e liberdade no contexto do pañuelo que se abre."
+  },
+  "tarde": {
+    lema: "tarde",
+    prosody: "Positiva",
+    justificativa: "Contextualizada como 'fim de tarde lindo', momento de apreciação estética e descanso."
+  },
+  "cuia": {
+    lema: "cuia",
+    prosody: "Positiva",
+    justificativa: "Objeto ritual do mate, símbolo de tradição, acolhimento e identidade gaúcha."
+  },
 
   // ========== PROSÓDIA NEGATIVA (27 lemas) ==========
   "adormecido": {
@@ -267,6 +302,11 @@ export const prosodiasLemasMap: Record<string, ProsodiaInfo> = {
     lema: "suado",
     prosody: "Negativa",
     justificativa: "Adjetivo que marca os arreios com o sinal do esforço pesado e do trabalho que ficou para trás."
+  },
+  "olho": {
+    lema: "olho",
+    prosody: "Negativa",
+    justificativa: "Em 'olhos negros de noite' e 'adormecidos na espera', transmite melancolia e saudade."
   },
 
   // ========== PROSÓDIA NEUTRA (18 lemas) ==========
@@ -355,10 +395,10 @@ export const prosodiasLemasMap: Record<string, ProsodiaInfo> = {
     prosody: "Neutra",
     justificativa: "Objeto da cultura gaúcha, contexto neutro."
   },
-  "cuia": {
-    lema: "cuia",
+  "maragato": {
+    lema: "maragato",
     prosody: "Neutra",
-    justificativa: "Objeto usado para tomar mate, neutro em si."
+    justificativa: "Identidade política/histórica, contexto neutro no poema."
   }
 };
 

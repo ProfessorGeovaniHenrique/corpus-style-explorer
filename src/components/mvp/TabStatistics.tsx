@@ -102,14 +102,14 @@ export function TabStatistics() {
   const palavrasEnriquecidas: EnrichedWord[] = useMemo(() => {
     return palavrasChaveData.map(p => ({
       palavra: p.palavra,
-      lema: p.palavra,
+      lema: p.lema || p.palavra,
       frequenciaBruta: p.frequenciaBruta,
       frequenciaNormalizada: p.frequenciaNormalizada,
       ll: p.ll,
       mi: p.mi,
       significancia: p.significancia,
       efeito: p.efeito,
-      prosodia: getProsodiaByLema(p.palavra)
+      prosodia: getProsodiaByLema(p.lema || p.palavra)
     }));
   }, []);
 
