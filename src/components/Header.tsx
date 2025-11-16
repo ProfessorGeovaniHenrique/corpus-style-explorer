@@ -1,8 +1,9 @@
 import logoUfrgs from "@/assets/logo-ufrgs.png";
 import logoPpglet from "@/assets/logo-ppglet.png";
-import { Sparkles, Briefcase } from "lucide-react";
+import { Sparkles, Briefcase, BarChart3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "@/contexts/ThemeContext";
+import { Link } from "react-router-dom";
 
 const Header = () => {
   const { mode, toggleTheme } = useTheme();
@@ -18,24 +19,49 @@ const Header = () => {
           />
         </div>
         
-        <Button
-          onClick={toggleTheme}
-          variant="outline"
-          size="lg"
-          className="flex items-center gap-2 font-medium transition-all hover:scale-105"
-        >
-          {mode === 'cosmic' ? (
-            <>
-              <Briefcase className="h-5 w-5" />
-              Modo Acadêmico
-            </>
-          ) : (
-            <>
-              <Sparkles className="h-5 w-5" />
-              Modo Exploratório
-            </>
-          )}
-        </Button>
+        <div className="flex items-center gap-3">
+          <Button
+            asChild
+            variant="ghost"
+            size="sm"
+            className="flex items-center gap-2"
+          >
+            <Link to="/dashboard-mvp">
+              Ver Demo
+            </Link>
+          </Button>
+
+          <Button
+            asChild
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-2"
+          >
+            <Link to="/devops-metrics">
+              <BarChart3 className="h-4 w-4" />
+              DevOps
+            </Link>
+          </Button>
+
+          <Button
+            onClick={toggleTheme}
+            variant="outline"
+            size="lg"
+            className="flex items-center gap-2 font-medium transition-all hover:scale-105"
+          >
+            {mode === 'cosmic' ? (
+              <>
+                <Briefcase className="h-5 w-5" />
+                Modo Acadêmico
+              </>
+            ) : (
+              <>
+                <Sparkles className="h-5 w-5" />
+                Modo Exploratório
+              </>
+            )}
+          </Button>
+        </div>
 
         <div className="h-32 w-auto">
           <img 
