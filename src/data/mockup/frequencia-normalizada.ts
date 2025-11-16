@@ -5,6 +5,7 @@ export const frequenciaNormalizadaData = [
   { palavra: "a", frequenciaBruta: 6, frequenciaNormalizada: 2.83, lema: "o" },
   { palavra: "da", frequenciaBruta: 5, frequenciaNormalizada: 2.36, lema: "de" },
   { palavra: "na", frequenciaBruta: 5, frequenciaNormalizada: 2.36, lema: "em" },
+  { palavra: "nas", frequenciaBruta: 1, frequenciaNormalizada: 0.47, lema: "em" },
   { palavra: "o", frequenciaBruta: 5, frequenciaNormalizada: 2.36, lema: "o" },
   { palavra: "uma", frequenciaBruta: 5, frequenciaNormalizada: 2.36, lema: "um" },
   { palavra: "com", frequenciaBruta: 4, frequenciaNormalizada: 1.89, lema: "com" },
