@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 
 const corsHeaders = {
@@ -45,6 +46,11 @@ serve(async (req) => {
     if (!LOVABLE_API_KEY) {
       throw new Error('LOVABLE_API_KEY is not configured');
     }
+
+    // ✅ CRIAR CLIENTE SUPABASE PARA PERSISTÊNCIA
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabaseClient = createClient(supabaseUrl, supabaseKey);
 
     const systemPrompt = `Você é um especialista em debugging e otimização de código React/TypeScript/Supabase.
 Analise os logs fornecidos e sugira correções priorizadas.
@@ -163,8 +169,55 @@ Retorne um objeto JSON com esta estrutura exata:
       suggestions: analysisResult.suggestions.length
     });
 
+    // ✅ PERSISTIR ANÁLISE NO BANCO
+    const { data: savedAnalysis, error: saveError } = await supabaseClient
+      .from('ai_analysis_history')
+      .insert({
+        logs_type: logsType,
+        total_issues: analysisResult.summary.totalIssues,
+        suggestions: analysisResult.suggestions,
+        estimated_credits_saved: analysisResult.suggestions.reduce(
+          (sum, s) => sum + parseInt(s.creditsSaved.match(/\d+/)?.[0] || '0'),
+          0
+        ),
+        metadata: {
+          summary: analysisResult.summary,
+          nextSteps: analysisResult.nextSteps
+        }
+      })
+      .select()
+      .single();
+
+    if (saveError) {
+      console.error('Error saving analysis:', saveError);
+    } else if (savedAnalysis) {
+      // ✅ CRIAR STATUS INDIVIDUAL PARA CADA SUGESTÃO
+      const statusInserts = analysisResult.suggestions.map(s => ({
+        analysis_id: savedAnalysis.id,
+        suggestion_id: s.id,
+        category: s.category,
+        severity: getPrioritySeverity(s.priority),
+        title: s.title,
+        estimated_effort: s.estimatedEffort,
+        estimated_credits_saved: parseInt(s.creditsSaved.match(/\d+/)?.[0] || '0'),
+      }));
+
+      const { error: statusError } = await supabaseClient
+        .from('ai_suggestion_status')
+        .insert(statusInserts);
+
+      if (statusError) {
+        console.error('Error saving suggestion statuses:', statusError);
+      }
+
+      console.log(`Saved analysis ${savedAnalysis.id} with ${statusInserts.length} suggestions`);
+    }
+
     return new Response(
-      JSON.stringify(analysisResult),
+      JSON.stringify({
+        ...analysisResult,
+        analysisId: savedAnalysis?.id // Incluir ID da análise no response
+      }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200 
@@ -185,3 +238,10 @@ Retorne um objeto JSON com esta estrutura exata:
     );
   }
 });
+
+function getPrioritySeverity(priority: number): 'Crítico' | 'Alto' | 'Médio' | 'Baixo' {
+  if (priority === 1) return 'Crítico';
+  if (priority === 2) return 'Alto';
+  if (priority === 3) return 'Médio';
+  return 'Baixo';
+}
