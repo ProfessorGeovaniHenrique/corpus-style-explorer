@@ -724,108 +724,11 @@ export function TabStatistics() {
             </TabsContent>
 
             <TabsContent value="prosodia" className="space-y-8 mt-6">
+              {/* Métricas de Sentimento */}
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold">Análise de Prosódia e Sentimento</h3>
-                
+                <h3 className="text-lg font-semibold">Métricas de Sentimento</h3>
                 <Card className="card-academic">
-                  <CardHeader>
-                    <CardTitle className="text-base">Distribuição de Prosódia Semântica</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <ResponsiveContainer width="100%" height={300}>
-                      <PieChart>
-                        <Pie data={prosodiaDistribution} dataKey="value" nameKey="name" cx="50%" cy="50%"
-                          outerRadius={100} label={(e) => `${e.name}: ${e.value} (${((e.value / palavrasEnriquecidas.length) * 100).toFixed(1)}%)`}>
-                          {prosodiaDistribution.map((e, i) => <Cell key={i} fill={e.fill} />)}
-                        </Pie>
-                        <RechartsTooltip />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </CardContent>
-                </Card>
-
-                <div className="flex gap-4">
-                  <div className="flex flex-col gap-2 w-1/2">
-                    <label className="font-semibold">Filtrar por Prosódia</label>
-                    <select
-                      className="border rounded p-2"
-                      value={prosodiaFilter}
-                      onChange={e => setProsodiaFilter(e.target.value as any)}
-                    >
-                      <option value="Todas">Todas</option>
-                      <option value="Positiva">Positiva</option>
-                      <option value="Negativa">Negativa</option>
-                      <option value="Neutra">Neutra</option>
-                    </select>
-                  </div>
-                  <div className="flex flex-col gap-2 w-1/2">
-                    <label className="font-semibold">Filtrar por Domínio</label>
-                    <select
-                      className="border rounded p-2"
-                      value={dominioFilter}
-                      onChange={e => setDominioFilter(e.target.value)}
-                    >
-                      <option value="Todos">Todos</option>
-                      {Object.keys(DOMAIN_COLORS).map(d => (
-                        <option key={d} value={d}>{d}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                <Card className="card-academic">
-                  <CardHeader>
-                    <CardTitle className="text-base">Palavras por Prosódia e Domínio</CardTitle>
-                    <CardDescription>Filtragem interativa por prosódia e domínio semântico</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="rounded-lg border overflow-auto max-h-[400px]">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Palavra</TableHead>
-                            <TableHead>Domínio</TableHead>
-                            <TableHead className="text-right">Freq. Norm.</TableHead>
-                            <TableHead>Prosódia</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {palavrasPorProsodia.length === 0 ? (
-                            <TableRow>
-                              <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
-                                Nenhuma palavra encontrada para os filtros aplicados
-                              </TableCell>
-                            </TableRow>
-                          ) : palavrasPorProsodia.map(p => (
-                            <TableRow key={p.palavra} className="hover:bg-muted/50 transition-colors">
-                              <TableCell>
-                                <button
-                                  onClick={() => openKWIC(p.palavra)}
-                                  className="font-mono font-semibold hover:underline hover:text-primary transition-colors text-left"
-                                >
-                                  {p.palavra}
-                                </button>
-                              </TableCell>
-                              <TableCell style={{ color: getDomainColor(p.dominio) }}>{p.dominio}</TableCell>
-                              <TableCell className="text-right font-mono">{p.frequenciaNormalizada.toFixed(2)}%</TableCell>
-                              <TableCell>
-                                <Badge variant="outline" className={prosodiaStyles[p.prosodia]}>
-                                  {p.prosodia}
-                                </Badge>
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card className="card-academic">
-                  <CardHeader>
-                    <CardTitle className="text-base">Métricas de Sentimento</CardTitle>
-                  </CardHeader>
-                  <CardContent>
+                  <CardContent className="pt-6">
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                       {[
                         { label: 'Palavras Positivas', count: sentimentStats.positivas.count, 
@@ -833,29 +736,113 @@ export function TabStatistics() {
                         { label: 'Palavras Negativas', count: sentimentStats.negativas.count, 
                           percent: sentimentStats.negativas.percent, bg: '#DC2626', color: '#DC2626' },
                         { label: 'Palavras Neutras', count: sentimentStats.neutras.count, 
-                          percent: sentimentStats.neutras.percent, bg: 'muted', color: 'foreground' },
+                          percent: sentimentStats.neutras.percent, bg: '#71717A', color: '#71717A' },
                         { label: 'Razão Pos/Neg', count: sentimentStats.razao, 
                           percent: `Tom ${Number(sentimentStats.razao) > 1 ? 'positivo' : 'negativo'}`, 
-                          bg: 'primary', color: 'foreground' }
+                          bg: 'transparent', color: Number(sentimentStats.razao) > 1 ? '#16A34A' : '#DC2626' }
                       ].map(({ label, count, percent, bg, color }) => (
                         <div key={label} className="rounded-lg border p-4" 
-                          style={{ backgroundColor: bg.includes('#') ? `${bg}0D` : undefined }}>
+                          style={{ backgroundColor: bg !== 'transparent' ? `${bg}0D` : undefined }}>
                           <p className="text-sm text-muted-foreground mb-1">{label}</p>
-                          <p className="text-2xl font-bold" style={{ color: color.includes('#') ? color : undefined }}>
+                          <p className="text-2xl font-bold" style={{ color }}>
                             {count}
                           </p>
-                          <p className="text-xs text-muted-foreground">{percent}{typeof percent === 'string' && !percent.includes('Tom') ? '% do total' : ''}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {typeof percent === 'string' && !percent.includes('Tom') ? `${percent}% do total` : percent}
+                          </p>
                         </div>
                       ))}
                     </div>
                   </CardContent>
                 </Card>
+              </div>
 
+              {/* Distribuição de Prosódia */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold">Distribuição de Prosódia Semântica</h3>
                 <Card className="card-academic">
-                  <CardHeader>
-                    <CardTitle className="text-base">Prosódia por Domínio Semântico</CardTitle>
-                  </CardHeader>
-                  <CardContent>
+                  <CardContent className="pt-6">
+                    <ResponsiveContainer width="100%" height={300}>
+                      <PieChart>
+                        <Pie 
+                          data={prosodiaDistribution} 
+                          dataKey="value" 
+                          nameKey="name" 
+                          cx="50%" 
+                          cy="50%"
+                          outerRadius={100} 
+                          label={(e) => `${e.name}: ${e.value} (${((e.value / palavrasEnriquecidas.length) * 100).toFixed(1)}%)`}
+                        >
+                          {prosodiaDistribution.map((e, i) => <Cell key={i} fill={e.fill} />)}
+                        </Pie>
+                        <RechartsTooltip />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Top 10 Positivas e Negativas */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold">Top 10 Palavras por Prosódia</h3>
+                <div className="grid gap-4 md:grid-cols-2">
+                  {[
+                    { data: top10Positivas, title: 'Top 10 Palavras Positivas', icon: Smile, color: '#16A34A' },
+                    { data: top10Negativas, title: 'Top 10 Palavras Negativas', icon: Frown, color: '#DC2626' }
+                  ].map(({ data, title, icon: Icon, color }) => (
+                    <Card key={title} className="card-academic">
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2 text-base">
+                          <Icon className="h-5 w-5" style={{ color }} />
+                          {title}
+                        </CardTitle>
+                        <CardDescription>
+                          Ordenadas por frequência normalizada (ocorrências por 100 palavras)
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <ol className="space-y-2">
+                          {data.map((p, i) => (
+                            <li key={p.palavra} className="flex items-center justify-between text-sm">
+                              <span className="flex items-center gap-2">
+                                <span className="font-semibold text-muted-foreground w-6">{i + 1}.</span>
+                                <span className="font-mono font-semibold">{p.palavra}</span>
+                              </span>
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Badge 
+                                      variant="outline" 
+                                      style={{ 
+                                        backgroundColor: `${color}10`, 
+                                        color, 
+                                        borderColor: `${color}30` 
+                                      }}
+                                      className="cursor-help"
+                                    >
+                                      {p.frequenciaNormalizada.toFixed(2)}%
+                                    </Badge>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p className="font-semibold">Frequência Normalizada</p>
+                                    <p className="text-xs">Ocorrências por 100 palavras do corpus</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            </li>
+                          ))}
+                        </ol>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+
+              {/* Prosódia por Domínio */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold">Prosódia por Domínio Semântico</h3>
+                <Card className="card-academic">
+                  <CardContent className="pt-6">
                     <ResponsiveContainer width="100%" height={400}>
                       <BarChart data={prosodiaByDomain} layout="vertical">
                         <CartesianGrid strokeDasharray="3 3" />
@@ -870,107 +857,238 @@ export function TabStatistics() {
                   </CardContent>
                 </Card>
               </div>
+
+              {/* Tabela de Palavras por Prosódia (com filtros) */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold">Palavras por Prosódia</h3>
+                <Card className="card-academic">
+                  <CardHeader>
+                    <div className="flex items-center gap-4">
+                      <div className="flex-1">
+                        <label className="text-sm font-medium">Filtrar por Prosódia:</label>
+                        <div className="flex gap-2 mt-2">
+                          {(['Todas', 'Positiva', 'Negativa', 'Neutra'] as const).map((tipo) => (
+                            <Button
+                              key={tipo}
+                              variant={prosodiaFilter === tipo ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => setProsodiaFilter(tipo)}
+                            >
+                              {tipo}
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="flex-1">
+                        <label className="text-sm font-medium">Filtrar por Domínio:</label>
+                        <select
+                          value={dominioFilter}
+                          onChange={(e) => setDominioFilter(e.target.value)}
+                          className="w-full mt-2 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                        >
+                          <option value="Todos">Todos</option>
+                          {dominiosNormalizados.map((d) => (
+                            <option key={d.dominio} value={d.dominio}>{d.dominio}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="rounded-lg border overflow-auto max-h-[400px]">
+                      <Table>
+                        <TableHeader className="sticky top-0 bg-background">
+                          <TableRow>
+                            <TableHead>Palavra</TableHead>
+                            <TableHead>Lema</TableHead>
+                            <TableHead>Prosódia</TableHead>
+                            <TableHead>Domínio</TableHead>
+                            <TableHead className="text-right">Freq. Norm.</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {palavrasPorProsodia.slice(0, 50).map((p) => (
+                            <TableRow key={p.palavra}>
+                              <TableCell className="font-mono font-semibold">{p.palavra}</TableCell>
+                              <TableCell className="italic text-muted-foreground">{p.lema}</TableCell>
+                              <TableCell>
+                                <Badge variant="outline" className={prosodiaStyles[p.prosodia]}>
+                                  {p.prosodia}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-sm">{p.dominio}</TableCell>
+                              <TableCell className="text-right font-mono">
+                                {p.frequenciaNormalizada.toFixed(2)}%
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                    {palavrasPorProsodia.length > 50 && (
+                      <p className="text-sm text-muted-foreground text-center mt-4">
+                        Mostrando 50 de {palavrasPorProsodia.length} palavras
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
             </TabsContent>
 
             <TabsContent value="keyness" className="space-y-8 mt-6">
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold">Keyness Estatística</h3>
+              {/* Card Explicativo */}
+              <Card className="card-academic bg-primary/5 border-primary/20">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Info className="h-5 w-5 text-primary" />
+                    O que significam LL e MI Score?
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <h4 className="font-semibold mb-2">Log-Likelihood (LL):</h4>
+                    <p className="text-sm text-muted-foreground">
+                      Mede a significância estatística da diferença de frequência entre o corpus de estudo 
+                      e o corpus de referência. Valores altos ({">"}3.84) indicam que a palavra é distintiva 
+                      do corpus analisado. Quanto maior o valor, mais "característica" a palavra é do corpus.
+                    </p>
+                  </div>
+                  <div>
+                    <h4 className="font-semibold mb-2">Mutual Information (MI):</h4>
+                    <p className="text-sm text-muted-foreground">
+                      Mede a força da associação de uma palavra com o corpus de estudo. Valores altos indicam 
+                      que quando a palavra aparece, ela é muito característica daquele contexto específico. 
+                      O MI Score complementa o LL ao mostrar a "força" da associação além da frequência.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
 
+              {/* Top 20 LL e MI Score com Gráficos de Barras */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold">Top 20 por Keyness</h3>
                 <div className="grid gap-4 md:grid-cols-2">
+                  {/* Top 20 LL */}
                   <Card className="card-academic">
                     <CardHeader>
-                      <CardTitle className="text-base">Top 20 Palavras por Log-Likelihood (LL)</CardTitle>
-                      <CardDescription>Palavras com maior evidência estatística de associação</CardDescription>
+                      <CardTitle className="text-base">Top 20 Log-Likelihood (LL)</CardTitle>
+                      <CardDescription>Palavras mais estatisticamente significativas</CardDescription>
                     </CardHeader>
                     <CardContent>
-                      <div className="rounded-lg border overflow-auto max-h-[400px]">
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead>Palavra</TableHead>
-                              <TableHead className="text-right">LL</TableHead>
-                              <TableHead className="text-right">Freq. Norm.</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {top20LL.map(p => (
-                              <TableRow key={p.palavra} className="hover:bg-muted/50 transition-colors">
-                                <TableCell>
-                                  <button
-                                    onClick={() => openKWIC(p.palavra)}
-                                    className="font-mono font-semibold hover:underline hover:text-primary transition-colors text-left"
-                                  >
-                                    {p.palavra}
-                                  </button>
-                                </TableCell>
-                                <TableCell className="text-right font-mono font-semibold text-primary">{p.ll.toFixed(2)}</TableCell>
-                                <TableCell className="text-right font-mono">{p.frequenciaNormalizada.toFixed(2)}%</TableCell>
-                              </TableRow>
+                      <ResponsiveContainer width="100%" height={500}>
+                        <BarChart data={top20LL} layout="vertical">
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis type="number" />
+                          <YAxis type="category" dataKey="palavra" width={100} />
+                          <RechartsTooltip />
+                          <Bar dataKey="ll" radius={[0, 4, 4, 0]}>
+                            {top20LL.map((entry, i) => (
+                              <Cell 
+                                key={i} 
+                                fill={
+                                  entry.significancia === 'Alta' ? ACADEMIC_RS_COLORS.verde.main :
+                                  entry.significancia === 'Média' ? ACADEMIC_RS_COLORS.amarelo.main :
+                                  ACADEMIC_RS_COLORS.vermelho.light
+                                } 
+                              />
                             ))}
-                          </TableBody>
-                        </Table>
-                      </div>
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
                     </CardContent>
                   </Card>
 
+                  {/* Top 20 MI Score */}
                   <Card className="card-academic">
                     <CardHeader>
-                      <CardTitle className="text-base">Top 20 Palavras por MI Score</CardTitle>
-                      <CardDescription>Palavras com maior força de associação mútua</CardDescription>
+                      <CardTitle className="text-base">Top 20 MI Score</CardTitle>
+                      <CardDescription>Palavras com maior força de associação</CardDescription>
                     </CardHeader>
                     <CardContent>
-                      <div className="rounded-lg border overflow-auto max-h-[400px]">
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead>Palavra</TableHead>
-                              <TableHead className="text-right">MI Score</TableHead>
-                              <TableHead className="text-right">Freq. Norm.</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {top20MI.map(p => (
-                              <TableRow key={p.palavra} className="hover:bg-muted/50 transition-colors">
-                                <TableCell>
-                                  <button
-                                    onClick={() => openKWIC(p.palavra)}
-                                    className="font-mono font-semibold hover:underline hover:text-primary transition-colors text-left"
-                                  >
-                                    {p.palavra}
-                                  </button>
-                                </TableCell>
-                                <TableCell className="text-right font-mono font-semibold text-primary">{p.mi.toFixed(2)}</TableCell>
-                                <TableCell className="text-right font-mono">{p.frequenciaNormalizada.toFixed(2)}%</TableCell>
-                              </TableRow>
+                      <ResponsiveContainer width="100%" height={500}>
+                        <BarChart data={top20MI} layout="vertical">
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis type="number" />
+                          <YAxis type="category" dataKey="palavra" width={100} />
+                          <RechartsTooltip />
+                          <Bar dataKey="mi" radius={[0, 4, 4, 0]}>
+                            {top20MI.map((entry, i) => (
+                              <Cell 
+                                key={i} 
+                                fill={
+                                  entry.significancia === 'Alta' ? ACADEMIC_RS_COLORS.verde.main :
+                                  entry.significancia === 'Média' ? ACADEMIC_RS_COLORS.amarelo.main :
+                                  ACADEMIC_RS_COLORS.vermelho.light
+                                } 
+                              />
                             ))}
-                          </TableBody>
-                        </Table>
-                      </div>
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
                     </CardContent>
                   </Card>
                 </div>
+              </div>
 
+              {/* Scatter Plot LL vs MI */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold">Dispersão: LL vs MI Score</h3>
                 <Card className="card-academic">
                   <CardHeader>
-                    <CardTitle className="text-base">Scatter Plot: LL vs MI Score</CardTitle>
-                    <CardDescription>Visualização da relação entre LL e MI para todas as palavras</CardDescription>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <ScatterChartIcon className="h-5 w-5" />
+                      Relação entre Log-Likelihood e MI Score
+                    </CardTitle>
+                    <CardDescription>
+                      Cada ponto representa uma palavra. Palavras no canto superior direito têm alta 
+                      significância estatística (LL) e forte associação (MI).
+                    </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <ResponsiveContainer width="100%" height={400}>
-                      <ScatterChart
-                        margin={{ top: 20, right: 20, bottom: 20, left: 20 }}
-                      >
-                        <CartesianGrid />
-                        <XAxis type="number" dataKey="ll" name="Log-Likelihood" />
-                        <YAxis type="number" dataKey="mi" name="MI Score" />
-                        <ZAxis range={[100]} />
-                        <RechartsTooltip cursor={{ strokeDasharray: '3 3' }} />
-                        <Scatter
-                          name="Palavras"
-                          data={scatterData}
-                          fill={ACADEMIC_RS_COLORS.verde.main}
-                          shape="circle"
+                    <ResponsiveContainer width="100%" height={500}>
+                      <ScatterChart margin={{ top: 20, right: 20, bottom: 60, left: 60 }}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis 
+                          type="number" 
+                          dataKey="ll" 
+                          name="Log-Likelihood (LL)"
+                          label={{ value: 'Log-Likelihood (LL)', position: 'bottom', offset: 40 }}
                         />
+                        <YAxis 
+                          type="number" 
+                          dataKey="mi" 
+                          name="MI Score"
+                          label={{ value: 'MI Score', angle: -90, position: 'left', offset: 40 }}
+                        />
+                        <ZAxis type="number" dataKey="frequencia" range={[50, 400]} name="Freq. Norm." />
+                        <RechartsTooltip 
+                          cursor={{ strokeDasharray: '3 3' }}
+                          content={({ active, payload }) => {
+                            if (active && payload && payload.length) {
+                              const data = payload[0].payload;
+                              return (
+                                <div className="bg-background border rounded-lg p-3 shadow-lg">
+                                  <p className="font-semibold mb-1">{data.palavra}</p>
+                                  <p className="text-sm text-muted-foreground">LL: {data.ll.toFixed(2)}</p>
+                                  <p className="text-sm text-muted-foreground">MI: {data.mi.toFixed(2)}</p>
+                                  <p className="text-sm text-muted-foreground">Freq: {data.frequencia.toFixed(2)}%</p>
+                                  <Badge 
+                                    variant="outline" 
+                                    className={
+                                      data.significancia === 'Alta' ? 'bg-green-500/10 text-green-600 border-green-500/30' :
+                                      data.significancia === 'Média' ? 'bg-yellow-500/10 text-yellow-600 border-yellow-500/30' :
+                                      'bg-muted/20 text-muted-foreground border-border'
+                                    }
+                                  >
+                                    {data.significancia}
+                                  </Badge>
+                                </div>
+                              );
+                            }
+                            return null;
+                          }}
+                        />
+                        <Scatter data={scatterData} fill={ACADEMIC_RS_COLORS.verde.main} fillOpacity={0.6} />
                       </ScatterChart>
                     </ResponsiveContainer>
                   </CardContent>
