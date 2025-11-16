@@ -8,18 +8,32 @@ export function parseTSVCorpus(tsvContent: string): CorpusWord[] {
   const lines = tsvContent.split('\n').slice(1); // Skip header
   
   console.log(`🔍 Parsing TSV - Total lines (excluding header): ${lines.length}`);
+  console.log(`📄 First 3 raw lines:`, lines.slice(0, 3));
   
   const parsed = lines
     .filter(line => line.trim())
     .map((line, index) => {
+      // Log primeiras 5 linhas para ver formato exato
+      if (index < 5) {
+        console.log(`🔬 Line ${index}:`, JSON.stringify(line));
+      }
+      
       // Remove numerical prefixes (e.g., "4: 2: a,,,183538,49032" → "a,,,183538,49032")
       let cleanedLine = line;
       const prefixPattern = /^(\d+:\s*)+/;
       if (prefixPattern.test(line)) {
         cleanedLine = line.replace(prefixPattern, '').trim();
+        
+        if (index < 5) {
+          console.log(`✂️ After cleaning:`, JSON.stringify(cleanedLine));
+        }
       }
       
       const columns = cleanedLine.split(',');
+      
+      if (index < 5) {
+        console.log(`📊 Columns (${columns.length}):`, columns);
+      }
       
       let headword: string;
       let freq: number;
@@ -43,6 +57,10 @@ export function parseTSVCorpus(tsvContent: string): CorpusWord[] {
         range = parseInt(columns[2]) || 0;
       }
       
+      if (index < 5) {
+        console.log(`✅ Parsed: headword="${headword}", freq=${freq}, range=${range}`);
+      }
+      
       const rank = index + 1;
       
       return {
@@ -63,6 +81,8 @@ export function parseTSVCorpus(tsvContent: string): CorpusWord[] {
     });
   
   console.log(`✅ Parsed corpus: ${parsed.length} valid words`);
+  console.log(`📊 First 3 valid words:`, parsed.slice(0, 3));
+  
   return parsed;
 }
 
