@@ -15,6 +15,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { Badge } from '@/components/ui/badge';
+import { DialectalWordDetailModal } from './DialectalWordDetailModal';
 
 interface DialectalWordCloudProps {
   marcas: EnrichedDialectalMark[];
@@ -51,6 +52,13 @@ const TIPO_COLORS = {
 
 export function DialectalWordCloud({ marcas, maxWords = 60 }: DialectalWordCloudProps) {
   const [hoveredWord, setHoveredWord] = useState<string | null>(null);
+  const [selectedMarca, setSelectedMarca] = useState<EnrichedDialectalMark | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const handleWordClick = (marca: EnrichedDialectalMark) => {
+    setSelectedMarca(marca);
+    setIsModalOpen(true);
+  };
 
   // Pega as top palavras e normaliza os scores
   const topMarcas = marcas
@@ -135,7 +143,7 @@ export function DialectalWordCloud({ marcas, maxWords = 60 }: DialectalWordCloud
               <Tooltip key={index}>
                 <TooltipTrigger asChild>
                   <div
-                    className="inline-block cursor-pointer transition-all duration-300 ease-out"
+                    className="inline-block cursor-pointer transition-all duration-300 ease-out hover:scale-110"
                     style={{
                       fontSize: `${fontSize}px`,
                       opacity: isHovered ? 1 : opacity,
@@ -143,6 +151,7 @@ export function DialectalWordCloud({ marcas, maxWords = 60 }: DialectalWordCloud
                     }}
                     onMouseEnter={() => setHoveredWord(marca.termo)}
                     onMouseLeave={() => setHoveredWord(null)}
+                    onClick={() => handleWordClick(marca)}
                   >
                     <span
                       className={`font-bold ${colors.base} transition-all duration-300 drop-shadow-sm hover:drop-shadow-md`}
@@ -230,6 +239,16 @@ export function DialectalWordCloud({ marcas, maxWords = 60 }: DialectalWordCloud
           </span>
         </div>
       </div>
+
+      {/* Modal de detalhes */}
+      <DialectalWordDetailModal
+        marca={selectedMarca}
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false);
+          setSelectedMarca(null);
+        }}
+      />
     </div>
   );
 }
