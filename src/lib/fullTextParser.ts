@@ -1,4 +1,5 @@
 import { CorpusCompleto, SongEntry, SongMetadata } from "@/data/types/full-text-corpus.types";
+import { CorpusType } from "@/data/types/corpus-tools.types";
 
 /**
  * Parse full-text corpus in the format:
@@ -9,7 +10,7 @@ import { CorpusCompleto, SongEntry, SongMetadata } from "@/data/types/full-text-
  */
 export function parseFullTextCorpus(
   textContent: string, 
-  tipo: 'gaucho' | 'nordestino'
+  tipo: CorpusType
 ): CorpusCompleto {
   const musicas: SongEntry[] = [];
   
@@ -95,7 +96,7 @@ export function parseFullTextCorpus(
  * Load and parse multiple corpus files with optional filters
  */
 export async function loadFullTextCorpus(
-  tipo: 'gaucho' | 'nordestino',
+  tipo: CorpusType,
   filters?: {
     artistas?: string[];
     albuns?: string[];
@@ -105,11 +106,13 @@ export async function loadFullTextCorpus(
 ): Promise<CorpusCompleto> {
   const paths = tipo === 'gaucho' 
     ? ['/src/data/corpus/full-text/gaucho-completo.txt']
-    : [
+    : tipo === 'nordestino'
+    ? [
         '/src/data/corpus/full-text/nordestino-parte-01.txt',
         '/src/data/corpus/full-text/nordestino-parte-02.txt',
         '/src/data/corpus/full-text/nordestino-parte-03.txt'
-      ];
+      ]
+    : ['/src/data/corpus/corpus-luiz-marenco-verso.txt']; // marenco-verso
   
   console.log(`📂 Carregando corpus ${tipo}...`);
   

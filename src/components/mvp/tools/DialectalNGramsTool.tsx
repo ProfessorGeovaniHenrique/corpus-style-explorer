@@ -40,6 +40,7 @@ import { useFullTextCorpus } from '@/hooks/useFullTextCorpus';
 import { generateNGrams } from '@/services/ngramsService';
 import { analyzeDialectalNGrams, filterByCategory, filterByType, getDialectalNGramsStats, DialectalNGram } from '@/services/dialectalNGramsService';
 import { toast } from 'sonner';
+import { CorpusType, CORPUS_CONFIG } from '@/data/types/corpus-tools.types';
 
 const CATEGORIA_LABELS = {
   lida_campeira: 'Lida Campeira',
@@ -67,15 +68,22 @@ const TIPO_LABELS = {
 };
 
 export function DialectalNGramsTool() {
+  const [corpusEstudo, setCorpusEstudo] = useState<CorpusType>('gaucho');
+  const [corpusReferencia, setCorpusReferencia] = useState<CorpusType>('nordestino');
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategoria, setFilterCategoria] = useState('todos');
   const [filterTipo, setFilterTipo] = useState('todos');
   const [dialectalNGrams, setDialectalNGrams] = useState<DialectalNGram[]>([]);
   const [isProcessed, setIsProcessed] = useState(false);
 
-  const { corpus, isLoading, error } = useFullTextCorpus('gaucho');
+  const { corpus, isLoading, error } = useFullTextCorpus(corpusEstudo);
 
   const handleAnalyze = () => {
+    if (corpusEstudo === corpusReferencia) {
+      toast.error('Os corpus de estudo e referência devem ser diferentes!');
+      return;
+    }
+
     if (!corpus || corpus.musicas.length === 0) {
       toast.error('Corpus não carregado. Aguarde o carregamento.');
       return;
@@ -148,31 +156,71 @@ export function DialectalNGramsTool() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {/* Card inicial com seleção de corpus */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-primary" />
-            N-grams Dialetais
+            <Sparkles className="h-5 w-5" />
+            Análise de N-grams Dialetais
           </CardTitle>
           <CardDescription>
-            Identificação automática de expressões multi-palavra típicas da cultura gaúcha
+            Identifica expressões multi-palavra típicas da cultura gaúcha
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Corpus de Estudo</label>
+              <Select 
+                value={corpusEstudo} 
+                onValueChange={(value: CorpusType) => {
+                  setCorpusEstudo(value);
+                  setIsProcessed(false);
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(CORPUS_CONFIG).map(([key, config]) => (
+                    <SelectItem key={key} value={key}>
+                      {config.icon} {config.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Corpus de Referência</label>
+              <Select 
+                value={corpusReferencia} 
+                onValueChange={(value: CorpusType) => {
+                  setCorpusReferencia(value);
+                  setIsProcessed(false);
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(CORPUS_CONFIG).map(([key, config]) => (
+                    <SelectItem key={key} value={key}>
+                      {config.icon} {config.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
           <Button 
-            onClick={handleAnalyze} 
-            disabled={isLoading || !corpus}
+            onClick={handleAnalyze}
+            disabled={isLoading || !corpus || corpusEstudo === corpusReferencia}
             className="w-full"
           >
-            {isLoading ? (
-              <>Carregando corpus...</>
-            ) : (
-              <>
-                <Sparkles className="mr-2 h-4 w-4" />
-                Analisar Expressões Dialetais
-              </>
-            )}
+            <Search className="mr-2 h-4 w-4" />
+            Analisar Expressões Dialetais
           </Button>
 
           {error && (
@@ -191,11 +239,32 @@ export function DialectalNGramsTool() {
         </div>
       )}
 
-      {/* Results */}
-      {isProcessed && stats && (
+      {/* Resultados */}
+      {isProcessed && (
         <>
-          {/* Cards de Estatísticas */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Header com corpus info */}
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-semibold">
+                    Expressões Dialetais - {CORPUS_CONFIG[corpusEstudo].label}
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    {dialectalNGrams.length} expressões identificadas
+                  </p>
+                </div>
+                <Button onClick={exportToCSV} variant="outline" size="sm">
+                  <Download className="mr-2 h-4 w-4" />
+                  Exportar CSV
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Estatísticas */}
+          {stats && (
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-medium flex items-center gap-2">

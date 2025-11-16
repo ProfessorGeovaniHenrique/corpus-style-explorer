@@ -3,6 +3,8 @@
  * Used for KWIC, Dispersion, and N-grams tools
  */
 
+import { CorpusType } from './corpus-tools.types';
+
 export interface SongMetadata {
   artista: string;
   album: string;
@@ -19,7 +21,7 @@ export interface SongEntry {
 }
 
 export interface CorpusCompleto {
-  tipo: 'gaucho' | 'nordestino';
+  tipo: CorpusType;
   totalMusicas: number;
   totalPalavras: number;
   musicas: SongEntry[];

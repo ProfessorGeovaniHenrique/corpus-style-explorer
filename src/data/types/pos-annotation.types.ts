@@ -3,6 +3,8 @@
  * Used for morphosyntactic analysis of corpus texts
  */
 
+import { CorpusType } from './corpus-tools.types';
+
 export interface POSToken {
   palavra: string;           // Original word form
   lema: string;              // Canonical form (e.g., "correndo" → "correr")
@@ -33,7 +35,7 @@ export interface POSAnnotatedSong {
 }
 
 export interface CorpusComPOS {
-  tipo: 'gaucho' | 'nordestino';
+  tipo: CorpusType;
   totalMusicas: number;
   totalPalavras: number;
   totalTokens: number;

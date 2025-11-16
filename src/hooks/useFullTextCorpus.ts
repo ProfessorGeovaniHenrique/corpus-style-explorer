@@ -1,13 +1,14 @@
 import { useState, useEffect } from "react";
 import { CorpusCompleto } from "@/data/types/full-text-corpus.types";
 import { loadFullTextCorpus } from "@/lib/fullTextParser";
+import { CorpusType } from "@/data/types/corpus-tools.types";
 
 /**
  * Hook to load and manage full-text corpus
  * Implements lazy loading and caching
  */
 export function useFullTextCorpus(
-  tipo: 'gaucho' | 'nordestino',
+  tipo: CorpusType,
   filters?: {
     artistas?: string[];
     albuns?: string[];
