@@ -53,13 +53,24 @@ jobs:
         env:
           CI: true
 
+      - name: 📝 Gerar/Atualizar Changelog
+        if: steps.bump.outputs.version != ''
+        run: |
+          if [ -f "CHANGELOG.md" ]; then
+            echo "Atualizando CHANGELOG.md existente..."
+            npm run changelog:update -- --version v${{ steps.bump.outputs.version }}
+          else
+            echo "Gerando CHANGELOG.md inicial..."
+            npm run changelog:generate
+          fi
+
       - name: 📝 Commit e Push da nova versão
         if: steps.bump.outputs.version != ''
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
           
-          git add VERSION
+          git add VERSION CHANGELOG.md
           git commit -m "chore: bump version to ${{ steps.bump.outputs.version }}"
           git push
           
@@ -78,6 +89,7 @@ jobs:
           echo "- **Tipo de Bump:** ${{ steps.bump.outputs.bump_type }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "🏷️ Tag \`v${{ steps.bump.outputs.version }}\` criada e enviada ao GitHub" >> $GITHUB_STEP_SUMMARY
+          echo "📝 CHANGELOG.md atualizado" >> $GITHUB_STEP_SUMMARY
 
   create-release:
     name: 📝 Criar GitHub Release
@@ -91,34 +103,50 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: 📝 Gerar notas de release
+      - name: 📥 Checkout do código
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: ⚙️ Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: 📦 Instalar dependências
+        run: npm ci
+
+      - name: 📝 Extrair notas de release do CHANGELOG
         id: release_notes
         run: |
-          PREVIOUS_TAG="v${{ needs.version.outputs.previous_version }}"
-          NEW_TAG="v${{ needs.version.outputs.new_version }}"
+          # Gerar changelog para esta versão específica
+          NOTES=$(npm run changelog:generate -- --version v${{ needs.version.outputs.new_version }} 2>/dev/null | tail -n +3)
           
-          # Gerar changelog entre tags
-          CHANGELOG=$(git log $PREVIOUS_TAG..$NEW_TAG --pretty=format:"- %s (%h)" --no-merges)
-          
-          # Separar por tipo
-          FEATURES=$(echo "$CHANGELOG" | grep "^- feat" || echo "")
-          FIXES=$(echo "$CHANGELOG" | grep "^- fix" || echo "")
-          BREAKING=$(echo "$CHANGELOG" | grep "BREAKING" || echo "")
-          
-          # Criar release notes
-          NOTES="## 🎉 Release $NEW_TAG"
-          NOTES="$NOTES\n\n**Tipo de Release:** ${{ needs.version.outputs.bump_type }}"
-          
-          if [ -n "$BREAKING" ]; then
-            NOTES="$NOTES\n\n### 💥 Breaking Changes\n$BREAKING"
-          fi
-          
-          if [ -n "$FEATURES" ]; then
-            NOTES="$NOTES\n\n### ✨ Features\n$FEATURES"
-          fi
-          
-          if [ -n "$FIXES" ]; then
-            NOTES="$NOTES\n\n### 🐛 Bug Fixes\n$FIXES"
+          if [ -z "$NOTES" ]; then
+            # Fallback para método antigo
+            PREVIOUS_TAG="v${{ needs.version.outputs.previous_version }}"
+            NEW_TAG="v${{ needs.version.outputs.new_version }}"
+            
+            CHANGELOG=$(git log $PREVIOUS_TAG..$NEW_TAG --pretty=format:"- %s (%h)" --no-merges)
+            
+            FEATURES=$(echo "$CHANGELOG" | grep "^- feat" || echo "")
+            FIXES=$(echo "$CHANGELOG" | grep "^- fix" || echo "")
+            BREAKING=$(echo "$CHANGELOG" | grep "BREAKING" || echo "")
+            
+            NOTES="## 🎉 Release $NEW_TAG\n\n"
+            
+            if [ -n "$BREAKING" ]; then
+              NOTES="$NOTES### 💥 Breaking Changes\n$BREAKING\n\n"
+            fi
+            
+            if [ -n "$FEATURES" ]; then
+              NOTES="$NOTES### ✨ Features\n$FEATURES\n\n"
+            fi
+            
+            if [ -n "$FIXES" ]; then
+              NOTES="$NOTES### 🐛 Bug Fixes\n$FIXES"
+            fi
           fi
           
           echo "notes<<EOF" >> $GITHUB_OUTPUT
