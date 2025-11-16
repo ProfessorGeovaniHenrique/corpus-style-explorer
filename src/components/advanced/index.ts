@@ -10,6 +10,11 @@ export { ValidationInterface } from './ValidationInterface';
 export { TagsetManager } from './TagsetManager';
 export { JobsMonitor } from './JobsMonitor';
 
+// Hierarchical and Dictionary Components
+export { HierarchyViewSelector } from './HierarchyViewSelector';
+export { SynonymExplorer } from './SynonymExplorer';
+export type { ViewMode } from './HierarchyViewSelector';
+
 // Other
 export { DemoModeBlocker } from './DemoModeBlocker';
 export { AnnotationProgressModal } from './AnnotationProgressModal';
