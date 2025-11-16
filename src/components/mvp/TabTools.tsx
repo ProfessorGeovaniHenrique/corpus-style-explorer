@@ -9,6 +9,7 @@ import { KWICTool } from "./tools/KWICTool";
 import { DispersionTool } from "./tools/DispersionTool";
 import { NGramsTool } from "./tools/NGramsTool";
 import { TemporalAnalysisTool } from "./tools/TemporalAnalysisTool";
+import { DialectalAnalysisTool } from "./tools/DialectalAnalysisTool";
 
 function TabToolsContent() {
   const { activeTab, setActiveTab } = useTools();
@@ -21,13 +22,13 @@ function TabToolsContent() {
           Ferramentas de Estilística de Corpus
         </CardTitle>
         <CardDescription className="section-description-academic">
-          Wordlist, Keywords, KWIC, Dispersão, N-grams, Análise Temporal
+          Wordlist, Keywords, KWIC, Dispersão, N-grams, Análise Temporal, Análise Dialetal
         </CardDescription>
       </CardHeader>
       
       <CardContent>
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-6">
+          <TabsList className="grid w-full grid-cols-7">
             <TabsTrigger value="wordlist">
               Word List
             </TabsTrigger>
@@ -45,6 +46,9 @@ function TabToolsContent() {
             </TabsTrigger>
             <TabsTrigger value="temporal">
               Temporal
+            </TabsTrigger>
+            <TabsTrigger value="dialectal">
+              Dialetal
             </TabsTrigger>
           </TabsList>
           
@@ -70,6 +74,10 @@ function TabToolsContent() {
           
           <TabsContent value="temporal" className="mt-6">
             <TemporalAnalysisTool />
+          </TabsContent>
+          
+          <TabsContent value="dialectal" className="mt-6">
+            <DialectalAnalysisTool />
           </TabsContent>
         </Tabs>
       </CardContent>
