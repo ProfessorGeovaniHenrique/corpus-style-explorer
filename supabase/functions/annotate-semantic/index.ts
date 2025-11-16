@@ -153,8 +153,35 @@ async function processCorpusWithAI(
     return;
   }
 
+  // ✅ CORREÇÃO #5: Timeout e monitoramento (30 minutos)
+  const MAX_PROCESSING_TIME = 30 * 60 * 1000;
+  const startTime = Date.now();
+
+  const timeoutPromise = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error('Timeout: Job excedeu 30 minutos')), MAX_PROCESSING_TIME)
+  );
+
   try {
-    console.log(`[processCorpusWithAI] Starting job ${jobId} for corpus ${corpusType}`);
+    await Promise.race([
+      processCorpusInternal(jobId, corpusType, supabase, LOVABLE_API_KEY, customText, startTime),
+      timeoutPromise
+    ]);
+  } catch (error: any) {
+    console.error(`[processCorpusWithAI] Job ${jobId} failed:`, error.message);
+    await updateJobStatus(supabase, jobId, 'failed', error.message);
+  }
+}
+
+async function processCorpusInternal(
+  jobId: string,
+  corpusType: string,
+  supabase: any,
+  LOVABLE_API_KEY: string,
+  customText: string | undefined,
+  startTime: number
+) {
+  try {
+    console.log(`[processCorpusInternal] Starting job ${jobId} for corpus ${corpusType}`);
 
     await supabase
       .from('annotation_jobs')

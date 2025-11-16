@@ -109,8 +109,37 @@ async function processInBackground(jobId: string, verbetes: string[], volumeNum:
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
   );
 
+  // ✅ CORREÇÃO #5: Timeout e monitoramento
+  const MAX_PROCESSING_TIME = 30 * 60 * 1000; // 30 minutos
+  const timeoutPromise = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error('Timeout: Processamento excedeu 30 minutos')), MAX_PROCESSING_TIME)
+  );
+
+  try {
+    await Promise.race([
+      processVerbetesInternal(jobId, verbetes, volumeNum, supabase),
+      timeoutPromise
+    ]);
+  } catch (error: any) {
+    console.error(`[JOB ${jobId}] Failed:`, error.message);
+    await supabase
+      .from("dictionary_import_jobs")
+      .update({ 
+        status: 'erro',
+        erro_mensagem: error.message
+      })
+      .eq('id', jobId);
+  }
+}
+
+async function processVerbetesInternal(
+  jobId: string,
+  verbetes: string[],
+  volumeNum: string,
+  supabase: any
+) {
   const startTime = Date.now();
-  console.log(`[JOB ${jobId}] Iniciando processamento de ${verbetes.length} verbetes (timeout: ${TIMEOUT_MS}ms)`);
+  console.log(`[JOB ${jobId}] Iniciando processamento de ${verbetes.length} verbetes (timeout: 30min)`);
 
   await supabase
     .from("dictionary_import_jobs")

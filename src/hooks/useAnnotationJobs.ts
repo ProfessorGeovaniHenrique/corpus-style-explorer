@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
 
 export interface AnnotationJob {
   id: string;
@@ -17,56 +17,34 @@ export interface AnnotationJob {
   metadata: any;
 }
 
-export function useAnnotationJobs() {
-  const [jobs, setJobs] = useState<AnnotationJob[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const { toast } = useToast();
-  
-  // ✅ FIX MEMORY LEAK: Refs para rastrear estado
-  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
-  const isMountedRef = useRef(true);
-
-  const fetchJobs = async () => {
-    if (!isMountedRef.current) return;
-
-    try {
-      setIsLoading(true);
-      setError(null);
-
-      const { data, error: fetchError } = await supabase
+export function useAnnotationJobs(refetchInterval: number = 3000) {
+  const queryResult = useQuery({
+    queryKey: ['annotation-jobs'],
+    queryFn: async () => {
+      const { data, error } = await supabase
         .from('annotation_jobs')
         .select('*')
         .order('tempo_inicio', { ascending: false })
         .limit(50);
 
-      if (fetchError) throw fetchError;
+      if (error) throw error;
+      return data as AnnotationJob[];
+    },
+    refetchInterval: (query) => {
+      // ✅ CORREÇÃO #7: Pausar polling se não há jobs ativos
+      const hasActiveJobs = query.state.data?.some(
+        job => job.status === 'pending' || job.status === 'processing'
+      );
+      return hasActiveJobs ? refetchInterval : false;
+    },
+    staleTime: 1000,
+    gcTime: 5 * 60 * 1000,
+  });
 
-      if (isMountedRef.current) {
-        setJobs(data || []);
-      }
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Erro ao carregar jobs';
-      if (isMountedRef.current) {
-        setError(errorMessage);
-        toast({
-          variant: 'destructive',
-          title: 'Erro ao carregar jobs',
-          description: errorMessage
-        });
-      }
-    } finally {
-      if (isMountedRef.current) {
-        setIsLoading(false);
-      }
-    }
-  };
+  // ✅ Realtime com cleanup
+  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
   useEffect(() => {
-    isMountedRef.current = true;
-    fetchJobs();
-
-    // ✅ Realtime com cleanup
     channelRef.current = supabase
       .channel('annotation_jobs_changes')
       .on(
@@ -77,33 +55,32 @@ export function useAnnotationJobs() {
           table: 'annotation_jobs'
         },
         () => {
-          fetchJobs();
+          queryResult.refetch();
         }
       )
       .subscribe();
 
     return () => {
-      isMountedRef.current = false;
       if (channelRef.current) {
         supabase.removeChannel(channelRef.current);
         channelRef.current = null;
       }
     };
-  }, []);
+  }, [queryResult.refetch]);
 
   const stats = {
-    totalJobs: jobs.length,
-    completedJobs: jobs.filter(j => j.status === 'completed').length,
-    failedJobs: jobs.filter(j => j.status === 'failed').length,
-    inProgressJobs: jobs.filter(j => j.status === 'processing').length,
-    totalWordsProcessed: jobs.reduce((sum, j) => sum + (j.palavras_processadas || 0), 0)
+    totalJobs: queryResult.data?.length || 0,
+    completedJobs: queryResult.data?.filter(j => j.status === 'completed').length || 0,
+    failedJobs: queryResult.data?.filter(j => j.status === 'failed').length || 0,
+    inProgressJobs: queryResult.data?.filter(j => j.status === 'processing' || j.status === 'pending').length || 0,
+    totalWordsProcessed: queryResult.data?.reduce((sum, j) => sum + (j.palavras_processadas || 0), 0) || 0
   };
 
   return {
-    jobs,
+    jobs: queryResult.data || [],
     stats,
-    isLoading,
-    error,
-    refetch: fetchJobs
+    isLoading: queryResult.isLoading,
+    error: queryResult.error?.message || null,
+    refetch: queryResult.refetch
   };
 }
