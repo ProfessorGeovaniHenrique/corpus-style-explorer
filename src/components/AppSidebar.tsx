@@ -34,7 +34,7 @@ const mainItems = [
 const projectItems: any[] = [];
 
 const advancedItems = [
-  { title: "Modo Avançado", url: "/advanced-mode", icon: Sparkles, disabled: false },
+  { title: "Novas Funcionalidades (Beta)", url: "/advanced-mode", icon: Sparkles, disabled: false },
 ];
 
 export function AppSidebar() {
