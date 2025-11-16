@@ -1,0 +1,110 @@
+name: 🚀 Pre-Deployment Check
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  quality-gate:
+    name: 🚦 Quality Gate
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+
+      - name: 📦 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: 📚 Instalar dependências
+        run: npm ci
+
+      - name: 🔍 Verificar tipos TypeScript
+        run: npm run typecheck || echo "::warning::Erros de tipagem encontrados"
+
+      - name: 🧪 Executar testes do corpus
+        id: corpus-tests
+        run: npm run test:corpus
+        continue-on-error: false
+
+      - name: 📊 Gerar relatório HTML
+        if: always()
+        run: npm run test:corpus:report-html
+
+      - name: 📤 Publicar relatório como artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-report
+          path: test-reports/
+
+      - name: 💬 Comentar no PR com resultados
+        if: github.event_name == 'pull_request' && always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const report = JSON.parse(
+              fs.readFileSync('test-reports/corpus-integrity-latest.json', 'utf8')
+            );
+            
+            const status = report.summary.failed > 0 ? '❌' : 
+                          report.summary.warnings > 0 ? '⚠️' : '✅';
+            
+            const body = `## ${status} Resultados dos Testes de Integridade do Corpus
+            
+            **Status:** ${report.summary.status.toUpperCase()}
+            
+            | Métrica | Valor |
+            |---------|-------|
+            | Total de testes | ${report.summary.totalTests} |
+            | ✅ Passaram | ${report.summary.passed} |
+            | ❌ Falharam | ${report.summary.failed} |
+            | ⚠️ Avisos | ${report.summary.warnings} |
+            
+            ${report.summary.failed > 0 ? '**⚠️ Deploy bloqueado devido a falhas nos testes!**' : ''}
+            ${report.summary.warnings > 0 ? '**ℹ️ Existem avisos que devem ser revisados.**' : ''}
+            
+            [Ver relatório completo nos artifacts](https://github.com/${{github.repository}}/actions/runs/${{github.run_id}})
+            `;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });
+
+      - name: ❌ Falhar se testes críticos falharam
+        if: failure()
+        run: |
+          echo "::error::🚫 DEPLOY BLOQUEADO!"
+          echo "::error::Os testes de integridade do corpus falharam."
+          echo "::error::Corrija os problemas antes de fazer merge/deploy."
+          exit 1
+
+      - name: ✅ Aprovar para deploy
+        if: success()
+        run: |
+          echo "::notice::✅ Quality Gate passou!"
+          echo "::notice::Corpus validado - Deploy autorizado"
+
+  notify-status:
+    name: 📢 Notificar Status
+    runs-on: ubuntu-latest
+    needs: quality-gate
+    if: always()
+    
+    steps:
+      - name: 📊 Status final
+        run: |
+          if [ "${{ needs.quality-gate.result }}" == "success" ]; then
+            echo "✅ Todos os checks passaram - Deploy pode prosseguir"
+          else
+            echo "❌ Checks falharam - Deploy bloqueado"
+          fi
