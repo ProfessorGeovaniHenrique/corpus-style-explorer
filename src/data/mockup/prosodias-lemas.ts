@@ -221,8 +221,38 @@ export const prosodiasLemasMap: Record<string, ProsodiaInfo> = {
     prosody: "Positiva",
     justificativa: "Objeto ritual do mate, símbolo de tradição, acolhimento e identidade gaúcha."
   },
+  "coxilha": {
+    lema: "coxilha",
+    prosody: "Positiva",
+    justificativa: "Elemento da paisagem campeira, elevação do terreno que caracteriza a região gaúcha."
+  },
+  "tarumã": {
+    lema: "tarumã",
+    prosody: "Positiva",
+    justificativa: "Árvore nativa, símbolo da natureza e identidade regional."
+  },
+  "várzea": {
+    lema: "várzea",
+    prosody: "Neutra",
+    justificativa: "Terreno baixo e plano, elemento geográfico descritivo da paisagem."
+  },
+  "maçanilha": {
+    lema: "maçanilha",
+    prosody: "Positiva",
+    justificativa: "Planta aromática usada no mate, elemento cultural e sensorial."
+  },
+  "frente": {
+    lema: "frente",
+    prosody: "Positiva",
+    justificativa: "Usado em 'frente aberta de respeito', expressão que denota qualidade admirável."
+  },
+  "vestido": {
+    lema: "vestido",
+    prosody: "Positiva",
+    justificativa: "Usado em 'vestido de primavera', associado à renovação e beleza."
+  },
 
-  // ========== PROSÓDIA NEGATIVA (27 lemas) ==========
+  // ========== PROSÓDIA NEGATIVA (28 lemas) ==========
   "adormecido": {
     lema: "adormecido",
     prosody: "Negativa",
@@ -308,8 +338,13 @@ export const prosodiasLemasMap: Record<string, ProsodiaInfo> = {
     prosody: "Negativa",
     justificativa: "Em 'olhos negros de noite' e 'adormecidos na espera', transmite melancolia e saudade."
   },
+  "tropa": {
+    lema: "tropa",
+    prosody: "Negativa",
+    justificativa: "Aparece no contexto de perda 'a tropa se desgarrou', simbolizando sonhos perdidos."
+  },
 
-  // ========== PROSÓDIA NEUTRA (18 lemas) ==========
+  // ========== PROSÓDIA NEUTRA (22 lemas) ==========
   "bomba": {
     lema: "bomba",
     prosody: "Neutra",
@@ -399,6 +434,21 @@ export const prosodiasLemasMap: Record<string, ProsodiaInfo> = {
     lema: "maragato",
     prosody: "Neutra",
     justificativa: "Identidade política/histórica, contexto neutro no poema."
+  },
+  "lombo": {
+    lema: "lombo",
+    prosody: "Neutra",
+    justificativa: "Parte do corpo do cavalo onde se coloca a sela, termo técnico."
+  },
+  "jujado": {
+    lema: "jujado",
+    prosody: "Neutra",
+    justificativa: "Termo regional para algo usado ou desgastado, descritivo neutro."
+  },
+  "ramada": {
+    lema: "ramada",
+    prosody: "Positiva",
+    justificativa: "Cobertura rústica de ramos, espaço de convívio e descanso."
   }
 };
 
