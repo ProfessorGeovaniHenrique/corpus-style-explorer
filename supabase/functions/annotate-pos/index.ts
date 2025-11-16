@@ -1,4 +1,4 @@
-// Deno Edge Runtime
+// Deno Edge Runtime - POS Tagging with Grammar-Based Rules
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -14,29 +14,70 @@ interface POSToken {
   posicao: number;
 }
 
-// spaCy POS tags to Universal Dependencies mapping
-const SPACY_TO_UPOS: Record<string, string> = {
-  'NOUN': 'NOUN',
-  'PROPN': 'PROPN',
-  'VERB': 'VERB',
-  'ADJ': 'ADJ',
-  'ADV': 'ADV',
-  'PRON': 'PRON',
-  'DET': 'DET',
-  'ADP': 'ADP',
-  'NUM': 'NUM',
-  'CONJ': 'CCONJ',
-  'SCONJ': 'SCONJ',
-  'INTJ': 'INTJ',
-  'AUX': 'AUX',
-  'PART': 'PART',
-  'PUNCT': 'PUNCT',
-  'SYM': 'SYM',
-  'X': 'X',
+// ============= GRAMMATICAL KNOWLEDGE BASE =============
+
+// Verbos irregulares mais comuns
+const IRREGULAR_VERBS: Record<string, { infinitivo: string; forms: string[] }> = {
+  'ser': { infinitivo: 'ser', forms: ['sou', 'és', 'é', 'somos', 'são', 'fui', 'foi', 'foram', 'era', 'eram', 'sendo', 'sido'] },
+  'estar': { infinitivo: 'estar', forms: ['estou', 'está', 'estão', 'estive', 'esteve', 'estiveram', 'estando', 'estado'] },
+  'ter': { infinitivo: 'ter', forms: ['tenho', 'tens', 'tem', 'temos', 'têm', 'tive', 'teve', 'tiveram', 'tendo', 'tido'] },
+  'haver': { infinitivo: 'haver', forms: ['hei', 'há', 'hão', 'houve', 'houveram', 'havendo', 'havido'] },
+  'ir': { infinitivo: 'ir', forms: ['vou', 'vais', 'vai', 'vamos', 'vão', 'fui', 'foi', 'foram', 'ia', 'iam', 'indo', 'ido'] },
+  'fazer': { infinitivo: 'fazer', forms: ['faço', 'faz', 'fazem', 'fiz', 'fez', 'fizeram', 'fazendo', 'feito'] },
+  'dizer': { infinitivo: 'dizer', forms: ['digo', 'diz', 'dizem', 'disse', 'disseram', 'dizendo', 'dito'] },
+  'trazer': { infinitivo: 'trazer', forms: ['trago', 'traz', 'trazem', 'trouxe', 'trouxeram', 'trazendo', 'trazido'] },
+  'poder': { infinitivo: 'poder', forms: ['posso', 'pode', 'podem', 'pude', 'pôde', 'puderam', 'podendo', 'podido'] },
+  'pôr': { infinitivo: 'pôr', forms: ['ponho', 'põe', 'põem', 'pus', 'pôs', 'puseram', 'pondo', 'posto'] },
+  'ver': { infinitivo: 'ver', forms: ['vejo', 'vê', 'veem', 'vi', 'viu', 'viram', 'vendo', 'visto'] },
+  'vir': { infinitivo: 'vir', forms: ['venho', 'vem', 'vêm', 'vim', 'veio', 'vieram', 'vindo'] },
+  'dar': { infinitivo: 'dar', forms: ['dou', 'dá', 'dão', 'dei', 'deu', 'deram', 'dando', 'dado'] },
+  'saber': { infinitivo: 'saber', forms: ['sei', 'sabe', 'sabem', 'soube', 'souberam', 'sabendo', 'sabido'] },
+  'querer': { infinitivo: 'querer', forms: ['quero', 'quer', 'querem', 'quis', 'quiseram', 'querendo', 'querido'] },
 };
 
+// Mapa rápido de forma conjugada → infinitivo
+const CONJUGATED_TO_INFINITIVE: Record<string, string> = {};
+Object.entries(IRREGULAR_VERBS).forEach(([inf, data]) => {
+  data.forms.forEach(form => CONJUGATED_TO_INFINITIVE[form] = inf);
+  CONJUGATED_TO_INFINITIVE[inf] = inf;
+});
+
+// Verbos auxiliares
+const AUXILIARY_VERBS = new Set(['ter', 'haver', 'ser', 'estar', 'ir', 'vir', 'poder', 'dever', 'querer']);
+
+// Pronomes
+const PRONOUNS = {
+  pessoais: new Set(['eu', 'tu', 'você', 'ele', 'ela', 'nós', 'eles', 'elas', 'a gente']),
+  obliquos: new Set(['me', 'te', 'se', 'o', 'a', 'lhe', 'nos', 'vos', 'os', 'as', 'lhes']),
+  possessivos: new Set(['meu', 'minha', 'teu', 'tua', 'seu', 'sua', 'nosso', 'nossa', 'meus', 'minhas', 'seus', 'suas']),
+  demonstrativos: new Set(['este', 'esta', 'esse', 'essa', 'aquele', 'aquela', 'isto', 'isso', 'aquilo']),
+  indefinidos: new Set(['algum', 'alguma', 'nenhum', 'nenhuma', 'todo', 'toda', 'outro', 'outra', 'muito', 'muita', 'pouco', 'pouca', 'alguém', 'ninguém', 'tudo', 'nada']),
+  relativos: new Set(['que', 'quem', 'qual', 'onde', 'cujo', 'cuja']),
+};
+
+// Determinantes/artigos
+const DETERMINERS = new Set(['o', 'a', 'os', 'as', 'um', 'uma', 'uns', 'umas']);
+
+// Preposições
+const PREPOSITIONS = new Set(['de', 'em', 'para', 'por', 'com', 'sem', 'sobre', 'até', 'desde', 'após', 'ante', 'contra', 'entre', 'perante', 'sob']);
+
+// Conjunções
+const CONJUNCTIONS = {
+  coordenativas: new Set(['e', 'ou', 'mas', 'porém', 'contudo', 'todavia', 'entretanto']),
+  subordinativas: new Set(['que', 'se', 'porque', 'quando', 'como', 'embora', 'conquanto', 'caso']),
+};
+
+// Advérbios comuns
+const ADVERBS = new Set([
+  'não', 'sim', 'nunca', 'sempre', 'talvez', 'aqui', 'ali', 'lá', 'cá',
+  'hoje', 'ontem', 'amanhã', 'agora', 'já', 'ainda', 'logo', 'cedo', 'tarde',
+  'bem', 'mal', 'muito', 'pouco', 'mais', 'menos', 'bastante', 'demais',
+  'longe', 'perto', 'dentro', 'fora', 'acima', 'abaixo'
+]);
+
+// ============= POS TAGGING FUNCTIONS =============
+
 Deno.serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -51,12 +92,9 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log(`[annotate-pos] Processando ${texto.length} caracteres em idioma ${idioma}`);
+    console.log(`[annotate-pos] Processando ${texto.length} caracteres`);
 
-    // Call Python spaCy service via external API
-    // For now, we'll use a mock implementation that simulates spaCy output
-    // In production, this should call a Python service with spaCy installed
-    const tokens = await processWithSpacy(texto, idioma);
+    const tokens = await processText(texto);
 
     console.log(`[annotate-pos] Processados ${tokens.length} tokens`);
 
@@ -72,7 +110,7 @@ Deno.serve(async (req) => {
     console.error('[annotate-pos] Erro:', error);
     return new Response(
       JSON.stringify({ 
-        error: error instanceof Error ? error.message : 'Erro desconhecido ao processar texto' 
+        error: error instanceof Error ? error.message : 'Erro desconhecido' 
       }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
@@ -80,132 +118,230 @@ Deno.serve(async (req) => {
 });
 
 /**
- * Simulates spaCy processing for Portuguese text
- * In production, this should call an actual Python service with spaCy
+ * Processa texto usando regras gramaticais avançadas
  */
-async function processWithSpacy(texto: string, idioma: string): Promise<POSToken[]> {
-  // Simple tokenization and POS tagging simulation
-  // This is a placeholder - in production, integrate with actual spaCy service
-  
+async function processText(texto: string): Promise<POSToken[]> {
   const words = texto
     .toLowerCase()
-    .replace(/[^\w\sáàâãéêíóôõúç]/g, ' ')
+    .replace(/[^\w\sáàâãéêíóôõúç\-]/g, ' ')
     .split(/\s+/)
     .filter(w => w.length > 0);
 
-  const tokens: POSToken[] = words.map((palavra, index) => {
-    // Simple heuristic-based POS tagging (placeholder)
-    const pos = inferPOS(palavra);
-    const lema = inferLemma(palavra, pos);
-    const features = inferFeatures(palavra, pos);
+  const tokens: POSToken[] = [];
+  
+  for (let i = 0; i < words.length; i++) {
+    const palavra = words[i];
+    const contexto = {
+      anterior: i > 0 ? words[i - 1] : null,
+      proximo: i < words.length - 1 ? words[i + 1] : null,
+    };
 
-    return {
+    const pos = inferPOSAdvanced(palavra, contexto);
+    const lema = lemmatizeAdvanced(palavra, pos);
+    const features = inferFeaturesAdvanced(palavra, pos);
+
+    tokens.push({
       palavra,
       lema,
-      pos: SPACY_TO_UPOS[pos] || pos,
+      pos,
       posDetalhada: pos,
       features,
-      posicao: index,
-    };
-  });
+      posicao: i,
+    });
+  }
 
   return tokens;
 }
 
 /**
- * Simple heuristic POS inference (placeholder for spaCy)
+ * Inferência avançada de POS usando regras gramaticais
  */
-function inferPOS(palavra: string): string {
-  // Articles and determiners
-  if (['o', 'a', 'os', 'as', 'um', 'uma', 'uns', 'umas', 'este', 'esta', 'esse', 'essa'].includes(palavra)) {
+function inferPOSAdvanced(palavra: string, contexto: { anterior: string | null; proximo: string | null }): string {
+  // 1. Verificar determinantes/artigos (prioridade alta)
+  if (DETERMINERS.has(palavra)) {
     return 'DET';
   }
-  
-  // Prepositions
-  if (['de', 'em', 'para', 'por', 'com', 'sem', 'sobre', 'até', 'desde'].includes(palavra)) {
+
+  // 2. Verificar preposições
+  if (PREPOSITIONS.has(palavra)) {
     return 'ADP';
   }
-  
-  // Conjunctions
-  if (['e', 'ou', 'mas', 'que', 'se', 'porque', 'quando', 'como'].includes(palavra)) {
-    return 'CONJ';
+
+  // 3. Verificar conjunções
+  if (CONJUNCTIONS.coordenativas.has(palavra) || CONJUNCTIONS.subordinativas.has(palavra)) {
+    return CONJUNCTIONS.subordinativas.has(palavra) ? 'SCONJ' : 'CCONJ';
   }
-  
-  // Pronouns
-  if (['eu', 'tu', 'ele', 'ela', 'nós', 'vós', 'eles', 'elas', 'me', 'te', 'se', 'nos', 'vos'].includes(palavra)) {
+
+  // 4. Verificar pronomes
+  if (PRONOUNS.pessoais.has(palavra) || PRONOUNS.obliquos.has(palavra) || 
+      PRONOUNS.indefinidos.has(palavra) || PRONOUNS.relativos.has(palavra)) {
     return 'PRON';
   }
-  
-  // Verb endings
-  if (palavra.match(/(ar|er|ir|ando|endo|indo|ado|ido|ou|ei|ia|ava)$/)) {
-    return 'VERB';
+  if (PRONOUNS.possessivos.has(palavra) || PRONOUNS.demonstrativos.has(palavra)) {
+    return 'DET'; // Pronomes possessivos/demonstrativos funcionam como determinantes
   }
-  
-  // Adjective endings
-  if (palavra.match(/(oso|osa|vel|al|ante|ente|inte)$/)) {
-    return 'ADJ';
+
+  // 5. Verificar advérbios conhecidos
+  if (ADVERBS.has(palavra)) {
+    return 'ADV';
   }
-  
-  // Adverb endings
+
+  // 6. Advérbios terminados em -mente
   if (palavra.endsWith('mente')) {
     return 'ADV';
   }
-  
-  // Default to NOUN
+
+  // 7. Verificar verbos irregulares (alta prioridade)
+  if (CONJUGATED_TO_INFINITIVE[palavra]) {
+    return AUXILIARY_VERBS.has(CONJUGATED_TO_INFINITIVE[palavra]) ? 'AUX' : 'VERB';
+  }
+
+  // 8. Padrões de verbos regulares
+  if (palavra.match(/(ando|endo|indo)$/)) return 'VERB'; // Gerúndio
+  if (palavra.match(/(ado|ido)$/)) return 'VERB'; // Particípio
+  if (palavra.match(/^(des|re|pre|sobre|sub)/)) {
+    // Prefixos verbais comuns
+    if (palavra.match(/(ar|er|ir|ando|endo|indo|ado|ido)$/)) return 'VERB';
+  }
+
+  // 9. Padrões de conjugação verbal
+  if (palavra.match(/(ei|ou|amos|aram|va|vam|rei|rá|rão)$/)) {
+    return 'VERB';
+  }
+
+  // 10. Análise contextual: após determinante = substantivo ou adjetivo
+  if (contexto.anterior && DETERMINERS.has(contexto.anterior)) {
+    // Adjetivos terminados em -oso, -osa, -al, -ar, etc.
+    if (palavra.match(/(oso|osa|ico|ica|al|ar|ário|ária|eiro|eira)$/)) {
+      return 'ADJ';
+    }
+    return 'NOUN'; // Provavelmente substantivo
+  }
+
+  // 11. Padrões de adjetivos
+  if (palavra.match(/(oso|osa|ável|ível|ante|ente|dor|dora)$/)) {
+    return 'ADJ';
+  }
+
+  // 12. Padrões de substantivos
+  if (palavra.match(/(ção|mento|dade|ez|eza|ismo|ista|agem|ura|ância|ência)$/)) {
+    return 'NOUN';
+  }
+
+  // 13. Palavras capitalizadas (nomes próprios - no texto original)
+  // Como normalizamos para lowercase, não podemos detectar aqui
+
+  // 14. Plural em -s (substantivos ou adjetivos)
+  if (palavra.endsWith('s') && palavra.length > 2) {
+    if (palavra.match(/(oso|osa|ico|ica|ável)s$/)) return 'ADJ';
+    return 'NOUN';
+  }
+
+  // 15. Default: substantivo (classe mais comum)
   return 'NOUN';
 }
 
 /**
- * Simple lemmatization (placeholder for spaCy)
+ * Lematização avançada usando regras morfológicas
  */
-function inferLemma(palavra: string, pos: string): string {
-  if (pos === 'VERB') {
-    // Remove common verb endings
-    return palavra.replace(/(ando|endo|indo|ado|ido|ou|ei|ia|ava|am|em|ia|iam)$/, 'ar');
+function lemmatizeAdvanced(palavra: string, pos: string): string {
+  // 1. Verbos irregulares
+  if (pos === 'VERB' || pos === 'AUX') {
+    const lemma = CONJUGATED_TO_INFINITIVE[palavra];
+    if (lemma) return lemma;
+
+    // Tentar remover terminações verbais
+    if (palavra.endsWith('ando')) return palavra.slice(0, -4) + 'ar';
+    if (palavra.endsWith('endo') || palavra.endsWith('indo')) {
+      return palavra.slice(0, -4) + 'er';
+    }
+    if (palavra.endsWith('ado')) return palavra.slice(0, -3) + 'ar';
+    if (palavra.endsWith('ido')) return palavra.slice(0, -3) + 'er';
+    
+    // Preterito perfeito
+    if (palavra.endsWith('ou')) return palavra.slice(0, -2) + 'ar';
+    if (palavra.endsWith('eu')) return palavra.slice(0, -2) + 'er';
+    if (palavra.endsWith('iu')) return palavra.slice(0, -2) + 'ir';
+    
+    // Presente do indicativo
+    if (palavra.endsWith('o') && palavra.length > 2) {
+      // Pode ser 1ª pessoa
+      return palavra.slice(0, -1) + 'ar'; // tentativa
+    }
   }
-  
-  if (pos === 'ADJ') {
-    // Remove gender/number markers
-    return palavra.replace(/(os|as|a)$/, 'o');
+
+  // 2. Substantivos e adjetivos: remover plural
+  if (pos === 'NOUN' || pos === 'ADJ') {
+    if (palavra.endsWith('ões')) return palavra.slice(0, -3) + 'ão';
+    if (palavra.endsWith('ães')) return palavra.slice(0, -3) + 'ão';
+    if (palavra.endsWith('ãos')) return palavra.slice(0, -2);
+    if (palavra.endsWith('ais')) return palavra.slice(0, -2) + 'al';
+    if (palavra.endsWith('eis')) return palavra.slice(0, -2) + 'el';
+    if (palavra.endsWith('óis')) return palavra.slice(0, -2) + 'ol';
+    if (palavra.endsWith('is') && palavra.length > 3) return palavra.slice(0, -1);
+    if (palavra.endsWith('es') && palavra.length > 3) return palavra.slice(0, -2);
+    if (palavra.endsWith('s') && palavra.length > 2) return palavra.slice(0, -1);
   }
-  
-  if (pos === 'NOUN') {
-    // Remove plural markers
-    return palavra.replace(/(s|es|ões)$/, '');
+
+  // 3. Advérbios em -mente: extrair adjetivo base
+  if (pos === 'ADV' && palavra.endsWith('mente')) {
+    const base = palavra.slice(0, -5);
+    // Converter feminino para masculino se necessário
+    if (base.endsWith('a')) return base.slice(0, -1) + 'o';
+    return base;
   }
-  
+
   return palavra;
 }
 
 /**
- * Simple morphological feature inference (placeholder for spaCy)
+ * Inferir características morfológicas
  */
-function inferFeatures(palavra: string, pos: string): Record<string, string> {
+function inferFeaturesAdvanced(palavra: string, pos: string): Record<string, string> {
   const features: Record<string, string> = {};
-  
-  if (pos === 'VERB') {
-    if (palavra.match(/(ando|endo|indo)$/)) {
-      features.tempo = 'Pres';
-      features.modo = 'Ger';
-    } else if (palavra.match(/(ado|ido)$/)) {
-      features.tempo = 'Past';
-    } else if (palavra.match(/(ava|ia)$/)) {
-      features.tempo = 'Past';
-      features.modo = 'Ind';
+
+  if (pos === 'VERB' || pos === 'AUX') {
+    // Tempo verbal
+    if (palavra.endsWith('ando') || palavra.endsWith('endo') || palavra.endsWith('indo')) {
+      features.VerbForm = 'Ger';
+    } else if (palavra.endsWith('ado') || palavra.endsWith('ido')) {
+      features.VerbForm = 'Part';
+    } else if (palavra.match(/(ei|ou|amos|aram|i|eu|iu)$/)) {
+      features.Tense = 'Past';
+    } else if (palavra.match(/(rei|rá|rão|remos)$/)) {
+      features.Tense = 'Fut';
+    } else if (palavra.match(/(va|vam|ia|iam)$/)) {
+      features.Tense = 'Imp';
+    } else {
+      features.Tense = 'Pres';
+    }
+
+    // Pessoa
+    if (palavra.endsWith('o') && !palavra.endsWith('ando')) {
+      features.Person = '1';
+      features.Number = 'Sing';
+    } else if (palavra.endsWith('amos') || palavra.endsWith('emos') || palavra.endsWith('imos')) {
+      features.Person = '1';
+      features.Number = 'Plur';
+    } else if (palavra.endsWith('am') || palavra.endsWith('em')) {
+      features.Person = '3';
+      features.Number = 'Plur';
     }
   }
-  
-  if (palavra.match(/(os|as|es|ões)$/)) {
-    features.numero = 'Plur';
-  } else {
-    features.numero = 'Sing';
+
+  if (pos === 'NOUN' || pos === 'ADJ') {
+    // Número
+    if (palavra.endsWith('s')) {
+      features.Number = 'Plur';
+    } else {
+      features.Number = 'Sing';
+    }
+
+    // Gênero
+    if (palavra.match(/[ao]s?$/)) {
+      features.Gender = palavra.match(/[a]s?$/) ? 'Fem' : 'Masc';
+    }
   }
-  
-  if (palavra.match(/(o|os)$/)) {
-    features.genero = 'Masc';
-  } else if (palavra.match(/(a|as)$/)) {
-    features.genero = 'Fem';
-  }
-  
+
   return features;
 }

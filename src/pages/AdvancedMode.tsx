@@ -3,10 +3,11 @@ import { useFeatureAccess } from "@/hooks/useFeatureAccess";
 import { DemoModeBlocker } from "@/components/advanced/DemoModeBlocker";
 import { TabLexicalProfile } from "@/components/advanced/TabLexicalProfile";
 import { TabSemanticAnnotation } from "@/components/advanced/TabSemanticAnnotation";
+import { TabGrammarRules } from "@/components/advanced/TabGrammarRules";
 import { POSAnalysisTool } from "@/components/mvp/tools/POSAnalysisTool";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { BookOpen, Network, Sparkles, Link2, FileBarChart, Layers, Database, Brain } from "lucide-react";
+import { BookOpen, Network, Sparkles, Link2, FileBarChart, Layers, Database, Brain, BookMarked } from "lucide-react";
 import { MVPHeader } from "@/components/mvp/MVPHeader";
 import { MVPFooter } from "@/components/mvp/MVPFooter";
 import { CorpusType } from "@/data/types/corpus-tools.types";
@@ -46,7 +47,7 @@ export default function AdvancedMode() {
         </div>
 
         <Tabs defaultValue="pos" className="w-full">
-          <TabsList className="grid w-full grid-cols-7 mb-6">
+          <TabsList className="grid w-full grid-cols-8 mb-6">
             <TabsTrigger value="pos" className="gap-2">
               <Layers className="w-4 h-4" />
               <span className="hidden sm:inline">POS Tagging</span>
@@ -54,6 +55,10 @@ export default function AdvancedMode() {
             <TabsTrigger value="semantic" className="gap-2">
               <Brain className="w-4 h-4" />
               <span className="hidden sm:inline">Anotação IA</span>
+            </TabsTrigger>
+            <TabsTrigger value="grammar" className="gap-2">
+              <BookMarked className="w-4 h-4" />
+              <span className="hidden sm:inline">Regras Gramaticais</span>
             </TabsTrigger>
             <TabsTrigger value="lexical" className="gap-2">
               <BookOpen className="w-4 h-4" />
@@ -83,6 +88,10 @@ export default function AdvancedMode() {
 
           <TabsContent value="semantic">
             <TabSemanticAnnotation />
+          </TabsContent>
+
+          <TabsContent value="grammar">
+            <TabGrammarRules />
           </TabsContent>
 
           <TabsContent value="lexical">
