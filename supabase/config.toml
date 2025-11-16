@@ -1,1 +1,7 @@
 project_id = "kywmhuubbsvclkorxrse"
+
+[functions.annotate-pos]
+verify_jwt = false
+
+[functions.annotate-semantic]
+verify_jwt = true
