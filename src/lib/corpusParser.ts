@@ -81,9 +81,18 @@ export function parseTSVCorpus(tsvContent: string): CorpusWord[] {
       };
     })
     .filter(word => {
-      const isValid = word.headword && word.freq > 0;
+      // Lista de palavras de sujeira a serem removidas (siglas de formato de mídia)
+      const stoplist = ['cd', 'lp', 'dvd', 'cddvd'];
+      const isStopword = stoplist.includes(word.headword.toLowerCase());
+      
+      const isValid = word.headword && word.freq > 0 && !isStopword;
+      
       if (!isValid && word.headword) {
-        console.log(`⚠️ Filtered out: ${word.headword} (freq: ${word.freq})`);
+        if (isStopword) {
+          console.log(`🗑️ Removed stopword: ${word.headword} (freq: ${word.freq})`);
+        } else {
+          console.log(`⚠️ Filtered out: ${word.headword} (freq: ${word.freq})`);
+        }
       }
       return isValid;
     });
