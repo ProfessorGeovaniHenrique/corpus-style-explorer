@@ -15,6 +15,8 @@ export { HierarchyViewSelector } from './HierarchyViewSelector';
 export { SynonymExplorer } from './SynonymExplorer';
 export { DialectalExplorer } from './DialectalExplorer';
 export { DialectalCoverageDashboard } from './DialectalCoverageDashboard';
+export { DictionaryImportInterface } from './DictionaryImportInterface';
+export { AnnotationTestInterface } from './AnnotationTestInterface';
 export type { ViewMode } from './HierarchyViewSelector';
 
 // Other

@@ -5,6 +5,8 @@ import { TabLexicalProfile } from "@/components/advanced/TabLexicalProfile";
 import { TabSemanticAnnotation } from "@/components/advanced/TabSemanticAnnotation";
 import { TabGrammarRules } from "@/components/advanced/TabGrammarRules";
 import { TabBackendLexicon } from "@/components/advanced/TabBackendLexicon";
+import { DictionaryImportInterface } from "@/components/advanced/DictionaryImportInterface";
+import { AnnotationTestInterface } from "@/components/advanced/AnnotationTestInterface";
 import { POSAnalysisTool } from "@/components/mvp/tools/POSAnalysisTool";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -48,7 +50,7 @@ export default function AdvancedMode() {
         </div>
 
         <Tabs defaultValue="pos" className="w-full">
-          <TabsList className="grid w-full grid-cols-9 mb-6">
+          <TabsList className="grid w-full grid-cols-11 mb-6">
             <TabsTrigger value="pos" className="gap-2">
               <Layers className="w-4 h-4" />
               <span className="hidden sm:inline">POS Tagging</span>
@@ -64,6 +66,14 @@ export default function AdvancedMode() {
             <TabsTrigger value="backend" className="gap-2">
               <Database className="w-4 h-4" />
               <span className="hidden sm:inline">Backend Lexicon</span>
+            </TabsTrigger>
+            <TabsTrigger value="import" className="gap-2">
+              <Database className="w-4 h-4" />
+              <span className="hidden sm:inline">Importar Dicionários</span>
+            </TabsTrigger>
+            <TabsTrigger value="test" className="gap-2">
+              <Sparkles className="w-4 h-4" />
+              <span className="hidden sm:inline">Testar Anotação</span>
             </TabsTrigger>
             <TabsTrigger value="lexical" className="gap-2">
               <BookOpen className="w-4 h-4" />
@@ -101,6 +111,14 @@ export default function AdvancedMode() {
 
           <TabsContent value="backend">
             <TabBackendLexicon />
+          </TabsContent>
+
+          <TabsContent value="import">
+            <DictionaryImportInterface />
+          </TabsContent>
+
+          <TabsContent value="test">
+            <AnnotationTestInterface />
           </TabsContent>
 
           <TabsContent value="lexical">

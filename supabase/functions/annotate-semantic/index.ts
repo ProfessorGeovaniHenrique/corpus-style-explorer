@@ -8,6 +8,7 @@ const corsHeaders = {
 
 interface AnnotationRequest {
   corpus_type: 'gaucho' | 'nordestino' | 'marenco-verso';
+  custom_text?: string;
 }
 
 interface SemanticTagset {
@@ -42,7 +43,7 @@ serve(async (req) => {
     // Por enquanto, usar UUID fixo para modo demo
     const userId = '00000000-0000-0000-0000-000000000001';
 
-    const { corpus_type }: AnnotationRequest = await req.json();
+    const { corpus_type, custom_text }: AnnotationRequest = await req.json();
 
     if (!corpus_type) {
       return new Response(
@@ -62,7 +63,8 @@ serve(async (req) => {
         metadata: {
           started_at: new Date().toISOString(),
           corpus_type: corpus_type,
-          use_ai: true
+          use_ai: true,
+          custom_text: custom_text ? true : false
         }
       })
       .select()
@@ -80,7 +82,7 @@ serve(async (req) => {
 
     // @ts-ignore
     EdgeRuntime.waitUntil(
-      processCorpusWithAI(job.id, corpus_type, supabaseUrl, supabaseKey)
+      processCorpusWithAI(job.id, corpus_type, supabaseUrl, supabaseKey, custom_text)
     );
 
     return new Response(
@@ -107,7 +109,8 @@ async function processCorpusWithAI(
   jobId: string,
   corpusType: string,
   supabaseUrl: string,
-  supabaseKey: string
+  supabaseKey: string,
+  customText?: string
 ) {
   const supabase = createClient(supabaseUrl, supabaseKey);
   const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
@@ -137,7 +140,19 @@ async function processCorpusWithAI(
 
     console.log(`[processCorpusWithAI] Loaded ${tagsets.length} active tagsets`);
 
-    const mockWords = await getMockCorpusWords(corpusType);
+    // Se custom_text for fornecido, processar texto customizado
+    let mockWords;
+    if (customText) {
+      const words = customText.split(/\s+/).filter(w => w.trim().length > 0);
+      mockWords = words.map((palavra, idx) => ({
+        palavra: palavra.replace(/[.,;!?]/g, ''),
+        contexto: words.slice(Math.max(0, idx - 3), idx + 4).join(' '),
+        pos: 'NOUN'
+      }));
+    } else {
+      mockWords = await getMockCorpusWords(corpusType);
+    }
+    
     const totalWords = mockWords.length;
 
     await supabase
