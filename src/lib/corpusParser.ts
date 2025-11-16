@@ -12,12 +12,29 @@ export function parseTSVCorpus(tsvContent: string): CorpusWord[] {
     .map((line, index) => {
       const columns = line.split(',');
       
-      // CSV format: type, pos, headword, freq, range
-      // Note: type and pos are often empty, so headword is in columns[0]
-      const headword = columns[0]?.trim() || '';
-      const rank = index + 1; // Use line number as rank
-      const freq = parseInt(columns[3]) || 0;
-      const range = parseInt(columns[4]) || 0;
+      let headword: string;
+      let freq: number;
+      let range: number;
+      
+      // Auto-detect format based on number of columns
+      if (columns.length >= 5) {
+        // Format: type,pos,headword,freq,range
+        headword = columns[2]?.trim() || '';
+        freq = parseInt(columns[3]) || 0;
+        range = parseInt(columns[4]) || 0;
+      } else if (columns.length === 3) {
+        // Format: headword,freq,range
+        headword = columns[0]?.trim() || '';
+        freq = parseInt(columns[1]) || 0;
+        range = parseInt(columns[2]) || 0;
+      } else {
+        // Fallback: assume simple format
+        headword = columns[0]?.trim() || '';
+        freq = parseInt(columns[1]) || 0;
+        range = parseInt(columns[2]) || 0;
+      }
+      
+      const rank = index + 1;
       
       return {
         headword,
