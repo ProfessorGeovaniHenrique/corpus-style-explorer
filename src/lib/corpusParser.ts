@@ -12,7 +12,14 @@ export function parseTSVCorpus(tsvContent: string): CorpusWord[] {
   const parsed = lines
     .filter(line => line.trim())
     .map((line, index) => {
-      const columns = line.split(',');
+      // Remove numerical prefixes (e.g., "4: 2: a,,,183538,49032" → "a,,,183538,49032")
+      let cleanedLine = line;
+      const prefixPattern = /^(\d+:\s*)+/;
+      if (prefixPattern.test(line)) {
+        cleanedLine = line.replace(prefixPattern, '').trim();
+      }
+      
+      const columns = cleanedLine.split(',');
       
       let headword: string;
       let freq: number;
