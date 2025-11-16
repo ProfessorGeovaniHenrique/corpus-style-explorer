@@ -331,6 +331,7 @@ export function DialectalNGramsTool() {
               </CardContent>
             </Card>
           </div>
+          )}
 
           {/* Tabela */}
           <Card>
