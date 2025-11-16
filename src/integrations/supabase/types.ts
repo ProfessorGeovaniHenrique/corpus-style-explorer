@@ -14,6 +14,113 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_analysis_history: {
+        Row: {
+          actual_credits_saved: number | null
+          analyzed_by: string | null
+          applied_fixes: string[] | null
+          created_at: string
+          estimated_credits_saved: number | null
+          id: string
+          logs_type: string
+          metadata: Json | null
+          resolved_at: string | null
+          suggestions: Json
+          total_issues: number
+        }
+        Insert: {
+          actual_credits_saved?: number | null
+          analyzed_by?: string | null
+          applied_fixes?: string[] | null
+          created_at?: string
+          estimated_credits_saved?: number | null
+          id?: string
+          logs_type: string
+          metadata?: Json | null
+          resolved_at?: string | null
+          suggestions?: Json
+          total_issues?: number
+        }
+        Update: {
+          actual_credits_saved?: number | null
+          analyzed_by?: string | null
+          applied_fixes?: string[] | null
+          created_at?: string
+          estimated_credits_saved?: number | null
+          id?: string
+          logs_type?: string
+          metadata?: Json | null
+          resolved_at?: string | null
+          suggestions?: Json
+          total_issues?: number
+        }
+        Relationships: []
+      }
+      ai_suggestion_status: {
+        Row: {
+          actual_credits_saved: number | null
+          actual_time_spent: number | null
+          analysis_id: string
+          category: string
+          created_at: string
+          estimated_credits_saved: number | null
+          estimated_effort: string
+          id: string
+          implementation_notes: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          severity: string
+          status: string
+          suggestion_id: string
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          actual_credits_saved?: number | null
+          actual_time_spent?: number | null
+          analysis_id: string
+          category: string
+          created_at?: string
+          estimated_credits_saved?: number | null
+          estimated_effort: string
+          id?: string
+          implementation_notes?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity: string
+          status?: string
+          suggestion_id: string
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          actual_credits_saved?: number | null
+          actual_time_spent?: number | null
+          analysis_id?: string
+          category?: string
+          created_at?: string
+          estimated_credits_saved?: number | null
+          estimated_effort?: string
+          id?: string
+          implementation_notes?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity?: string
+          status?: string
+          suggestion_id?: string
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_suggestion_status_analysis_id_fkey"
+            columns: ["analysis_id"]
+            isOneToOne: false
+            referencedRelation: "ai_analysis_history"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       annotated_corpus: {
         Row: {
           confianca: number | null

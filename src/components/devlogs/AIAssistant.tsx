@@ -1,21 +1,13 @@
 import { useState } from 'react';
-import { Bot, Sparkles, AlertTriangle, Zap, Bug, Shield, TrendingUp, Clock, Copy, CheckCircle2, Loader2 } from 'lucide-react';
+import { Bot, Sparkles, AlertTriangle, Zap, Bug, Shield, TrendingUp, Clock, Copy, CheckCircle2, Loader2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
-import { 
-  currentMetrics, 
-  updateMetrics, 
-  markIssueFixed,
-  getROIPercentage,
-  getTotalCreditsSaved,
-  getEfficiencyScore,
-  type AIAnalysisHistory 
-} from '@/data/developer-logs/ai-assistant-metrics';
+import { notifications } from '@/lib/notifications';
+import { useAIAnalysisHistory, useSuggestionStatus } from '@/hooks/useAIAnalysisHistory';
 import { 
   backendBugs, 
   frontendBugs, 
@@ -37,6 +29,7 @@ interface AnalysisSuggestion {
 
 interface AnalysisResult {
   timestamp: string;
+  analysisId?: string; // ID da análise salva no banco
   summary: {
     totalIssues: number;
     critical: number;
@@ -49,11 +42,15 @@ interface AnalysisResult {
 }
 
 export function AIAssistant() {
-  const { toast } = useToast();
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [fixedIds, setFixedIds] = useState<Set<string>>(new Set());
+  
+  // ✅ Hooks para gerenciar histórico e status
+  const { stats: historyStats } = useAIAnalysisHistory();
+  const { suggestions: suggestionStatuses, stats: suggestionStats, markAsResolved, markAsDismissed, isUpdating } = 
+    useSuggestionStatus(analysisResult?.analysisId);
 
   const getCategoryIcon = (category: string) => {
     switch (category) {
@@ -115,38 +112,17 @@ export function AIAssistant() {
       const duration = (Date.now() - startTime) / 1000;
       setAnalysisResult(data);
 
-      // Atualizar métricas
-      const historyEntry: AIAnalysisHistory = {
-        id: crypto.randomUUID(),
-        timestamp: data.timestamp,
-        logsType,
-        issuesFound: data.summary.totalIssues,
-        critical: data.summary.critical,
-        high: data.summary.high,
-        medium: data.summary.medium,
-        low: data.summary.low,
-        creditsUsed: 5, // Estimativa: 1 análise = ~5 créditos Lovable AI
-        estimatedSavings: data.suggestions.reduce((acc: number, s: AnalysisSuggestion) => {
-          const match = s.creditsSaved.match(/\d+/);
-          return acc + (match ? parseInt(match[0]) : 0);
-        }, 0),
-        duration
-      };
-
-      updateMetrics(historyEntry);
-
-      toast({
-        title: "✨ Análise Concluída",
-        description: `Encontrados ${data.summary.totalIssues} problemas em ${duration.toFixed(1)}s`,
-      });
+      notifications.success(
+        '✨ Análise Concluída',
+        `Encontrados ${data.summary.totalIssues} problemas em ${duration.toFixed(1)}s`
+      );
 
     } catch (error) {
       console.error('Analysis error:', error);
-      toast({
-        title: "Erro na Análise",
-        description: error instanceof Error ? error.message : 'Erro desconhecido',
-        variant: "destructive",
-      });
+      notifications.error(
+        'Erro na Análise',
+        error as Error
+      );
     } finally {
       setIsAnalyzing(false);
     }
@@ -157,20 +133,31 @@ export function AIAssistant() {
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 2000);
     
-    toast({
-      title: "Código Copiado",
-      description: "Cole no arquivo correspondente",
+    notifications.success('Código Copiado', 'Cole no arquivo correspondente');
+  };
+
+  const handleMarkFixed = (suggestionId: string, suggestion: AnalysisSuggestion) => {
+    if (!analysisResult?.analysisId) return;
+
+    setFixedIds(prev => new Set([...prev, suggestionId]));
+    
+    markAsResolved({
+      suggestionId,
+      implementationNotes: 'Correção implementada pelo usuário',
+      actualCreditsSaved: parseInt(suggestion.creditsSaved.match(/\d+/)?.[0] || '0')
     });
   };
 
-  const handleMarkFixed = (id: string) => {
-    setFixedIds(prev => new Set([...prev, id]));
-    markIssueFixed();
-    
-    toast({
-      title: "✅ Marcado como Resolvido",
-      description: "Métricas atualizadas",
+  const handleDismiss = (suggestionId: string) => {
+    markAsDismissed({
+      suggestionId,
+      reason: 'Correção descartada pelo usuário'
     });
+  };
+
+  // ✅ Verificar status de cada sugestão
+  const getSuggestionStatus = (suggestionId: string) => {
+    return suggestionStatuses.find(s => s.suggestion_id === suggestionId);
   };
 
   return (
@@ -182,45 +169,53 @@ export function AIAssistant() {
             <CardTitle className="text-sm font-medium">Análises Totais</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{currentMetrics.totalAnalyses}</div>
+            <div className="text-2xl font-bold">{historyStats.totalAnalyses}</div>
             <p className="text-xs text-muted-foreground mt-1">
-              Tempo médio: {currentMetrics.averageAnalysisTime.toFixed(1)}s
+              {historyStats.totalIssuesFound} problemas encontrados
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">ROI Estimado</CardTitle>
+            <CardTitle className="text-sm font-medium">ROI Real</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-primary">{getROIPercentage()}</div>
+            <div className="text-2xl font-bold text-primary">
+              {historyStats.totalActualSavings > 0 
+                ? `${Math.round((historyStats.totalActualSavings / 35) * 100)}%`
+                : '-'}
+            </div>
             <p className="text-xs text-muted-foreground mt-1">
-              {getTotalCreditsSaved()} créditos economizados
+              {historyStats.totalActualSavings} créditos economizados
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">Problemas Identificados</CardTitle>
+            <CardTitle className="text-sm font-medium">Problemas Ativos</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{currentMetrics.issuesIdentified}</div>
+            <div className="text-2xl font-bold">{suggestionStats.pending}</div>
             <p className="text-xs text-muted-foreground mt-1">
-              {currentMetrics.issuesFixed} resolvidos
+              {suggestionStats.resolved} resolvidos
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">Eficiência</CardTitle>
+            <CardTitle className="text-sm font-medium">Taxa de Resolução</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{getEfficiencyScore()}%</div>
+            <div className="text-2xl font-bold">
+              {suggestionStats.total > 0 
+                ? `${Math.round((suggestionStats.resolved / suggestionStats.total) * 100)}%`
+                : '-'}
+            </div>
             <p className="text-xs text-muted-foreground mt-1">
-              Taxa de resolução
+              {suggestionStats.resolved}/{suggestionStats.total} correções
             </p>
           </CardContent>
         </Card>
@@ -314,11 +309,13 @@ export function AIAssistant() {
           </CardHeader>
           <CardContent className="space-y-6">
             {analysisResult.suggestions.map((suggestion) => {
-              const isFixed = fixedIds.has(suggestion.id);
+              const status = getSuggestionStatus(suggestion.id);
+              const isFixed = status?.status === 'resolved' || fixedIds.has(suggestion.id);
+              const isDismissed = status?.status === 'dismissed';
               const isCopied = copiedId === suggestion.id;
 
               return (
-                <Card key={suggestion.id} className={isFixed ? 'opacity-60' : ''}>
+                <Card key={suggestion.id} className={isFixed || isDismissed ? 'opacity-60' : ''}>
                   <CardHeader>
                     <div className="flex items-start justify-between">
                       <div className="flex items-start gap-3">
@@ -332,14 +329,21 @@ export function AIAssistant() {
                             </Badge>
                             <Badge variant="outline">{suggestion.category}</Badge>
                             <Badge variant="outline">{suggestion.estimatedEffort}</Badge>
+                            {status && (
+                              <Badge 
+                                variant={status.status === 'resolved' ? 'default' : 'secondary'}
+                                className="gap-1"
+                              >
+                                {status.status === 'resolved' && <CheckCircle2 className="w-3 h-3" />}
+                                {status.status === 'dismissed' && <X className="w-3 h-3" />}
+                                {status.status === 'resolved' ? 'Resolvido' : 'Descartado'}
+                              </Badge>
+                            )}
                           </div>
                           <CardTitle className="text-lg">{suggestion.title}</CardTitle>
                           <CardDescription>{suggestion.description}</CardDescription>
                         </div>
                       </div>
-                      {isFixed && (
-                        <CheckCircle2 className="w-6 h-6 text-primary" />
-                      )}
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-4">
@@ -383,17 +387,30 @@ export function AIAssistant() {
                       </Alert>
                     )}
 
-                    <div className="flex items-center justify-between pt-2">
+                    <div className="flex items-center justify-between pt-2 border-t">
                       <span className="text-sm text-muted-foreground">
                         💰 Economia estimada: <strong>{suggestion.creditsSaved}</strong>
                       </span>
-                      {!isFixed && (
-                        <Button
-                          size="sm"
-                          onClick={() => handleMarkFixed(suggestion.id)}
-                        >
-                          ✅ Marcar como Resolvido
-                        </Button>
+                      {!isFixed && !isDismissed && (
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleDismiss(suggestion.id)}
+                            disabled={isUpdating}
+                          >
+                            <X className="w-3 h-3 mr-1" />
+                            Descartar
+                          </Button>
+                          <Button
+                            size="sm"
+                            onClick={() => handleMarkFixed(suggestion.id, suggestion)}
+                            disabled={isUpdating}
+                          >
+                            <CheckCircle2 className="w-3 h-3 mr-1" />
+                            Marcar como Resolvido
+                          </Button>
+                        </div>
                       )}
                     </div>
                   </CardContent>
