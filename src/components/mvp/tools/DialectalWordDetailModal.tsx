@@ -198,10 +198,25 @@ export function DialectalWordDetailModal({
             </ScrollArea>
           </TabsContent>
 
-          {/* Comparação de Frequências */}
+            {/* Comparação de Frequências */}
           <TabsContent value="comparison" className="flex-1 overflow-hidden">
             <ScrollArea className="h-[400px] pr-4">
               <div className="space-y-6">
+                {/* Selector de modo comparação */}
+                <Card className="bg-primary/5 border-primary/20">
+                  <CardContent className="pt-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <BarChart3 className="h-5 w-5 text-primary" />
+                        <span className="font-semibold">Modo de Comparação</span>
+                      </div>
+                      <Badge variant="outline" className="bg-background">
+                        Corpus vs Corpus
+                      </Badge>
+                    </div>
+                  </CardContent>
+                </Card>
+
                 <Card>
                   <CardHeader>
                     <CardTitle className="text-base">
@@ -287,6 +302,37 @@ export function DialectalWordDetailModal({
                           {marca.ll > 15 ? 'Alta significância' : 'Média significância'}
                         </Badge>
                       </div>
+                    </div>
+
+                    {/* Gráfico de evolução temporal */}
+                    <div className="pt-4 border-t">
+                      <h4 className="text-sm font-semibold text-muted-foreground mb-3">
+                        Evolução Temporal (Simulado)
+                      </h4>
+                      <div className="h-48 flex items-end justify-around gap-2 bg-muted/20 rounded-lg p-4">
+                        {[1980, 1990, 2000, 2010, 2020].map((decade, idx) => {
+                          const height = marca.tipo === 'arcaismo' 
+                            ? Math.max(20, 80 - idx * 15) // Arcaísmos decrescem
+                            : Math.min(80, 20 + idx * 15); // Outros crescem
+                          
+                          return (
+                            <div key={decade} className="flex-1 flex flex-col items-center gap-2">
+                              <div 
+                                className="w-full bg-primary rounded-t transition-all hover:bg-primary/80"
+                                style={{ height: `${height}%` }}
+                              />
+                              <span className="text-xs text-muted-foreground font-mono">
+                                {decade}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <p className="text-xs text-muted-foreground text-center mt-3">
+                        {marca.tipo === 'arcaismo' 
+                          ? '📉 Tendência decrescente típica de arcaísmos' 
+                          : '📈 Tendência crescente ou estável'}
+                      </p>
                     </div>
                   </CardContent>
                 </Card>
