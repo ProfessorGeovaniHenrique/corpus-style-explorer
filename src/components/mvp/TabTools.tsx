@@ -8,8 +8,7 @@ import { KeywordsTool } from "./tools/KeywordsTool";
 import { KWICTool } from "./tools/KWICTool";
 import { DispersionTool } from "./tools/DispersionTool";
 import { NGramsTool } from "./tools/NGramsTool";
-import { TemporalAnalysisTool } from "./tools/TemporalAnalysisTool";
-import { DialectalAnalysisTool } from "./tools/DialectalAnalysisTool";
+import { AdvancedAnalysisTab } from "./tools/AdvancedAnalysisTab";
 
 function TabToolsContent() {
   const { activeTab, setActiveTab } = useTools();
@@ -22,18 +21,15 @@ function TabToolsContent() {
           Ferramentas de Estilística de Corpus
         </CardTitle>
         <CardDescription className="section-description-academic">
-          Wordlist, Keywords, KWIC, Dispersão, N-grams, Análise Temporal, Análise Dialetal
+          Wordlist, KWIC, Dispersão, N-grams e Análise Avançada (Keywords, Temporal, Dialetal)
         </CardDescription>
       </CardHeader>
       
       <CardContent>
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-7">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="wordlist">
               Word List
-            </TabsTrigger>
-            <TabsTrigger value="keywords">
-              Keywords
             </TabsTrigger>
             <TabsTrigger value="kwic">
               KWIC
@@ -44,20 +40,13 @@ function TabToolsContent() {
             <TabsTrigger value="ngrams">
               N-grams
             </TabsTrigger>
-            <TabsTrigger value="temporal">
-              Temporal
-            </TabsTrigger>
-            <TabsTrigger value="dialectal">
-              Dialetal
+            <TabsTrigger value="advanced">
+              Análise Avançada
             </TabsTrigger>
           </TabsList>
           
           <TabsContent value="wordlist" className="mt-6">
             <WordlistTool />
-          </TabsContent>
-          
-          <TabsContent value="keywords" className="mt-6">
-            <KeywordsTool />
           </TabsContent>
           
           <TabsContent value="kwic" className="mt-6">
@@ -72,12 +61,8 @@ function TabToolsContent() {
             <NGramsTool />
           </TabsContent>
           
-          <TabsContent value="temporal" className="mt-6">
-            <TemporalAnalysisTool />
-          </TabsContent>
-          
-          <TabsContent value="dialectal" className="mt-6">
-            <DialectalAnalysisTool />
+          <TabsContent value="advanced" className="mt-6">
+            <AdvancedAnalysisTab />
           </TabsContent>
         </Tabs>
       </CardContent>

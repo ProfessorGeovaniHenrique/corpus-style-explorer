@@ -8,16 +8,30 @@
 import { KeywordEntry } from '@/data/types/corpus-tools.types';
 import { findInDictionary, DIALECTAL_DICTIONARY } from '@/data/dialectal-dictionary';
 import { EnrichedDialectalMark } from '@/data/types/dialectal-dictionary.types';
+import { isDialectalStopword, hasDialectalCharacteristics } from '@/data/dialectal-stopwords';
 
 /**
  * Enriquece uma palavra-chave com dados do dicionário dialetal
+ * Filtra falsos positivos (palavras gramaticais e termos comuns)
  */
 export function enrichWordWithDictionary(
   palavra: string,
   keywordData: KeywordEntry
-): EnrichedDialectalMark {
+): EnrichedDialectalMark | null {
+  
+  // FILTRO 1: Stopwords dialetais (palavras gramaticais)
+  if (isDialectalStopword(palavra)) {
+    console.log(`🚫 Filtered stopword: ${palavra}`);
+    return null;
+  }
   
   const dictionaryEntry = findInDictionary(palavra);
+  
+  // FILTRO 2: Se não está no dicionário E não tem características dialetais E tem LL baixo
+  if (!dictionaryEntry && !hasDialectalCharacteristics(palavra) && keywordData.ll < 20) {
+    console.log(`🚫 Filtered non-dialectal: ${palavra} (LL: ${keywordData.ll.toFixed(2)})`);
+    return null;
+  }
   
   // Se não está no dicionário, classifica apenas estatisticamente
   if (!dictionaryEntry) {
@@ -152,6 +166,7 @@ export function generateDialectalAnalysis(keywords: KeywordEntry[]) {
   const marcasDialetais = keywords
     .filter(kw => kw.ll > 10 && kw.efeito === 'super-representado')
     .map(kw => enrichWordWithDictionary(kw.palavra, kw))
+    .filter((marca): marca is EnrichedDialectalMark => marca !== null) // Remove nulls
     .sort((a, b) => b.score - a.score);
   
   // Estatísticas
