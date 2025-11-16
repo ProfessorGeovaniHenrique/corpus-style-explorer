@@ -9,6 +9,7 @@ import { KWICTool } from "./tools/KWICTool";
 import { DispersionTool } from "./tools/DispersionTool";
 import { NGramsTool } from "./tools/NGramsTool";
 import { AdvancedAnalysisTab } from "./tools/AdvancedAnalysisTab";
+import { DialectalNGramsTool } from "./tools/DialectalNGramsTool";
 
 function TabToolsContent() {
   const { activeTab, setActiveTab } = useTools();
@@ -21,15 +22,18 @@ function TabToolsContent() {
           Ferramentas de Estilística de Corpus
         </CardTitle>
         <CardDescription className="section-description-academic">
-          Wordlist, KWIC, Dispersão, N-grams e Análise Avançada (Keywords, Temporal, Dialetal)
+          Wordlist, Keywords, KWIC, Dispersão, N-grams, N-grams Dialetais e Análise Avançada
         </CardDescription>
       </CardHeader>
       
       <CardContent>
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-7">
             <TabsTrigger value="wordlist">
               Word List
+            </TabsTrigger>
+            <TabsTrigger value="keywords">
+              Keywords
             </TabsTrigger>
             <TabsTrigger value="kwic">
               KWIC
@@ -40,6 +44,9 @@ function TabToolsContent() {
             <TabsTrigger value="ngrams">
               N-grams
             </TabsTrigger>
+            <TabsTrigger value="dialectal-ngrams">
+              N-grams Dialetais
+            </TabsTrigger>
             <TabsTrigger value="advanced">
               Análise Avançada
             </TabsTrigger>
@@ -47,6 +54,10 @@ function TabToolsContent() {
           
           <TabsContent value="wordlist" className="mt-6">
             <WordlistTool />
+          </TabsContent>
+          
+          <TabsContent value="keywords" className="mt-6">
+            <KeywordsTool />
           </TabsContent>
           
           <TabsContent value="kwic" className="mt-6">
@@ -59,6 +70,10 @@ function TabToolsContent() {
           
           <TabsContent value="ngrams" className="mt-6">
             <NGramsTool />
+          </TabsContent>
+          
+          <TabsContent value="dialectal-ngrams" className="mt-6">
+            <DialectalNGramsTool />
           </TabsContent>
           
           <TabsContent value="advanced" className="mt-6">
