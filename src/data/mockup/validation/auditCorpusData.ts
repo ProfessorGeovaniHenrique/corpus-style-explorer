@@ -6,13 +6,19 @@
  * - Palavras sem domínio
  * - Palavras sem prosódia
  * - Inconsistências entre arquivos
- * - Lemas duplicados
+ * - Palavras duplicadas (não lemas, pois lemas podem ter múltiplas formas)
  */
 
 import { frequenciaNormalizadaData } from '../frequencia-normalizada';
 import { palavrasChaveData } from '../palavras-chave';
 import { dominiosNormalizados } from '../dominios-normalized';
 import { prosodiasLemasMap } from '../prosodias-lemas';
+
+// Configuração para desabilitar auditoria automática
+export const CORPUS_AUDIT_CONFIG = {
+  enableAutoAudit: true, // Mude para false para desabilitar auditoria automática
+  logLevel: 'warn' as 'log' | 'warn' | 'error' // Nível de log
+};
 
 interface AuditReport {
   totalWords: number;
@@ -22,7 +28,7 @@ interface AuditReport {
     lemasSemProsodia: string[];
     lemasNaoNaFrequencia: string[];
     dominiosComPalavrasInvalidas: Array<{ dominio: string; palavrasInvalidas: string[] }>;
-    lemasDuplicados: Array<{ lema: string; count: number }>;
+    palavrasDuplicadas: Array<{ palavra: string; count: number }>;
   };
   summary: {
     totalIssues: number;
@@ -73,14 +79,14 @@ export function auditCorpusData(): AuditReport {
     })
     .filter(d => d.palavrasInvalidas.length > 0);
   
-  // 7. Verificar lemas duplicados
-  const lemaCount: Record<string, number> = {};
+  // 7. Verificar PALAVRAS duplicadas (não lemas, pois lemas podem ter múltiplas formas)
+  const palavraCount: Record<string, number> = {};
   frequenciaNormalizadaData.forEach(f => {
-    lemaCount[f.lema] = (lemaCount[f.lema] || 0) + 1;
+    palavraCount[f.palavra] = (palavraCount[f.palavra] || 0) + 1;
   });
-  const lemasDuplicados = Object.entries(lemaCount)
+  const palavrasDuplicadas = Object.entries(palavraCount)
     .filter(([_, count]) => count > 1)
-    .map(([lema, count]) => ({ lema, count }));
+    .map(([palavra, count]) => ({ palavra, count }));
   
   // Montar relatório
   const report: AuditReport = {
@@ -91,7 +97,7 @@ export function auditCorpusData(): AuditReport {
       lemasSemProsodia,
       lemasNaoNaFrequencia,
       dominiosComPalavrasInvalidas,
-      lemasDuplicados
+      palavrasDuplicadas
     },
     summary: {
       totalIssues: 
@@ -100,7 +106,7 @@ export function auditCorpusData(): AuditReport {
         lemasSemProsodia.length +
         lemasNaoNaFrequencia.length +
         dominiosComPalavrasInvalidas.reduce((acc, d) => acc + d.palavrasInvalidas.length, 0) +
-        lemasDuplicados.length,
+        palavrasDuplicadas.length,
       isValid: false
     }
   };
@@ -112,27 +118,27 @@ export function auditCorpusData(): AuditReport {
   console.log('\n🔴 PROBLEMAS ENCONTRADOS:');
   
   if (palavrasSemLema.length > 0) {
-    console.warn(`❌ ${palavrasSemLema.length} palavras sem lema:`, palavrasSemLema);
+    console[CORPUS_AUDIT_CONFIG.logLevel](`❌ ${palavrasSemLema.length} palavras sem lema:`, palavrasSemLema);
   }
   
   if (palavrasSemDominio.length > 0) {
-    console.warn(`❌ ${palavrasSemDominio.length} palavras temáticas sem domínio:`, palavrasSemDominio);
+    console[CORPUS_AUDIT_CONFIG.logLevel](`❌ ${palavrasSemDominio.length} palavras temáticas sem domínio:`, palavrasSemDominio);
   }
   
   if (lemasSemProsodia.length > 0) {
-    console.warn(`❌ ${lemasSemProsodia.length} lemas sem prosódia:`, lemasSemProsodia);
+    console[CORPUS_AUDIT_CONFIG.logLevel](`❌ ${lemasSemProsodia.length} lemas sem prosódia:`, lemasSemProsodia);
   }
   
   if (lemasNaoNaFrequencia.length > 0) {
-    console.warn(`❌ ${lemasNaoNaFrequencia.length} lemas em palavras-chave que não estão em frequencia-normalizada:`, lemasNaoNaFrequencia);
+    console[CORPUS_AUDIT_CONFIG.logLevel](`❌ ${lemasNaoNaFrequencia.length} lemas em palavras-chave que não estão em frequencia-normalizada:`, lemasNaoNaFrequencia);
   }
   
   if (dominiosComPalavrasInvalidas.length > 0) {
-    console.warn(`❌ ${dominiosComPalavrasInvalidas.length} domínios com palavras inválidas:`, dominiosComPalavrasInvalidas);
+    console[CORPUS_AUDIT_CONFIG.logLevel](`❌ ${dominiosComPalavrasInvalidas.length} domínios com palavras inválidas:`, dominiosComPalavrasInvalidas);
   }
   
-  if (lemasDuplicados.length > 0) {
-    console.warn(`⚠️ ${lemasDuplicados.length} lemas duplicados em frequencia-normalizada:`, lemasDuplicados);
+  if (palavrasDuplicadas.length > 0) {
+    console[CORPUS_AUDIT_CONFIG.logLevel](`⚠️ ${palavrasDuplicadas.length} palavras duplicadas em frequencia-normalizada:`, palavrasDuplicadas);
   }
   
   console.log('\n📈 RESUMO:');
@@ -144,8 +150,8 @@ export function auditCorpusData(): AuditReport {
   return report;
 }
 
-// Executar auditoria automaticamente quando importado
-if (typeof window !== 'undefined') {
+// Executar auditoria automaticamente quando importado (apenas em desenvolvimento)
+if (typeof window !== 'undefined' && CORPUS_AUDIT_CONFIG.enableAutoAudit) {
   console.log('🚀 Executando auditoria de dados do corpus...');
   auditCorpusData();
 }

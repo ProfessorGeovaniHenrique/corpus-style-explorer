@@ -104,14 +104,15 @@ export const dominiosNormalizados: DominioSemantico[] = [
   },
   {
     dominio: "Ações e Processos",
-    riquezaLexical: 19,
-    ocorrencias: 24,
-    percentual: 11.32,
-    percentualTematico: 20.51,
+    riquezaLexical: 24,
+    ocorrencias: 29,
+    percentual: 13.68,
+    percentualTematico: 24.79,
     palavras: [
       "trazer", "ser", "sonhar", "abrir", "aquerenciar", "cair", "cevar", 
-      "chegar", "deixar", "desencilhar", "desgarrar", "encilhar", 
-      "estampar", "ficar", "ganhar", "pontear", "queimar", "rondar", "ter"
+      "chegar", "deixar", "desencilhar", "desgarrar", "encilhar", "espichar",
+      "estampar", "fazer", "ficar", "frente", "ganhar", "ir", "pontear", 
+      "queimar", "rondar", "ter", "vestir"
     ],
     palavrasComFrequencia: [
       { palavra: "trazer", ocorrencias: 3 },
@@ -126,13 +127,18 @@ export const dominiosNormalizados: DominioSemantico[] = [
       { palavra: "desencilhar", ocorrencias: 1 },
       { palavra: "desgarrar", ocorrencias: 1 },
       { palavra: "encilhar", ocorrencias: 1 },
+      { palavra: "espichar", ocorrencias: 1 },
       { palavra: "estampar", ocorrencias: 1 },
+      { palavra: "fazer", ocorrencias: 1 },
       { palavra: "ficar", ocorrencias: 1 },
+      { palavra: "frente", ocorrencias: 1 },
       { palavra: "ganhar", ocorrencias: 1 },
+      { palavra: "ir", ocorrencias: 1 },
       { palavra: "pontear", ocorrencias: 1 },
       { palavra: "queimar", ocorrencias: 1 },
       { palavra: "rondar", ocorrencias: 1 },
-      { palavra: "ter", ocorrencias: 1 }
+      { palavra: "ter", ocorrencias: 1 },
+      { palavra: "vestir", ocorrencias: 1 }
     ],
     cor: "hsl(280, 65%, 60%)",
     corTexto: "hsl(0, 0%, 100%)",
