@@ -1,3 +1,18 @@
+// 🎯 CORPUS MASTER - Fonte única de verdade
+export { 
+  corpusMaster,
+  getPalavrasTematicas,
+  getPalavrasByDominio,
+  getPalavrasByProsodia,
+  getPalavrasChave,
+  getDominiosAgregados,
+  getProsodiaStats,
+  findPalavra,
+  findFormasByLema,
+  type CorpusMasterWord
+} from './corpus-master';
+
+// Arquivos originais (mantidos para compatibilidade legada)
 export { dominiosNormalizados } from './dominios-normalized';
 export { dominiosSeparated } from './dominios-separated';
 export { prosodiasMap, getProsodiaSemantica } from './prosodias-map';
@@ -14,6 +29,9 @@ export {
 } from './palavras-chave';
 export { prosodiaSemanticaData } from './prosodias';
 export { frequenciaNormalizadaData } from './frequencia-normalizada';
+
+// 🔍 Validação e auditoria
+export { auditCorpusData } from './validation/auditCorpusData';
 
 // Re-exportar types para conveniência
 export type {

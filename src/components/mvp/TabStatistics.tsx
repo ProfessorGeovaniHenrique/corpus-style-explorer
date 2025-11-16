@@ -344,7 +344,7 @@ export function TabStatistics() {
     
     const withDomain = filtered.map(p => {
       const dominio = dominiosNormalizados.find(d => 
-        d.palavras.some(palavra => palavra.toLowerCase() === p.palavra.toLowerCase())
+        d.palavras.some(palavra => palavra.toLowerCase() === (p.lema || p.palavra).toLowerCase()) // 🔧 FIX: Usar lema
       );
       return {
         ...p,
