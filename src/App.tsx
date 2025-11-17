@@ -7,9 +7,12 @@ import { ThemeProvider } from "@/contexts/ThemeContext";
 import { AuthProvider } from "@/contexts/AuthContext";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 import AppLayout from "./pages/AppLayout";
 import Dashboard from "./pages/Dashboard";
 import AdminDashboard from "./pages/AdminDashboard";
+import AdminMetrics from "./pages/AdminMetrics";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import Dashboard2 from "./pages/Dashboard2";
 import Dashboard3 from "./pages/Dashboard3";
@@ -37,6 +40,8 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/auth" element={<Auth />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
             <Route element={<AppLayout />}>
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/dashboard2" element={<Dashboard2 />} />
@@ -61,6 +66,14 @@ const App = () => (
               element={
                 <ProtectedRoute requiredRole="admin">
                   <AdminDashboard />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/admin/metrics" 
+              element={
+                <ProtectedRoute requiredRole="admin">
+                  <AdminMetrics />
                 </ProtectedRoute>
               } 
             />
