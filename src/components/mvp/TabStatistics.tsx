@@ -93,6 +93,7 @@ interface TabStatisticsProps {
 export function TabStatistics({ demo = false }: TabStatisticsProps) {
   const [demoData, setDemoData] = useState<DemoKeyword[] | null>(null);
   const [demoDomains, setDemoDomains] = useState<any[]>([]);
+  const [demoStats, setDemoStats] = useState<any>(null);
   const [isLoadingDemo, setIsLoadingDemo] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortColumn, setSortColumn] = useState<SortColumn>('frequenciaNormalizada');
@@ -124,6 +125,7 @@ export function TabStatistics({ demo = false }: TabStatisticsProps) {
         .then(result => {
           setDemoData(result.keywords);
           setDemoDomains(result.dominios);
+          setDemoStats(result.estatisticas);
           toast.success(`${result.keywords.length} palavras-chave carregadas`);
         })
         .catch(error => {
@@ -289,6 +291,14 @@ export function TabStatistics({ demo = false }: TabStatisticsProps) {
   }));
 
   const prosodiaDistribution = useMemo(() => {
+    if (demo && demoStats?.prosodiaDistribution) {
+      return [
+        { name: 'Positiva', value: demoStats.prosodiaDistribution.positivas, fill: '#16A34A' },
+        { name: 'Negativa', value: demoStats.prosodiaDistribution.negativas, fill: '#DC2626' },
+        { name: 'Neutra', value: demoStats.prosodiaDistribution.neutras, fill: '#71717A' }
+      ];
+    }
+    
     const positivas = palavrasEnriquecidas.filter(p => p.prosodia === 'Positiva').length;
     const negativas = palavrasEnriquecidas.filter(p => p.prosodia === 'Negativa').length;
     const neutras = palavrasEnriquecidas.filter(p => p.prosodia === 'Neutra').length;
@@ -297,7 +307,7 @@ export function TabStatistics({ demo = false }: TabStatisticsProps) {
       { name: 'Negativa', value: negativas, fill: '#DC2626' },
       { name: 'Neutra', value: neutras, fill: '#71717A' }
     ];
-  }, [palavrasEnriquecidas]);
+  }, [palavrasEnriquecidas, demo, demoStats]);
 
   const top10Positivas = useMemo(() => 
     palavrasEnriquecidas.filter(p => p.prosodia === 'Positiva')
@@ -395,9 +405,10 @@ export function TabStatistics({ demo = false }: TabStatisticsProps) {
       ll: p.ll,
       mi: p.mi,
       significancia: p.significancia,
-      frequencia: p.frequenciaNormalizada
+      frequencia: p.frequenciaNormalizada,
+      ...(demo && { dominio: p.dominio, cor: p.cor })
     })),
-    [palavrasEnriquecidas]
+    [palavrasEnriquecidas, demo]
   );
 
   const palavrasPorProsodia = useMemo(() => {
@@ -1213,6 +1224,15 @@ export function TabStatistics({ demo = false }: TabStatisticsProps) {
                               return (
                                 <div className="bg-background border rounded-lg p-3 shadow-lg">
                                   <p className="font-semibold mb-1">{data.palavra}</p>
+                                  {demo && data.dominio && (
+                                    <Badge 
+                                      variant="outline" 
+                                      className="mb-2"
+                                      style={{ borderColor: data.cor, color: data.cor }}
+                                    >
+                                      {data.dominio}
+                                    </Badge>
+                                  )}
                                   <p className="text-sm text-muted-foreground">LL: {data.ll.toFixed(2)}</p>
                                   <p className="text-sm text-muted-foreground">MI: {data.mi.toFixed(2)}</p>
                                   <p className="text-sm text-muted-foreground">Freq: {data.frequencia.toFixed(2)}%</p>
@@ -1232,7 +1252,28 @@ export function TabStatistics({ demo = false }: TabStatisticsProps) {
                             return null;
                           }}
                         />
-                        <Scatter data={scatterData} fill={ACADEMIC_RS_COLORS.verde.main} fillOpacity={0.6} />
+                        <Scatter 
+                          name="Palavras" 
+                          data={scatterData}
+                          fill="#8b5cf6"
+                        >
+                          {demo ? (
+                            scatterData.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={entry.cor || '#8b5cf6'} />
+                            ))
+                          ) : (
+                            scatterData.map((entry, index) => (
+                              <Cell 
+                                key={`cell-${index}`} 
+                                fill={
+                                  entry.significancia === 'Alta' ? ACADEMIC_RS_COLORS.verde.main :
+                                  entry.significancia === 'Média' ? ACADEMIC_RS_COLORS.amarelo.main :
+                                  ACADEMIC_RS_COLORS.vermelho.light
+                                }
+                              />
+                            ))
+                          )}
+                        </Scatter>
                       </ScatterChart>
                     </ResponsiveContainer>
                   </CardContent>

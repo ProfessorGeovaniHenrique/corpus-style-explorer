@@ -181,6 +181,16 @@ function processDemoCorpus() {
     avgScore: d.avgLL
   }));
 
+  // Análise de prosódia
+  const prosodiaStats = keywords.reduce((acc, k) => {
+    if (k.prosody > 0) acc.positivas++;
+    else if (k.prosody < 0) acc.negativas++;
+    else acc.neutras++;
+    return acc;
+  }, { positivas: 0, negativas: 0, neutras: 0 });
+
+  const totalProsodico = prosodiaStats.positivas + prosodiaStats.negativas + prosodiaStats.neutras;
+
   return {
     keywords,
     dominios,
@@ -189,7 +199,15 @@ function processDemoCorpus() {
       totalPalavras: TOTAL_TOKENS_GAUCHO,
       palavrasUnicas: DEMO_CORPUS.length,
       dominiosIdentificados: dominios.length,
-      palavrasChaveSignificativas: keywords.filter(k => k.significancia === "Alta").length
+      palavrasChaveSignificativas: keywords.filter(k => k.significancia === "Alta").length,
+      prosodiaDistribution: {
+        positivas: prosodiaStats.positivas,
+        negativas: prosodiaStats.negativas,
+        neutras: prosodiaStats.neutras,
+        percentualPositivo: parseFloat(((prosodiaStats.positivas / totalProsodico) * 100).toFixed(2)),
+        percentualNegativo: parseFloat(((prosodiaStats.negativas / totalProsodico) * 100).toFixed(2)),
+        percentualNeutro: parseFloat(((prosodiaStats.neutras / totalProsodico) * 100).toFixed(2))
+      }
     }
   };
 }
