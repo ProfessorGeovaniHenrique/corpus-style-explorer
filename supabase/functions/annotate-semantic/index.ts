@@ -250,10 +250,9 @@ serve(async (req) => {
 
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
-
-    // Autenticação
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    
+    // Autenticação - usar o token do usuário para validar
     const authHeader = req.headers.get('authorization');
     if (!authHeader) {
       return new Response(
@@ -262,16 +261,24 @@ serve(async (req) => {
       );
     }
 
-    const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    // Criar cliente com token do usuário para validação
+    const userToken = authHeader.replace('Bearer ', '');
+    const supabaseUser = createClient(supabaseUrl, userToken);
+    const { data: { user }, error: authError } = await supabaseUser.auth.getUser();
 
     if (authError || !user) {
-      console.error('[annotate-semantic] Auth error:', authError);
+      console.error('[annotate-semantic] Auth error:', authError?.message || 'No user found');
       return new Response(
-        JSON.stringify({ error: 'Token inválido ou expirado' }),
+        JSON.stringify({ 
+          error: 'Token inválido ou expirado',
+          details: authError?.message 
+        }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    // Cliente com SERVICE_ROLE_KEY para operações privilegiadas
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Validação
     const rawBody = await req.json();
@@ -315,7 +322,7 @@ serve(async (req) => {
 
     // @ts-ignore
     EdgeRuntime.waitUntil(
-      processCorpusWithAI(job.id, corpus_type, supabaseUrl, supabaseKey, custom_text, artist_filter, start_line, end_line)
+      processCorpusWithAI(job.id, corpus_type, supabaseUrl, supabaseServiceKey, custom_text, artist_filter, start_line, end_line)
     );
 
     return new Response(
