@@ -253,9 +253,16 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     
+    // Cliente com SERVICE_ROLE_KEY para operações privilegiadas (incluindo logging)
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    
     // Parsing e logging do body recebido
     const rawBody = await req.json();
+    const requestStartTime = Date.now();
+    const requestId = crypto.randomUUID();
+    
     console.log('[annotate-semantic] 📥 Payload recebido:', {
+      request_id: requestId,
       corpus_type: rawBody.corpus_type,
       demo_mode: rawBody.demo_mode,
       demo_mode_type: typeof rawBody.demo_mode,
@@ -269,21 +276,40 @@ serve(async (req) => {
     const demo_mode = rawBody.demo_mode === true || rawBody.demo_mode === 'true';
     
     let userId: string;
+    let authStatus: string;
+    let responseStatus = 200;
+    let responseData: any = null;
+    let errorDetails: any = null;
 
     // Modo DEMO: não requer autenticação - PRIORIDADE MÁXIMA
     if (demo_mode) {
       userId = '00000000-0000-0000-0000-000000000000';
+      authStatus = 'demo';
       console.log('[annotate-semantic] 🎭 MODO DEMO ATIVADO - Bypass de autenticação');
     } else {
       // Modo normal: REQUER autenticação válida
       const authHeader = req.headers.get('authorization');
       
       if (!authHeader) {
+        authStatus = 'unauthorized';
+        responseStatus = 401;
+        errorDetails = { error: 'Autenticação necessária', hint: 'Use demo_mode: true para testar sem login' };
+        
+        // Registrar log de debug
+        await supabase.from('annotation_debug_logs').insert({
+          request_id: requestId,
+          demo_mode,
+          auth_status: authStatus,
+          user_id: null,
+          corpus_type,
+          request_payload: rawBody,
+          response_status: responseStatus,
+          error_details: errorDetails,
+          processing_time_ms: Date.now() - requestStartTime
+        });
+        
         return new Response(
-          JSON.stringify({ 
-            error: 'Autenticação necessária',
-            hint: 'Use demo_mode: true para testar sem login'
-          }),
+          JSON.stringify(errorDetails),
           { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
@@ -293,23 +319,39 @@ serve(async (req) => {
       const { data: { user }, error: authError } = await supabaseUser.auth.getUser();
 
       if (authError || !user) {
+        authStatus = 'invalid_token';
+        responseStatus = 401;
+        errorDetails = { 
+          error: 'Token inválido ou expirado',
+          details: authError?.message,
+          hint: 'Faça login novamente ou use demo_mode: true'
+        };
+        
         console.error('[annotate-semantic] Auth error:', authError?.message || 'No user found');
+        
+        // Registrar log de debug
+        await supabase.from('annotation_debug_logs').insert({
+          request_id: requestId,
+          demo_mode,
+          auth_status: authStatus,
+          user_id: null,
+          corpus_type,
+          request_payload: rawBody,
+          response_status: responseStatus,
+          error_details: errorDetails,
+          processing_time_ms: Date.now() - requestStartTime
+        });
+        
         return new Response(
-          JSON.stringify({ 
-            error: 'Token inválido ou expirado',
-            details: authError?.message,
-            hint: 'Faça login novamente ou use demo_mode: true'
-          }),
+          JSON.stringify(errorDetails),
           { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
       userId = user.id;
+      authStatus = 'authenticated';
       console.log(`[annotate-semantic] ✅ Usuário autenticado: ${userId}`);
     }
-
-    // Cliente com SERVICE_ROLE_KEY para operações privilegiadas
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     console.log(`[annotate-semantic] 🚀 Iniciando anotação: ${corpus_type}`, {
       userId,
@@ -354,16 +396,53 @@ serve(async (req) => {
       processCorpusWithAI(job.id, corpus_type, supabaseUrl, supabaseServiceKey, custom_text, artist_filter, start_line, end_line)
     );
 
+    // Registrar log de debug de sucesso
+    responseData = {
+      job: job,
+      message: 'Anotação iniciada em background'
+    };
+    
+    await supabase.from('annotation_debug_logs').insert({
+      request_id: requestId,
+      demo_mode,
+      auth_status: authStatus,
+      user_id: userId,
+      corpus_type,
+      job_id: job.id,
+      request_payload: rawBody,
+      response_status: responseStatus,
+      response_data: responseData,
+      processing_time_ms: Date.now() - requestStartTime
+    });
+
     return new Response(
-      JSON.stringify({
-        job: job,
-        message: 'Anotação iniciada em background'
-      }),
+      JSON.stringify(responseData),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error: any) {
     console.error('[annotate-semantic] Error:', error);
+    
+    // Registrar log de debug de erro
+    try {
+      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+      const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+      const supabase = createClient(supabaseUrl, supabaseServiceKey);
+      
+      await supabase.from('annotation_debug_logs').insert({
+        demo_mode: false,
+        auth_status: 'error',
+        user_id: null,
+        corpus_type: 'unknown',
+        request_payload: {},
+        response_status: 500,
+        error_details: { error: error.message || 'Erro interno' },
+        processing_time_ms: 0
+      });
+    } catch (logError) {
+      console.error('[annotate-semantic] Erro ao registrar log de erro:', logError);
+    }
+    
     return new Response(
       JSON.stringify({ error: error.message || 'Erro interno' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

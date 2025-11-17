@@ -1,7 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { FileText, ArrowLeft, Download, Bug, Bot, Zap, Wrench, BarChart3 } from "lucide-react";
+import { FileText, ArrowLeft, Download, Bug, Bot, Zap, Wrench, BarChart3, Shield } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { exportDeveloperLogsToPDF } from "@/utils/exportDeveloperLogs";
 import { useState } from "react";
@@ -11,7 +11,8 @@ import {
   ConstructionLogManager,
   TemporalEvolutionDashboard,
   CreditsSavingsIndicator,
-  AIAnalysisReview
+  AIAnalysisReview,
+  AnnotationDebugPanel
 } from '@/components/devlogs';
 import { projectStats } from "@/data/developer-logs/construction-log";
 
@@ -125,7 +126,7 @@ export default function DeveloperLogs() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6 mt-6 container mx-auto px-4 pb-8">
-          <TabsList className="grid w-full grid-cols-5 lg:w-auto">
+          <TabsList className="grid w-full grid-cols-6 lg:w-auto">
             <TabsTrigger value="ai-assistant" className="gap-2">
               <Bot className="w-4 h-4" />
               <span className="hidden sm:inline">🤖 IA Assistant</span>
@@ -133,6 +134,10 @@ export default function DeveloperLogs() {
             <TabsTrigger value="ai-review" className="gap-2">
               <Bot className="w-4 h-4" />
               <span className="hidden sm:inline">✅ AI Review</span>
+            </TabsTrigger>
+            <TabsTrigger value="annotation-debug" className="gap-2">
+              <Shield className="w-4 h-4" />
+              <span className="hidden sm:inline">🔐 Auth Debug</span>
             </TabsTrigger>
             <TabsTrigger value="code-scanner" className="gap-2">
               <Bug className="w-4 h-4" />
@@ -159,6 +164,11 @@ export default function DeveloperLogs() {
           {/* TAB AI REVIEW: Validação Humana das Análises */}
           <TabsContent value="ai-review">
             <AIAnalysisReview />
+          </TabsContent>
+
+          {/* TAB ANNOTATION DEBUG: Debug de Autenticação */}
+          <TabsContent value="annotation-debug">
+            <AnnotationDebugPanel />
           </TabsContent>
 
           {/* TAB CODE SCANNER: Real-time Code Scanner */}

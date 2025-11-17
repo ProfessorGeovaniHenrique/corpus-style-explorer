@@ -246,6 +246,63 @@ export type Database = {
           },
         ]
       }
+      annotation_debug_logs: {
+        Row: {
+          auth_status: string
+          corpus_type: string
+          created_at: string
+          demo_mode: boolean
+          error_details: Json | null
+          id: string
+          job_id: string | null
+          metadata: Json | null
+          processing_time_ms: number | null
+          request_headers: Json | null
+          request_id: string
+          request_payload: Json
+          response_data: Json | null
+          response_status: number
+          user_id: string | null
+          words_processed: number | null
+        }
+        Insert: {
+          auth_status: string
+          corpus_type: string
+          created_at?: string
+          demo_mode?: boolean
+          error_details?: Json | null
+          id?: string
+          job_id?: string | null
+          metadata?: Json | null
+          processing_time_ms?: number | null
+          request_headers?: Json | null
+          request_id?: string
+          request_payload?: Json
+          response_data?: Json | null
+          response_status: number
+          user_id?: string | null
+          words_processed?: number | null
+        }
+        Update: {
+          auth_status?: string
+          corpus_type?: string
+          created_at?: string
+          demo_mode?: boolean
+          error_details?: Json | null
+          id?: string
+          job_id?: string | null
+          metadata?: Json | null
+          processing_time_ms?: number | null
+          request_headers?: Json | null
+          request_id?: string
+          request_payload?: Json
+          response_data?: Json | null
+          response_status?: number
+          user_id?: string | null
+          words_processed?: number | null
+        }
+        Relationships: []
+      }
       annotation_jobs: {
         Row: {
           corpus_type: string
