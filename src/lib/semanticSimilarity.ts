@@ -5,6 +5,9 @@
 
 import { Tagset } from "@/hooks/useTagsets";
 
+// Re-export Tagset para compatibilidade
+export type { Tagset } from "@/hooks/useTagsets";
+
 /**
  * Remove stopwords e normaliza texto
  */
@@ -76,8 +79,8 @@ export const calculateSemanticSimilarity = (
  */
 export interface HierarchySuggestion {
   tagsetPai: Tagset;
-  similaridade: number;
-  razao: string;
+  similarity: number;
+  reason: string;
   nivel_sugerido: number;
 }
 
@@ -93,23 +96,23 @@ export const generateHierarchySuggestions = (
   const suggestions = tagsetsAtivos
     .map(tagsetAtivo => ({
       tagsetPai: tagsetAtivo,
-      similaridade: calculateSemanticSimilarity(tagsetPendente, tagsetAtivo),
+      similarity: calculateSemanticSimilarity(tagsetPendente, tagsetAtivo),
       nivel_sugerido: (tagsetAtivo.nivel_profundidade || 1) + 1,
-      razao: ''
+      reason: ''
     }))
-    .filter(s => s.similaridade > 0.1) // Threshold mínimo
-    .sort((a, b) => b.similaridade - a.similaridade)
+    .filter(s => s.similarity > 0.1) // Threshold mínimo
+    .sort((a, b) => b.similarity - a.similarity)
     .slice(0, maxSuggestions);
   
   // Gera razão para cada sugestão
   suggestions.forEach(sugg => {
-    const percentage = Math.round(sugg.similaridade * 100);
+    const percentage = Math.round(sugg.similarity * 100);
     const exemplosComuns = findCommonExamples(tagsetPendente, sugg.tagsetPai);
     
     if (exemplosComuns.length > 0) {
-      sugg.razao = `${percentage}% de similaridade. Exemplos em comum: ${exemplosComuns.slice(0, 3).join(', ')}`;
+      sugg.reason = `${percentage}% de similaridade. Exemplos em comum: ${exemplosComuns.slice(0, 3).join(', ')}`;
     } else {
-      sugg.razao = `${percentage}% de similaridade semântica com base na descrição`;
+      sugg.reason = `${percentage}% de similaridade semântica com base na descrição`;
     }
   });
   

@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { CheckCircle2, XCircle, Edit, Zap, Lightbulb, TrendingUp, AlertTriangle, PlayCircle, ArrowUpDown, Sparkles } from "lucide-react";
-import { Tagset, HierarchySuggestion, generateHierarchySuggestions } from "@/lib/semanticSimilarity";
+import { Tagset } from "@/hooks/useTagsets";
+import { HierarchySuggestion, generateHierarchySuggestions } from "@/lib/semanticSimilarity";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Progress } from "@/components/ui/progress";
@@ -286,8 +287,9 @@ export function HierarchySuggester({
                   </div>
                   {suggs.slice(0, 3).map((s, i) => (
                     <div key={i} className="flex justify-between p-2 bg-muted/30 rounded">
-                      <div>
-                        <Badge variant="outline">{s.tagsetPai.codigo}</Badge> {s.tagsetPai.nome}
+                      <div className="flex-1">
+                        <div><Badge variant="outline">{s.tagsetPai.codigo}</Badge> {s.tagsetPai.nome}</div>
+                        <p className="text-xs text-muted-foreground mt-1">{s.reason}</p>
                       </div>
                       <Button size="sm" onClick={() => handleAccept(pendente.id, s.tagsetPai.codigo)}>
                         <CheckCircle2 className="h-4 w-4" /> Aceitar
