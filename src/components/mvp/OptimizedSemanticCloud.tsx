@@ -670,9 +670,8 @@ export function OptimizedSemanticCloud({
       <KWICModal
         open={isOpen}
         onOpenChange={(open) => !open && closeModal()}
-        palavra={selectedWord}
+        word={selectedWord}
         data={kwicData}
-        isLoading={isLoading}
       />
     </div>
   );
