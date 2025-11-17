@@ -48,6 +48,14 @@ export interface DemoAnalysisResult {
     palavrasUnicas: number;
     dominiosIdentificados: number;
     palavrasChaveSignificativas: number;
+    prosodiaDistribution: {
+      positivas: number;
+      negativas: number;
+      neutras: number;
+      percentualPositivo: number;
+      percentualNegativo: number;
+      percentualNeutro: number;
+    };
   };
 }
 
