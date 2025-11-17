@@ -1,25 +1,36 @@
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Sparkles, Database, BarChart3, FileText, Music } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Sparkles, Database, BarChart3, FileText, Music, Play } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { TabDomains } from "./TabDomains";
 import { TabStatistics } from "./TabStatistics";
 import { TabGalaxy } from "./TabGalaxy";
+import { useApresentacaoTour } from "@/hooks/useApresentacaoTour";
 
 export function TabApresentacao() {
   const [currentTab, setCurrentTab] = useState("intro");
+  const { startTour } = useApresentacaoTour({ autoStart: true });
 
   return (
     <Card className="card-academic">
       <CardHeader>
-        <CardTitle className="section-header-academic flex items-center gap-2">
-          <Sparkles className="w-5 h-5" />
-          Apresentação da Ferramenta
-        </CardTitle>
-        <CardDescription className="section-description-academic">
-          Demonstração completa das capacidades de análise estilística do VersoAustral
-        </CardDescription>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="section-header-academic flex items-center gap-2">
+              <Sparkles className="w-5 h-5" />
+              Apresentação da Ferramenta
+            </CardTitle>
+            <CardDescription className="section-description-academic">
+              Demonstração completa das capacidades de análise estilística do VersoAustral
+            </CardDescription>
+          </div>
+          <Button onClick={startTour} variant="outline" size="sm">
+            <Play className="h-4 w-4 mr-2" />
+            Iniciar Tour Guiado
+          </Button>
+        </div>
       </CardHeader>
       <CardContent>
         <Tabs value={currentTab} onValueChange={setCurrentTab} className="w-full">
@@ -28,15 +39,15 @@ export function TabApresentacao() {
               <FileText className="w-4 h-4" />
               <span className="hidden sm:inline">Introdução</span>
             </TabsTrigger>
-            <TabsTrigger value="dominios" className="flex items-center gap-2">
+            <TabsTrigger value="dominios" className="flex items-center gap-2" data-tour="tab-dominios">
               <Database className="w-4 h-4" />
               <span className="hidden sm:inline">Domínios</span>
             </TabsTrigger>
-            <TabsTrigger value="estatisticas" className="flex items-center gap-2">
+            <TabsTrigger value="estatisticas" className="flex items-center gap-2" data-tour="tab-estatisticas">
               <BarChart3 className="w-4 h-4" />
               <span className="hidden sm:inline">Estatísticas</span>
             </TabsTrigger>
-            <TabsTrigger value="nuvem" className="flex items-center gap-2">
+            <TabsTrigger value="nuvem" className="flex items-center gap-2" data-tour="tab-nuvem">
               <Sparkles className="w-4 h-4" />
               <span className="hidden sm:inline">Nuvem</span>
             </TabsTrigger>
@@ -69,7 +80,7 @@ export function TabApresentacao() {
 
             {/* Letra da música + Player */}
             <div className="grid gap-6 lg:grid-cols-3">
-              <div className="lg:col-span-2">
+              <div className="lg:col-span-2" data-tour="letra-musica">
                 <Card className="card-academic">
                   <CardHeader>
                     <CardTitle className="text-lg">Letra da Música</CardTitle>
@@ -111,7 +122,7 @@ E uma saudade redomona pelos cantos do galpão`}
                 </Card>
               </div>
 
-              <div>
+              <div data-tour="music-player">
                 <Card className="card-academic">
                   <CardHeader>
                     <CardTitle className="text-base">Ouça a canção</CardTitle>

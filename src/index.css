@@ -340,4 +340,79 @@ All colors MUST be HSL.
 .scrollbar-thin::-webkit-scrollbar-thumb:hover {
   background: rgba(0, 229, 255, 0.8);
 }
+
+/* Shepherd.js Custom Theme */
+.shepherd-theme-custom .shepherd-element {
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+  border-radius: 0.75rem;
+  max-width: 420px;
+}
+
+.shepherd-theme-custom .shepherd-header {
+  background: hsl(var(--primary) / 0.05);
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid hsl(var(--border));
+}
+
+.shepherd-theme-custom .shepherd-title {
+  color: hsl(var(--foreground));
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.shepherd-theme-custom .shepherd-text {
+  color: hsl(var(--muted-foreground));
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.shepherd-theme-custom .shepherd-footer {
+  padding: 0.75rem 1rem;
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+  background: hsl(var(--muted) / 0.2);
+}
+
+.shepherd-theme-custom .shepherd-button {
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.shepherd-theme-custom .shepherd-button-primary {
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+}
+
+.shepherd-theme-custom .shepherd-button-primary:hover {
+  opacity: 0.9;
+}
+
+.shepherd-theme-custom .shepherd-button-secondary {
+  background: hsl(var(--secondary));
+  color: hsl(var(--secondary-foreground));
+}
+
+.shepherd-theme-custom .shepherd-button-secondary:hover {
+  opacity: 0.8;
+}
+
+.shepherd-theme-custom .shepherd-cancel-icon {
+  color: hsl(var(--muted-foreground));
+}
+
+.shepherd-theme-custom .shepherd-cancel-icon:hover {
+  color: hsl(var(--foreground));
+}
+
+.shepherd-modal-overlay-container {
+  background: hsl(var(--background) / 0.8);
+  backdrop-filter: blur(4px);
+}
 }
