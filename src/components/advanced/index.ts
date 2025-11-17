@@ -12,6 +12,7 @@ export { TagsetHierarchyTree } from './TagsetHierarchyTree';
 export { TagsetEditor } from './TagsetEditor';
 export { TagsetCreator } from './TagsetCreator';
 export { HierarchySuggester } from './HierarchySuggester';
+export { AITagsetCurator } from './AITagsetCurator';
 export { TagsetSearchFilters } from './TagsetSearchFilters';
 export type { SortOption, NivelFilter } from './TagsetSearchFilters';
 export { JobsMonitor } from './JobsMonitor';

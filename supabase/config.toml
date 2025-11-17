@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.refine-tagset-suggestions]
 verify_jwt = false
+
+[functions.calculate-priority-score]
+verify_jwt = false
