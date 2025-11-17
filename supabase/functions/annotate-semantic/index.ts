@@ -1,5 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { RateLimiter, addRateLimitHeaders } from "../_shared/rateLimiter.ts";
+import { EdgeFunctionLogger } from "../_shared/logger.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -249,12 +251,72 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Inicializar logger
+  const logger = new EdgeFunctionLogger('annotate-semantic');
+
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     
     // Cliente com SERVICE_ROLE_KEY para operações privilegiadas (incluindo logging)
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Rate Limiting
+    const rateLimiter = new RateLimiter();
+    const authHeaderForRateLimit = req.headers.get('Authorization');
+    let userIdForRateLimit: string | undefined = undefined;
+    let userRoleForRateLimit: string | undefined = undefined;
+    let rateLimit;
+
+    // Tentar obter usuário (se autenticado) para rate limiting
+    if (authHeaderForRateLimit) {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        userIdForRateLimit = user?.id;
+        
+        if (userIdForRateLimit) {
+          const { data: roles } = await supabase
+            .from('user_roles')
+            .select('role')
+            .eq('user_id', userIdForRateLimit)
+            .single();
+          userRoleForRateLimit = roles?.role || 'user';
+          rateLimit = await rateLimiter.checkByUser(userIdForRateLimit, 50, 60);
+        } else {
+          rateLimit = await rateLimiter.checkByIP(req, 10, 60);
+        }
+      } catch (e) {
+        // Ignorar erro de auth, tratar como anônimo
+        rateLimit = await rateLimiter.checkByIP(req, 10, 60);
+      }
+    } else {
+      // Anônimo: 10 req/min
+      rateLimit = await rateLimiter.checkByIP(req, 10, 60);
+    }
+
+    // Bloquear se exceder limite
+    if (!rateLimit.allowed) {
+      await logger.logResponse(req, 429, {
+        userId: userIdForRateLimit,
+        userRole: userRoleForRateLimit,
+        rateLimited: true,
+        rateLimitRemaining: rateLimit.remaining
+      });
+
+      const errorResponse = new Response(
+        JSON.stringify({
+          error: 'Rate limit exceeded',
+          message: `Limite de requisições excedido. Tente novamente em ${rateLimit.resetAt - Math.floor(Date.now() / 1000)} segundos.`,
+          resetAt: rateLimit.resetAt
+        }),
+        { status: 429, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+      );
+
+      return addRateLimitHeaders(errorResponse, rateLimit);
+    }
+
+    // Log de início da requisição
+    logger.logRequest(req, userIdForRateLimit, userRoleForRateLimit);
     
     // Parsing e logging do body recebido
     const rawBody = await req.json();
@@ -415,13 +477,28 @@ serve(async (req) => {
       processing_time_ms: Date.now() - requestStartTime
     });
 
-    return new Response(
+    // Log de sucesso para monitoramento
+    await logger.logResponse(req, 200, {
+      userId: userIdForRateLimit,
+      userRole: userRoleForRateLimit,
+      requestPayload: { corpus_type, demo_mode, artist_filter },
+      responsePayload: { jobId: job.id },
+      rateLimited: false,
+      rateLimitRemaining: rateLimit.remaining
+    });
+
+    const successResponse = new Response(
       JSON.stringify(responseData),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
+    return addRateLimitHeaders(successResponse, rateLimit);
+
   } catch (error: any) {
     console.error('[annotate-semantic] Error:', error);
+    
+    // Log de erro para monitoramento
+    await logger.logResponse(req, 500, { error });
     
     // Registrar log de debug de erro
     try {

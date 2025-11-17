@@ -1,5 +1,8 @@
 // Deno Edge Runtime - POS Tagging with Expanded Grammar Rules (50+ irregular verbs)
 
+import { RateLimiter, addRateLimitHeaders } from "../_shared/rateLimiter.ts";
+import { EdgeFunctionLogger } from "../_shared/logger.ts";
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -139,10 +142,43 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Inicializar logger
+  const logger = new EdgeFunctionLogger('annotate-pos');
+
   try {
+    // Rate Limiting (sempre por IP para esta função pública)
+    const rateLimiter = new RateLimiter();
+    const rateLimit = await rateLimiter.checkByIP(req, 10, 60); // 10 req/min
+
+    if (!rateLimit.allowed) {
+      await logger.logResponse(req, 429, {
+        rateLimited: true,
+        rateLimitRemaining: rateLimit.remaining
+      });
+
+      const errorResponse = new Response(
+        JSON.stringify({
+          error: 'Rate limit exceeded',
+          message: `Limite de 10 requisições por minuto excedido. Tente novamente em ${rateLimit.resetAt - Math.floor(Date.now() / 1000)} segundos.`,
+          resetAt: rateLimit.resetAt
+        }),
+        { status: 429, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+      );
+
+      return addRateLimitHeaders(errorResponse, rateLimit);
+    }
+
+    // Log de início
+    logger.logRequest(req);
+
     const { texto, idioma = 'pt' } = await req.json();
 
     if (!texto || typeof texto !== 'string') {
+      await logger.logResponse(req, 400, {
+        requestPayload: { texto: 'invalid' },
+        error: new Error('Texto inválido')
+      });
+
       return new Response(JSON.stringify({ error: 'Texto inválido' }), 
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
@@ -151,11 +187,25 @@ Deno.serve(async (req) => {
     const tokens = await processText(texto);
     console.log(`[annotate-pos] ${tokens.length} tokens processados`);
 
-    return new Response(JSON.stringify({ tokens }), 
+    // Log de sucesso
+    await logger.logResponse(req, 200, {
+      requestPayload: { texto: texto.substring(0, 100), idioma },
+      responsePayload: { tokensCount: tokens.length },
+      rateLimited: false,
+      rateLimitRemaining: rateLimit.remaining
+    });
+
+    const successResponse = new Response(JSON.stringify({ tokens }), 
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+
+    return addRateLimitHeaders(successResponse, rateLimit);
 
   } catch (error) {
     console.error('[annotate-pos] Erro:', error);
+    
+    // Log de erro
+    await logger.logResponse(req, 500, { error: error as Error });
+    
     return new Response(JSON.stringify({ error: error instanceof Error ? error.message : 'Erro desconhecido' }), 
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   }
