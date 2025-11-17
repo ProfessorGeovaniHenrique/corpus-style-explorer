@@ -1101,7 +1101,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      calculate_tagset_hierarchy: { Args: never; Returns: undefined }
     }
     Enums: {
       [_ in never]: never
