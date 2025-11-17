@@ -106,16 +106,17 @@ export function D3SemanticCloud({
     const fontWeightNum = fontWeight === 'normal' ? '400' : fontWeight === 'semibold' ? '600' : '700';
     const enter = texts.enter().append('text').style('font-family', `${fontFamily}, system-ui, sans-serif`).style('font-weight', fontWeightNum).style('cursor', 'pointer').attr('text-anchor', 'middle').attr('fill', d => d.color).text(d => d.text);
     enter.attr('transform', d => `translate(${d.x},${d.y}) rotate(${d.rotate})`).style('font-size', 0).style('opacity', 0).transition().duration(animationSpeed).ease(d3.easeCubicOut).style('font-size', d => `${d.size}px`).style('opacity', 1);
-    texts.transition().duration(400).attr('transform', d => `translate(${d.x},${d.y}) rotate(${d.rotate})`).style('font-size', d => `${d.size}px`);
-    texts.exit().transition().duration(300).style('font-size', 0).style('opacity', 0).remove();
+    
     if (showTooltips) {
-      g.selectAll('text').each(function(d: D3CloudWord) {
-        const element = this as Element;
-        const tooltipContent = d.type === 'domain' ? `<div style="padding:12px">${d.data.tooltip.nome}</div>` : `<div style="padding:12px">${d.data.tooltip.palavra}</div>`;
-        const instance = tippy(element, { content: tooltipContent, allowHTML: true, theme: 'light', animation: 'scale', placement: 'top', interactive: true, maxWidth: 350, delay: [100, 0] });
+      enter.each(function(d) {
+        const tooltipContent = d.type === 'domain' ? createDomainTooltip(d.data.tooltip) : createKeywordTooltip(d.data.tooltip);
+        const instance = tippy(this, { content: tooltipContent, allowHTML: true, theme: 'light', placement: 'top', arrow: true, maxWidth: 350, interactive: true });
         tippyInstances.current.push(instance);
       });
     }
+    
+    texts.transition().duration(400).attr('transform', d => `translate(${d.x},${d.y}) rotate(${d.rotate})`).style('font-size', d => `${d.size}px`);
+    texts.exit().transition().duration(300).style('font-size', 0).style('opacity', 0).remove();
     g.selectAll('text').on('click', function(event, d: D3CloudWord) {
       if (d.type === 'domain' && onDomainClick) onDomainClick(d.text);
       else if (d.type === 'keyword' && onWordClick) onWordClick(d.text);
@@ -126,6 +127,30 @@ export function D3SemanticCloud({
   const handleZoomIn = () => { if (svgRef.current && zoomBehavior.current) d3.select(svgRef.current).transition().duration(300).call(zoomBehavior.current.scaleBy, 1.3); };
   const handleZoomOut = () => { if (svgRef.current && zoomBehavior.current) d3.select(svgRef.current).transition().duration(300).call(zoomBehavior.current.scaleBy, 0.7); };
   const handleResetZoom = () => { if (svgRef.current && zoomBehavior.current) d3.select(svgRef.current).transition().duration(500).call(zoomBehavior.current.transform, d3.zoomIdentity); };
+
+  function createDomainTooltip(tooltip: any): string {
+    return `<div style="padding: 14px; font-family: Inter, sans-serif; min-width: 280px;"><div style="font-weight: 700; font-size: 17px; margin-bottom: 10px; color: #1e293b; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px;">${tooltip.nome || tooltip.dominio || 'Domínio'}</div><div style="display: flex; flex-direction: column; gap: 8px; font-size: 14px; color: #64748b; margin-bottom: 12px;"><div><strong>Ocorrências:</strong> ${tooltip.ocorrencias?.toLocaleString() || 0}</div><div><strong>Riqueza Lexical:</strong> ${tooltip.riquezaLexical || 0} palavras únicas</div><div><strong>Representatividade:</strong> ${tooltip.percentual?.toFixed(2) || 0}% do corpus</div>${tooltip.avgLL ? `<div><strong>Significância (LL):</strong> ${tooltip.avgLL.toFixed(2)}</div>` : ''}</div><div style="background: #f8fafc; padding: 10px; border-radius: 6px; border-left: 3px solid #3b82f6;"><div style="font-size: 12px; color: #475569; font-weight: 600; margin-bottom: 4px;">💡 Dica de Interação</div><div style="font-size: 11px; color: #64748b; line-height: 1.4;"><strong>Clique</strong> para ver todas as palavras-chave deste domínio e suas estatísticas detalhadas</div></div></div>`;
+  }
+
+  function createKeywordTooltip(tooltip: any): string {
+    const prosodyInfo = getProsodyInfo(tooltip.prosody);
+    return `<div style="padding: 14px; font-family: Inter, sans-serif; min-width: 300px;"><div style="font-weight: 700; font-size: 17px; margin-bottom: 10px; color: #1e293b; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px;">${tooltip.palavra || 'Palavra'}</div><div style="display: flex; flex-direction: column; gap: 8px; font-size: 14px; color: #64748b; margin-bottom: 12px;"><div><strong>Domínio:</strong> ${tooltip.dominio || 'N/A'}</div><div><strong>Frequência:</strong> ${tooltip.frequencia || 0} ocorrências</div><div><strong>LL Score:</strong> ${tooltip.ll?.toFixed(2) || 0}</div><div><strong>MI Score:</strong> ${tooltip.mi?.toFixed(2) || 0}</div></div><div style="margin-bottom: 12px; padding: 10px; background: ${prosodyInfo.bg}; border-radius: 6px; border: 1px solid ${prosodyInfo.borderColor};"><span style="font-size: 13px; color: #555; font-weight: 600;">${prosodyInfo.emoji} Prosódia: <strong>${prosodyInfo.label}</strong></span></div><div style="background: #f0fdf4; padding: 10px; border-radius: 6px; border-left: 3px solid #22c55e;"><div style="font-size: 12px; color: #166534; font-weight: 600; margin-bottom: 4px;">💡 Dica</div><div style="font-size: 11px; color: #15803d;"><strong>Clique</strong> para ver concordâncias (KWIC)</div></div></div>`;
+  }
+
+  function getProsodyInfo(prosody: any) {
+    if (typeof prosody === 'string') {
+      const emoji = prosody === 'Positiva' ? '😊' : prosody === 'Negativa' ? '😔' : '😐';
+      const bg = prosody === 'Positiva' ? '#dcfce7' : prosody === 'Negativa' ? '#fee2e2' : '#fef9c3';
+      const borderColor = prosody === 'Positiva' ? '#86efac' : prosody === 'Negativa' ? '#fca5a5' : '#fde047';
+      return { emoji, label: prosody, bg, borderColor };
+    }
+    const value = prosody ?? 0;
+    const emoji = value > 0 ? '😊' : value < 0 ? '😔' : '😐';
+    const label = value > 0 ? 'Positiva' : value < 0 ? 'Negativa' : 'Neutra';
+    const bg = value > 0 ? '#dcfce7' : value < 0 ? '#fee2e2' : '#fef9c3';
+    const borderColor = value > 0 ? '#86efac' : value < 0 ? '#fca5a5' : '#fde047';
+    return { emoji, label, bg, borderColor };
+  }
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.5 }} className="relative w-full h-full">

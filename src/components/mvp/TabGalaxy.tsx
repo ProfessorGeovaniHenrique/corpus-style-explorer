@@ -1,17 +1,22 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Sparkles, Layers, Tag, GitCompare } from "lucide-react";
-import { getDemoAnalysisResults } from "@/services/demoCorpusService";
-import { Skeleton } from "@/components/ui/skeleton";
-import { toast } from "sonner";
-import { D3SemanticCloud } from "./D3SemanticCloud";
-import { D3CloudConsole } from "./D3CloudConsole";
-import { ComparisonView } from "./ComparisonView";
-import { KWICModal } from "@/components/KWICModal";
-import { getDomainColor } from "@/config/domainColors";
-import { useKWICModal } from "@/hooks/useKWICModal";
-import { useCorpusComparison } from "@/hooks/useCorpusComparison";
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
+import { Sparkles, GitCompare, Download } from 'lucide-react';
+import { D3SemanticCloud } from './D3SemanticCloud';
+import { D3CloudConsole } from './D3CloudConsole';
+import { ComparisonView } from './ComparisonView';
+import { DomainModal } from './DomainModal';
+import { CloudFiltersPanel } from './CloudFiltersPanel';
+import { KWICModal } from '@/components/KWICModal';
+import { useKWICModal } from '@/hooks/useKWICModal';
+import { useCorpusComparison } from '@/hooks/useCorpusComparison';
+import { useWordCloudFilters } from '@/hooks/useWordCloudFilters';
+import { getDomainColor } from '@/config/domainColors';
+import { demoCorpusService } from '@/services/demoCorpusService';
+import { toast } from 'sonner';
+import html2canvas from 'html2canvas';
 
 interface TabGalaxyProps {
   demo?: boolean;
@@ -31,14 +36,21 @@ export function TabGalaxy({ demo = false }: TabGalaxyProps) {
   const [showTooltips, setShowTooltips] = useState(true);
   const [animationSpeed, setAnimationSpeed] = useState(600);
   const [comparisonMode, setComparisonMode] = useState(false);
-  const { isOpen, closeModal, selectedWord, kwicData, openModal } = useKWICModal('gaucho');
-  const { isOpen: isOpenN, closeModal: closeModalN, selectedWord: selectedWordN, kwicData: kwicDataN, openModal: openModalN } = useKWICModal('nordestino');
+  const [domainModalOpen, setDomainModalOpen] = useState(false);
+  const [selectedDomainData, setSelectedDomainData] = useState<any>(null);
+  const cloudContainerRef = useRef<HTMLDivElement>(null);
+  
+  const { isOpen: kwicOpen, closeModal: closeKwicModal, selectedWord, kwicData, isLoading: kwicLoading, openModal: openKwicModal } = useKWICModal('gaucho');
+  const { isOpen: kwicOpenNordestino, closeModal: closeKwicModalNordestino, selectedWord: selectedWordNordestino, kwicData: kwicDataNordestino, isLoading: kwicLoadingNordestino, openModal: openKwicModalNordestino } = useKWICModal('nordestino');
   const { gauchoData, nordestinoData, isLoading: comparisonLoading } = useCorpusComparison();
 
   useEffect(() => {
     if (demo) {
       setIsLoading(true);
-      getDemoAnalysisResults().then(r => { setDemoData(r); toast.success('Carregado'); }).catch(() => toast.error('Erro')).finally(() => setIsLoading(false));
+      demoCorpusService.getDemoAnalysisResults()
+        .then(r => { setDemoData(r); toast.success('Dados carregados'); })
+        .catch(() => toast.error('Erro ao carregar'))
+        .finally(() => setIsLoading(false));
     }
   }, [demo]);
 
@@ -50,8 +62,35 @@ export function TabGalaxy({ demo = false }: TabGalaxyProps) {
     return demoData.keywords.filter((k: any) => k.significancia !== 'Baixa').map((k: any) => ({ label: k.palavra, fontSize: 14 + Math.min(22, k.ll / 3), color: getDomainColor(k.dominio, 'hsl'), type: 'keyword' as const, frequency: k.frequencia, domain: k.dominio, tooltip: { palavra: k.palavra, dominio: k.dominio, frequencia: k.frequencia, ll: k.ll, mi: k.mi, significancia: k.significancia, prosody: k.prosody } }));
   }, [demoData, viewMode]);
 
-  const handleWordClick = useCallback((word: string) => { toast.info(`"${word}"...`); openModal(word); }, [openModal]);
-  const handleComparisonWordClick = useCallback((word: string, corpus: 'gaucho' | 'nordestino') => { toast.info(`"${word}" ${corpus}...`); corpus === 'gaucho' ? openModal(word) : openModalN(word); }, [openModal, openModalN]);
+  const handleWordClick = useCallback((word: string) => { openKwicModal(word); toast.info(`Buscando "${word}"`); }, [openKwicModal]);
+  const handleComparisonWordClick = useCallback((word: string, corpus: 'gaucho' | 'nordestino') => { corpus === 'gaucho' ? openKwicModal(word) : openKwicModalNordestino(word); toast.info(`Buscando "${word}"`); }, [openKwicModal, openKwicModalNordestino]);
+  
+  const handleDomainClick = useCallback((domainName: string) => {
+    if (!demoData) return;
+    const domainInfo = demoData.dominios.find((d: any) => d.dominio === domainName);
+    if (!domainInfo) return;
+    const palavras = demoData.keywords.filter((k: any) => k.dominio === domainName).map((k: any) => k.palavra);
+    setSelectedDomainData({ nome: domainInfo.dominio, cor: getDomainColor(domainName, 'hsl'), ocorrencias: domainInfo.ocorrencias, percentual: domainInfo.percentual, riquezaLexical: domainInfo.riquezaLexical, avgLL: domainInfo.avgLL, palavras });
+    setDomainModalOpen(true);
+  }, [demoData]);
+
+  const handleExportPNG = useCallback(async () => {
+    if (!cloudContainerRef.current) { toast.error('Erro ao exportar'); return; }
+    toast.info('Gerando PNG...');
+    try {
+      const canvas = await html2canvas(cloudContainerRef.current, { scale: 2, backgroundColor: '#ffffff' });
+      canvas.toBlob((blob) => {
+        if (!blob) return;
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.download = `nuvem-${viewMode}-${new Date().toISOString().split('T')[0]}.png`;
+        link.href = url;
+        link.click();
+        URL.revokeObjectURL(url);
+        toast.success('Exportado!');
+      });
+    } catch { toast.error('Erro'); }
+  }, [viewMode]);
   
   const handleApplyPreset = useCallback((preset: string) => {
     const p = { academic: [8,'archimedean',0,'Georgia','normal',600], creative: [4,'rectangular',-45,'Trebuchet MS','bold',300], compact: [2,'rectangular',0,'Inter','semibold',400], presentation: [12,'archimedean',0,'Arial','bold',800] } as any;
@@ -84,37 +123,37 @@ export function TabGalaxy({ demo = false }: TabGalaxyProps) {
   }, [nordestinoData]);
   const nordestinoCloudNodes = useMemo(() => {
     if (!nordestinoData || !nordestinoData.keywords) return [];
-    return nordestinoData.keywords.filter((k: any) => k.significancia !== 'Baixa').map((k: any) => ({
-      label: k.palavra,
-      fontSize: 14 + Math.min(22, k.ll / 3),
-      color: getDomainColor(k.dominio, 'hsl'),
-      type: 'keyword' as const,
-      frequency: k.frequencia,
-      domain: k.dominio,
-      tooltip: { palavra: k.palavra, dominio: k.dominio, frequencia: k.frequencia, ll: k.ll, mi: k.mi, significancia: k.significancia, prosody: k.prosody }
-    }));
+    return nordestinoData.keywords.filter((k: any) => k.significancia !== 'Baixa').map((k: any) => ({ label: k.palavra, fontSize: 14 + Math.min(22, k.ll / 3), color: getDomainColor(k.dominio, 'hsl'), type: 'keyword' as const, frequency: k.frequencia, domain: k.dominio, tooltip: { palavra: k.palavra, dominio: k.dominio, frequencia: k.frequencia, ll: k.ll, mi: k.mi, significancia: k.significancia, prosody: k.prosody } }));
   }, [nordestinoData]);
+
+  const availableDomains = useMemo(() => Array.from(new Set(cloudNodes.map(n => n.domain))).sort(), [cloudNodes]);
+  const { searchTerm, setSearchTerm, selectedDomain, setSelectedDomain, selectedProsody, setSelectedProsody, selectedSignificance, setSelectedSignificance, filteredNodes, clearAllFilters, hasActiveFilters } = useWordCloudFilters(cloudNodes);
 
   if (!demo) return <Card><CardHeader><CardTitle>Nuvem Semântica</CardTitle><CardDescription>Modo demo</CardDescription></CardHeader><CardContent><div className="flex items-center justify-center h-96 bg-muted/20 rounded-lg"><p className="text-muted-foreground">Não disponível</p></div></CardContent></Card>;
   if (isLoading) return <Card><CardContent className="p-20"><Skeleton className="h-96 w-full" /></CardContent></Card>;
 
   return (
-    <>
-      <Card className="w-full">
+    <TooltipProvider>
+      <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <div><CardTitle className="flex items-center gap-2"><Sparkles className="w-5 h-5" />Nuvem Semântica</CardTitle><CardDescription className="mt-2">Zoom, pan e concordâncias</CardDescription></div>
-            <Button variant={comparisonMode ? 'default' : 'outline'} onClick={() => setComparisonMode(!comparisonMode)} disabled={comparisonLoading}><GitCompare className="w-4 h-4 mr-2" />{comparisonMode ? 'Único' : 'Comparar'}</Button>
+            <div><CardTitle className="flex items-center gap-2"><Sparkles className="w-5 h-5" />Nuvem Semântica</CardTitle><CardDescription className="mt-2">Zoom, pan e concordâncias interativas</CardDescription></div>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={handleExportPNG} className="gap-2"><Download className="w-4 h-4" />Exportar PNG</Button>
+              <Tooltip><TooltipTrigger asChild><span><Button variant="outline" disabled className="cursor-not-allowed opacity-60 gap-2"><GitCompare className="w-4 h-4" />Modo Comparação</Button></span></TooltipTrigger><TooltipContent side="bottom" className="max-w-xs"><div className="space-y-1"><p className="font-semibold">🚧 Em Implementação</p><p className="text-xs">Comparação entre corpus Gaúcho e Nordestino em breve.</p></div></TooltipContent></Tooltip>
+            </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-6">
-          {!comparisonMode && (<div className="flex gap-2 p-1 bg-muted rounded-lg w-fit"><Button variant={viewMode === 'domains' ? 'default' : 'ghost'} size="sm" onClick={() => setViewMode('domains')}><Layers className="w-4 h-4 mr-2" />Domínios</Button><Button variant={viewMode === 'keywords' ? 'default' : 'ghost'} size="sm" onClick={() => setViewMode('keywords')}><Tag className="w-4 h-4 mr-2" />Palavras</Button></div>)}
-          <D3CloudConsole padding={padding} spiral={spiral} rotation={rotation} onPaddingChange={setPadding} onSpiralChange={setSpiral} onRotationChange={setRotation} fontFamily={fontFamily} fontWeight={fontWeight} onFontFamilyChange={setFontFamily} onFontWeightChange={setFontWeight} showTooltips={showTooltips} animationSpeed={animationSpeed} onShowTooltipsChange={setShowTooltips} onAnimationSpeedChange={setAnimationSpeed} onApplyPreset={handleApplyPreset} />
-          {comparisonMode && gauchoData && nordestinoData ? <ComparisonView gauchoNodes={cloudNodes} nordestinoNodes={nordestinoCloudNodes} gauchoStats={gauchoStats} nordestinoStats={nordestinoStats} onWordClick={handleComparisonWordClick} padding={padding} spiral={spiral} rotation={rotation} fontFamily={fontFamily} fontWeight={fontWeight} animationSpeed={animationSpeed} showTooltips={showTooltips} /> : <div className="w-full flex justify-center"><D3SemanticCloud nodes={cloudNodes} width={1200} height={700} padding={padding} spiral={spiral} rotation={rotation} fontFamily={fontFamily} fontWeight={fontWeight} animationSpeed={animationSpeed} showTooltips={showTooltips} onWordClick={handleWordClick} /></div>}
+          {!comparisonMode && <div className="flex gap-2 p-1 bg-muted rounded-lg w-fit"><Button variant={viewMode === 'domains' ? 'default' : 'ghost'} size="sm" onClick={() => setViewMode('domains')}>Domínios Semânticos</Button><Button variant={viewMode === 'keywords' ? 'default' : 'ghost'} size="sm" onClick={() => setViewMode('keywords')}>Palavras-Chave</Button></div>}
+          {!comparisonMode && viewMode === 'keywords' && <CloudFiltersPanel searchTerm={searchTerm} selectedDomain={selectedDomain} selectedProsody={selectedProsody} selectedSignificance={selectedSignificance} onSearchChange={setSearchTerm} onDomainChange={setSelectedDomain} onProsodyChange={setSelectedProsody} onSignificanceChange={setSelectedSignificance} onClearAll={clearAllFilters} hasActiveFilters={hasActiveFilters} availableDomains={availableDomains} totalNodes={cloudNodes.length} filteredNodes={filteredNodes.length} />}
+          <D3CloudConsole padding={padding} spiral={spiral} rotation={rotation} fontFamily={fontFamily} fontWeight={fontWeight} showTooltips={showTooltips} animationSpeed={animationSpeed} onPaddingChange={setPadding} onSpiralChange={setSpiral} onRotationChange={setRotation} onFontFamilyChange={setFontFamily} onFontWeightChange={setFontWeight} onShowTooltipsChange={setShowTooltips} onAnimationSpeedChange={setAnimationSpeed} onApplyPreset={handleApplyPreset} />
+          {comparisonMode ? <ComparisonView gauchoNodes={cloudNodes} nordestinoNodes={nordestinoCloudNodes} gauchoStats={gauchoStats} nordestinoStats={nordestinoStats} onWordClick={handleComparisonWordClick} width={1200} height={700} padding={padding} spiral={spiral} rotation={rotation} fontFamily={fontFamily} fontWeight={fontWeight} showTooltips={showTooltips} animationSpeed={animationSpeed} /> : <div ref={cloudContainerRef} className="w-full flex justify-center bg-background rounded-lg p-4"><D3SemanticCloud nodes={viewMode === 'keywords' ? filteredNodes : cloudNodes} width={1200} height={700} padding={padding} spiral={spiral} rotation={rotation} fontFamily={fontFamily} fontWeight={fontWeight} showTooltips={showTooltips} animationSpeed={animationSpeed} onWordClick={handleWordClick} onDomainClick={handleDomainClick} /></div>}
         </CardContent>
       </Card>
-      <KWICModal open={isOpen} onOpenChange={closeModal} word={selectedWord} data={kwicData} />
-      <KWICModal open={isOpenN} onOpenChange={closeModalN} word={selectedWordN} data={kwicDataN} />
-    </>
+      <KWICModal open={kwicOpen} onOpenChange={closeKwicModal} palavra={selectedWord} concordancias={kwicData} isLoading={kwicLoading} />
+      <KWICModal open={kwicOpenNordestino} onOpenChange={closeKwicModalNordestino} palavra={selectedWordNordestino} concordancias={kwicDataNordestino} isLoading={kwicLoadingNordestino} />
+      <DomainModal open={domainModalOpen} onOpenChange={setDomainModalOpen} domainData={selectedDomainData} onWordClick={handleWordClick} />
+    </TooltipProvider>
   );
 }
