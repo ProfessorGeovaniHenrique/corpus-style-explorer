@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.annotate-semantic]
 verify_jwt = false
+
+[functions.send-critical-alert]
+verify_jwt = false

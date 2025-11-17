@@ -213,6 +213,42 @@ Retorne um objeto JSON com esta estrutura exata:
       console.log(`Saved analysis ${savedAnalysis.id} with ${statusInserts.length} suggestions`);
     }
 
+    // ✅ NOVO: Verificar se há problemas críticos e disparar alerta
+    const criticalIssues = analysisResult.suggestions.filter(
+      (s: AnalysisSuggestion) => s.priority <= 2
+    );
+
+    if (criticalIssues.length > 0) {
+      console.log(`🚨 ${criticalIssues.length} problemas críticos detectados, enviando alerta...`);
+      
+      try {
+        const alertResponse = await supabaseClient.functions.invoke(
+          'send-critical-alert',
+          {
+            body: {
+              analysisId: savedAnalysis?.id || 'unknown',
+              logsType: logsType,
+              criticalCount: criticalIssues.length,
+              summary: analysisResult.summary,
+              criticalIssues: criticalIssues,
+              timestamp: new Date().toISOString(),
+            }
+          }
+        );
+        
+        if (alertResponse.error) {
+          console.error('❌ Erro ao enviar alerta:', alertResponse.error);
+        } else {
+          console.log('✅ Alerta enviado com sucesso para geovani.henrique@ifsc.edu.br');
+        }
+      } catch (emailError) {
+        console.error('❌ Falha ao invocar send-critical-alert:', emailError);
+        // ⚠️ NÃO falhar a análise se o email falhar
+      }
+    } else {
+      console.log('ℹ️ Nenhum problema crítico detectado, email não enviado');
+    }
+
     return new Response(
       JSON.stringify({
         ...analysisResult,
