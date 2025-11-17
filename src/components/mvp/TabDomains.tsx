@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Database, Download, FileText, TrendingUp, BarChart3, Lightbulb } from "lucide-react";
 import { getDemoAnalysisResults, DemoDomain } from "@/services/demoCorpusService";
 import { toast } from "sonner";
@@ -15,6 +16,7 @@ interface TabDomainsProps {
 
 export function TabDomains({ demo = false }: TabDomainsProps) {
   const [demoData, setDemoData] = useState<DemoDomain[] | null>(null);
+  const [demoKeywords, setDemoKeywords] = useState<any[] | null>(null);
   const [isLoadingDemo, setIsLoadingDemo] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -24,6 +26,7 @@ export function TabDomains({ demo = false }: TabDomainsProps) {
       getDemoAnalysisResults()
         .then(result => {
           setDemoData(result.dominios);
+          setDemoKeywords(result.keywords);
           toast.success(`${result.dominios.length} domínios carregados`);
         })
         .catch(error => {
@@ -204,29 +207,76 @@ export function TabDomains({ demo = false }: TabDomainsProps) {
                   </div>
                 </div>
 
-                {/* Pills de Palavras */}
+                {/* Pills de Palavras com Tooltips */}
                 <div>
-                  <p className="text-sm font-medium mb-2">Palavras-chave identificadas:</p>
+                  <p className="text-sm font-medium mb-2">Palavras-chave identificadas ({dominio.palavras.length}):</p>
                   <div className="flex flex-wrap gap-2">
-                    {dominio.palavras.slice(0, 12).map((palavra, idx) => (
-                      <Badge 
-                        key={idx}
-                        variant="outline"
-                        className="cursor-pointer hover:opacity-80 transition-opacity"
-                        style={{ 
-                          borderColor: dominio.cor,
-                          color: dominio.cor,
-                          backgroundColor: `${dominio.cor}10`
-                        }}
-                      >
-                        {palavra}
-                      </Badge>
-                    ))}
-                    {dominio.palavras.length > 12 && (
-                      <Badge variant="secondary">
-                        +{dominio.palavras.length - 12} palavras
-                      </Badge>
-                    )}
+                    {dominio.palavras.map((palavra, idx) => {
+                      const wordData = demoKeywords?.find(k => 
+                        k.palavra.toLowerCase() === palavra.toLowerCase()
+                      );
+                      
+                      return (
+                        <TooltipProvider key={idx}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Badge 
+                                variant="outline"
+                                className="cursor-help hover:scale-105 transition-all"
+                                style={{ 
+                                  borderColor: dominio.cor,
+                                  color: dominio.cor,
+                                  backgroundColor: `${dominio.cor}10`
+                                }}
+                              >
+                                {palavra}
+                              </Badge>
+                            </TooltipTrigger>
+                            {wordData && (
+                              <TooltipContent side="top" className="w-80 p-4">
+                                <div className="space-y-3">
+                                  <h4 className="font-semibold text-base">{palavra}</h4>
+                                  <div className="grid grid-cols-2 gap-3 text-xs">
+                                    <div className="space-y-1">
+                                      <span className="text-muted-foreground">Frequência:</span>
+                                      <p className="font-mono font-semibold text-sm">{wordData.frequencia.toFixed(2)}%</p>
+                                    </div>
+                                    <div className="space-y-1">
+                                      <span className="text-muted-foreground">Prosódia:</span>
+                                      <Badge 
+                                        variant="outline" 
+                                        className={
+                                          wordData.prosody === 'Positiva' 
+                                            ? 'bg-green-500/10 text-green-600 border-green-500/30'
+                                            : wordData.prosody === 'Negativa'
+                                            ? 'bg-red-500/10 text-red-600 border-red-500/30'
+                                            : 'bg-muted/20 text-muted-foreground border-border'
+                                        }
+                                      >
+                                        {wordData.prosody}
+                                      </Badge>
+                                    </div>
+                                    <div className="space-y-1">
+                                      <span className="text-muted-foreground">LL Score:</span>
+                                      <p className="font-mono text-sm">{wordData.ll.toFixed(2)}</p>
+                                    </div>
+                                    <div className="space-y-1">
+                                      <span className="text-muted-foreground">MI Score:</span>
+                                      <p className="font-mono text-sm">{wordData.mi.toFixed(2)}</p>
+                                    </div>
+                                  </div>
+                                  <div className="pt-2 border-t">
+                                    <Badge variant="secondary" className="text-xs">
+                                      {wordData.significancia}
+                                    </Badge>
+                                  </div>
+                                </div>
+                              </TooltipContent>
+                            )}
+                          </Tooltip>
+                        </TooltipProvider>
+                      );
+                    })}
                   </div>
                 </div>
               </CardContent>
