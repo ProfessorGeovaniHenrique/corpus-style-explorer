@@ -54,6 +54,7 @@ interface AnnotationRequest {
   artist_filter?: string;
   start_line?: number;
   end_line?: number;
+  demo_mode?: boolean;
 }
 
 interface CorpusWord {
@@ -252,40 +253,49 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     
-    // Autenticação - usar o token do usuário para validar
-    const authHeader = req.headers.get('authorization');
-    if (!authHeader) {
-      return new Response(
-        JSON.stringify({ error: 'Autenticação necessária' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    // Validação do body primeiro
+    const rawBody = await req.json();
+    const validatedRequest = validateRequest(rawBody);
+    const { corpus_type, custom_text, artist_filter, start_line, end_line, demo_mode } = validatedRequest;
 
-    // Criar cliente com token do usuário para validação
-    const userToken = authHeader.replace('Bearer ', '');
-    const supabaseUser = createClient(supabaseUrl, userToken);
-    const { data: { user }, error: authError } = await supabaseUser.auth.getUser();
+    let userId: string;
 
-    if (authError || !user) {
-      console.error('[annotate-semantic] Auth error:', authError?.message || 'No user found');
-      return new Response(
-        JSON.stringify({ 
-          error: 'Token inválido ou expirado',
-          details: authError?.message 
-        }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    // Modo DEMO: não requer autenticação
+    if (demo_mode === true) {
+      userId = '00000000-0000-0000-0000-000000000000'; // ID temporário para modo demo
+      console.log('[annotate-semantic] Modo DEMO ativado - sem autenticação');
+    } else {
+      // Modo normal: requer autenticação
+      const authHeader = req.headers.get('authorization');
+      if (!authHeader) {
+        return new Response(
+          JSON.stringify({ error: 'Autenticação necessária (ou ative demo_mode: true)' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const userToken = authHeader.replace('Bearer ', '');
+      const supabaseUser = createClient(supabaseUrl, userToken);
+      const { data: { user }, error: authError } = await supabaseUser.auth.getUser();
+
+      if (authError || !user) {
+        console.error('[annotate-semantic] Auth error:', authError?.message || 'No user found');
+        return new Response(
+          JSON.stringify({ 
+            error: 'Token inválido ou expirado',
+            details: authError?.message 
+          }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      userId = user.id;
     }
 
     // Cliente com SERVICE_ROLE_KEY para operações privilegiadas
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Validação
-    const rawBody = await req.json();
-    const validatedRequest = validateRequest(rawBody);
-    const { corpus_type, custom_text, artist_filter, start_line, end_line } = validatedRequest;
-
-    console.log(`[annotate-semantic] Usuário ${user.id} iniciando anotação: ${corpus_type}`, {
+    console.log(`[annotate-semantic] Usuário ${userId} ${demo_mode ? '(DEMO)' : ''} iniciando anotação: ${corpus_type}`, {
       artist_filter,
       start_line,
       end_line
@@ -294,13 +304,14 @@ serve(async (req) => {
     const { data: job, error: jobError } = await supabase
       .from('annotation_jobs')
       .insert({
-        user_id: user.id,
+        user_id: userId,
         corpus_type: corpus_type,
         status: 'pending',
         metadata: {
           started_at: new Date().toISOString(),
           corpus_type: corpus_type,
           use_ai: true,
+          demo_mode: demo_mode || false,
           custom_text: custom_text ? true : false,
           artist_filter: artist_filter || null,
           start_line: start_line || null,

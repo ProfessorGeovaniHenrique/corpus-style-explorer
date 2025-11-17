@@ -29,5 +29,6 @@ export type { ViewMode } from './HierarchyViewSelector';
 
 // Other
 export { DemoModeBlocker } from './DemoModeBlocker';
+export { AnnotationDemoAlert } from './AnnotationDemoAlert';
 export { AnnotationProgressModal } from './AnnotationProgressModal';
 export { AnnotationResultsView } from './AnnotationResultsView';
