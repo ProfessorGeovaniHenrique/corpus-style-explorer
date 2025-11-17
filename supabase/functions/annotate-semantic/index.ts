@@ -37,14 +37,14 @@ function detectLocutions(words: string[]): Map<number, {unified: string; tag: st
   return locutionMap;
 }
 
-function isPropername(word: string): boolean {
+function isProperName(word: string): boolean {
   return word.length > 0 && word[0] === word[0].toUpperCase();
 }
 
-function classifyPropername(word: string): string {
+function classifyProperName(word: string): string {
   const lw = word.toLowerCase();
-  if (['deus', 'cristo', 'são', 'santa'].some(r => lw.includes(r))) return 'MG.NPR.REL';
-  if (['brasil', 'rio', 'bahia', 'pampas'].some(p => lw.includes(p))) return 'MG.NPR.LOC';
+  if (['deus', 'cristo', 'são', 'santa', 'virgem', 'senhor'].some(r => lw.includes(r))) return 'MG.NPR.REL';
+  if (['brasil', 'rio', 'bahia', 'pampas', 'sertão', 'pampa', 'grande', 'sul'].some(p => lw.includes(p))) return 'MG.NPR.LOC';
   return 'MG.NPR.PES';
 }
 
@@ -135,7 +135,7 @@ function parseRealCorpus(
       if (startLine && linhaNumero < startLine) continue;
       if (endLine && linhaNumero > endLine) continue;
 
-      // Extrair palavras do verso (SEM lowercase para preservar case de nomes próprios)
+      // PRESERVAR CASE para nomes próprios
       const palavras = line
         .replace(/[.,!?;:()"""'…]/g, ' ')
         .split(/\s+/)
@@ -146,6 +146,7 @@ function parseRealCorpus(
       for (let j = 0; j < palavras.length; j++) {
         const locution = locutionMap.get(j);
         if (locution) {
+          // LOCUÇÃO DETECTADA
           words.push({
             palavra: locution.unified,
             artista: currentArtista,
@@ -160,9 +161,10 @@ function parseRealCorpus(
           } as any);
           j += locution.length - 1;
         } else {
+          // PALAVRA NORMAL (preservar case)
           const palavra = palavras[j];
           words.push({
-            palavra: isPropername(palavra) ? palavra : palavra.toLowerCase(),
+            palavra: isProperName(palavra) ? palavra : palavra.toLowerCase(),
             artista: currentArtista,
             musica: currentMusica,
             linha_numero: linhaNumero,
@@ -170,7 +172,7 @@ function parseRealCorpus(
             contexto_esquerdo: palavras.slice(Math.max(0, j - 5), j).join(' '),
             contexto_direito: palavras.slice(j + 1, Math.min(palavras.length, j + 6)).join(' '),
             posicao_no_corpus: posicao++,
-            isPropername: isPropername(palavra)
+            isProperName: isProperName(palavra)
           } as any);
         }
       }
@@ -406,53 +408,94 @@ async function processCorpusWithAI(
       
       console.log(`[processCorpusWithAI] Processando batch ${i + 1}/${totalBatches} (${batch.length} palavras)`);
 
-      // Processar batch com IA
-      const annotations = await annotateBatchWithAI(batch, tagsets, supabase);
+      // ANOTAR BATCH: Priorizar locuções/nomes próprios, depois IA/Lexicon
+      const wordsNeedingAI: CorpusWord[] = [];
+      const aiIndexMap: number[] = [];
+      const preAnnotations: (AIAnnotation | null)[] = [];
 
-      // Processar insígnias culturais antes de inserir
+      // Fase 1: Identificar o que precisa de IA
+      for (let j = 0; j < batch.length; j++) {
+        const word = batch[j];
+        
+        if ((word as any).isLocution) {
+          // LOCUÇÃO: já tem tag
+          preAnnotations.push({
+            tagset_codigo: (word as any).locutionTag,
+            prosody: 0,
+            confianca: 1.0,
+            justificativa: 'Locução gramatical',
+            is_new_category: false
+          });
+        } else if ((word as any).isProperName) {
+          // NOME PRÓPRIO: classificar
+          preAnnotations.push({
+            tagset_codigo: classifyProperName(word.palavra),
+            prosody: 0,
+            confianca: 0.95,
+            justificativa: 'Nome próprio',
+            is_new_category: false
+          });
+        } else {
+          // PRECISA DE IA/LEXICON
+          aiIndexMap.push(j);
+          wordsNeedingAI.push(word);
+          preAnnotations.push(null);
+        }
+      }
+
+      // Fase 2: Anotar palavras restantes com IA
+      if (wordsNeedingAI.length > 0) {
+        const aiResults = await annotateBatchWithAI(wordsNeedingAI, tagsets, supabase);
+        aiResults.forEach((ann, aiIdx) => {
+          const batchIdx = aiIndexMap[aiIdx];
+          preAnnotations[batchIdx] = ann;
+        });
+      }
+
+      // Fase 3: Processar insígnias e montar registros finais
       const annotationsWithInsignias = await Promise.all(
-        annotations.map(async (ann, idx) => {
-          const insignias = await inferCulturalInsignias(
-            batch[idx].palavra,
-            corpusType,
-            supabase
-          );
+        batch.map(async (word, idx) => {
+          const ann = preAnnotations[idx];
+          if (!ann) return null;
+
+          const insignias = await inferCulturalInsignias(word.palavra, corpusType, supabase);
           
           return {
             job_id: jobId,
-            palavra: batch[idx].palavra,
-            lema: batch[idx].palavra, // TODO: implementar lematização
-            pos: null, // TODO: implementar POS tagging
+            palavra: word.palavra,
+            lema: word.palavra,
+            pos: null,
             tagset_codigo: ann.tagset_codigo,
             tagset_primario: ann.tagset_codigo.split('.')[0],
             tagsets: [ann.tagset_codigo],
             prosody: ann.prosody,
             confianca: ann.confianca,
-            contexto_esquerdo: batch[idx].contexto_esquerdo,
-            contexto_direito: batch[idx].contexto_direito,
-            posicao_no_corpus: batch[idx].posicao_no_corpus,
+            contexto_esquerdo: word.contexto_esquerdo,
+            contexto_direito: word.contexto_direito,
+            posicao_no_corpus: word.posicao_no_corpus,
             insignias_culturais: insignias,
             metadata: {
-              artista: batch[idx].artista,
-              musica: batch[idx].musica,
-              linha_numero: batch[idx].linha_numero,
-              verso_completo: batch[idx].verso_completo,
+              artista: word.artista,
+              musica: word.musica,
+              linha_numero: word.linha_numero,
+              verso_completo: word.verso_completo,
               justificativa: ann.justificativa
             }
           };
         })
       );
       
-      // Inserir anotações no banco
-      if (annotationsWithInsignias.length > 0) {
+      // Inserir anotações no banco (filtrar nulls)
+      const validAnnotations = annotationsWithInsignias.filter(a => a !== null);
+      if (validAnnotations.length > 0) {
         const { error: insertError } = await supabase
           .from('annotated_corpus')
-          .insert(annotationsWithInsignias);
+          .insert(validAnnotations);
 
         if (insertError) {
           console.error('[processCorpusWithAI] Erro ao inserir batch:', insertError);
         } else {
-          annotatedWords += annotations.length;
+          annotatedWords += validAnnotations.length;
         }
       }
 
