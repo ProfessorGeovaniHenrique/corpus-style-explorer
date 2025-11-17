@@ -5,7 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Loader2, PlayCircle, CheckCircle2, AlertCircle } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Loader2, PlayCircle, CheckCircle2, AlertCircle, Filter } from "lucide-react";
 import { toast } from "sonner";
 import { CorpusType } from "@/data/types/corpus-tools.types";
 import { AnnotationProgressModal } from "./AnnotationProgressModal";
@@ -26,6 +28,9 @@ interface AnnotationJob {
 
 export function TabSemanticAnnotation() {
   const [selectedCorpus, setSelectedCorpus] = useState<CorpusType>('gaucho');
+  const [artistFilter, setArtistFilter] = useState<string>('');
+  const [startLine, setStartLine] = useState<string>('');
+  const [endLine, setEndLine] = useState<string>('');
   const [isAnnotating, setIsAnnotating] = useState(false);
   const [currentJob, setCurrentJob] = useState<AnnotationJob | null>(null);
   const [showProgress, setShowProgress] = useState(false);
@@ -74,16 +79,33 @@ export function TabSemanticAnnotation() {
       setIsAnnotating(true);
       setShowProgress(true);
       
+      const body: any = { corpus_type: selectedCorpus };
+      
+      if (artistFilter.trim()) {
+        body.artist_filter = artistFilter.trim();
+      }
+      
+      if (startLine.trim()) {
+        body.start_line = parseInt(startLine);
+      }
+      
+      if (endLine.trim()) {
+        body.end_line = parseInt(endLine);
+      }
+      
       const { data, error } = await supabase.functions.invoke('annotate-semantic', {
-        body: { corpus_type: selectedCorpus }
+        body
       });
 
       if (error) throw error;
       
       setCurrentJob(data.job);
-      toast.success('Anotação iniciada', {
-        description: 'O processamento está em andamento...'
-      });
+      
+      let description = 'O processamento está em andamento...';
+      if (artistFilter) description += ` (Artista: ${artistFilter})`;
+      if (startLine || endLine) description += ` (Linhas: ${startLine || '1'}-${endLine || '∞'})`;
+      
+      toast.success('Anotação iniciada', { description });
     } catch (error: any) {
       setIsAnnotating(false);
       setShowProgress(false);
@@ -106,47 +128,117 @@ export function TabSemanticAnnotation() {
     }
   };
 
+  const clearFilters = () => {
+    setArtistFilter('');
+    setStartLine('');
+    setEndLine('');
+  };
+
   return (
     <div className="space-y-6">
       <Card>
         <CardHeader>
           <CardTitle>Anotação Semântica com IA</CardTitle>
           <CardDescription>
-            Sistema híbrido: Léxico Base + Gemini 2.5 Flash para análise contextual
+            Processa o corpus selecionado e atribui automaticamente domínios semânticos e prosódia a cada palavra usando Gemini 2.5 Flash
           </CardDescription>
         </CardHeader>
+
         <CardContent className="space-y-4">
-          <div className="flex items-center gap-4">
-            <Select value={selectedCorpus} onValueChange={(v) => setSelectedCorpus(v as CorpusType)}>
-              <SelectTrigger className="w-[280px]">
+          {/* Seletor de Corpus */}
+          <div className="space-y-2">
+            <Label>Selecionar Corpus</Label>
+            <Select value={selectedCorpus} onValueChange={(value) => setSelectedCorpus(value as CorpusType)}>
+              <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="gaucho">Corpus Gaúcho</SelectItem>
-                <SelectItem value="nordestino">Corpus Nordestino</SelectItem>
-                <SelectItem value="marenco-verso">Luiz Marenco - Verso Austral</SelectItem>
+                <SelectItem value="gaucho">🏞️ Corpus Gaúcho Completo</SelectItem>
+                <SelectItem value="nordestino">🌵 Corpus Nordestino</SelectItem>
+                <SelectItem value="marenco-verso">🎵 Luiz Marenco - Verso Austral</SelectItem>
               </SelectContent>
             </Select>
-
-            <Button 
-              onClick={startAnnotation}
-              disabled={isAnnotating}
-              className="gap-2"
-            >
-              {isAnnotating ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Anotando...
-                </>
-              ) : (
-                <>
-                  <PlayCircle className="w-4 h-4" />
-                  Iniciar Anotação
-                </>
-              )}
-            </Button>
           </div>
 
+          {/* Filtros Avançados */}
+          <div className="border rounded-lg p-4 bg-muted/30 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Filter className="w-4 h-4 text-muted-foreground" />
+                <Label className="text-sm font-semibold">Filtros Avançados (Opcional)</Label>
+              </div>
+              <Button variant="ghost" size="sm" onClick={clearFilters}>
+                Limpar Filtros
+              </Button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="artist">Filtrar por Artista</Label>
+                <Input
+                  id="artist"
+                  placeholder="Ex: Luiz Marenco"
+                  value={artistFilter}
+                  onChange={(e) => setArtistFilter(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Processar apenas músicas deste artista
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="startLine">Linha Inicial</Label>
+                <Input
+                  id="startLine"
+                  type="number"
+                  placeholder="1"
+                  min="1"
+                  value={startLine}
+                  onChange={(e) => setStartLine(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Começar a partir desta linha
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="endLine">Linha Final</Label>
+                <Input
+                  id="endLine"
+                  type="number"
+                  placeholder="1000"
+                  min="1"
+                  value={endLine}
+                  onChange={(e) => setEndLine(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Parar nesta linha
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Botão de Início */}
+          <Button 
+            onClick={startAnnotation}
+            disabled={isAnnotating}
+            className="w-full gap-2"
+            size="lg"
+          >
+            {isAnnotating ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Anotando com IA...
+              </>
+            ) : (
+              <>
+                <PlayCircle className="w-4 h-4" />
+                Iniciar Anotação Semântica
+              </>
+            )}
+          </Button>
+
+          {/* Informações do Job Atual */}
           {currentJob && (
             <Card className="bg-muted/50">
               <CardContent className="pt-6 space-y-3">
@@ -186,19 +278,31 @@ export function TabSemanticAnnotation() {
                     Concluído em {new Date(currentJob.tempo_fim!).toLocaleString('pt-BR')}
                   </div>
                 )}
+
+                {currentJob.status === 'erro' && currentJob.erro_mensagem && (
+                  <div className="text-sm text-destructive">
+                    {currentJob.erro_mensagem}
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}
         </CardContent>
       </Card>
 
-      {completedJobId && <AnnotationResultsView jobId={completedJobId} />}
+      {/* Modal de Progresso */}
+      {showProgress && currentJob && (
+        <AnnotationProgressModal
+          open={showProgress}
+          onOpenChange={setShowProgress}
+          job={currentJob}
+        />
+      )}
 
-      <AnnotationProgressModal 
-        open={showProgress} 
-        onOpenChange={setShowProgress}
-        job={currentJob}
-      />
+      {/* Resultados */}
+      {completedJobId && (
+        <AnnotationResultsView jobId={completedJobId} />
+      )}
     </div>
   );
 }
