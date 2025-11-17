@@ -4,6 +4,7 @@ import { DictionaryImportInterface } from '@/components/advanced/DictionaryImpor
 import { AlertTriangle, Database, BookOpen } from 'lucide-react';
 import { MVPHeader } from '@/components/mvp/MVPHeader';
 import { MVPFooter } from '@/components/mvp/MVPFooter';
+import { AdminBreadcrumb } from '@/components/AdminBreadcrumb';
 
 export default function AdminLexiconSetup() {
   return (
@@ -11,6 +12,8 @@ export default function AdminLexiconSetup() {
       <MVPHeader />
       
       <div className="container mx-auto py-8 px-4">
+        <AdminBreadcrumb currentPage="Configuração de Léxico" />
+        
         <Alert className="mb-6 border-amber-500/50 bg-amber-500/10">
           <AlertTriangle className="w-4 h-4 text-amber-500" />
           <AlertTitle className="text-amber-500">Área Administrativa</AlertTitle>

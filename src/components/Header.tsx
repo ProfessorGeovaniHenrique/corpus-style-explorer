@@ -1,6 +1,7 @@
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useAuthContext } from "@/contexts/AuthContext";
+import { useTheme } from "@/contexts/ThemeContext";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,7 +20,9 @@ import {
   BarChart3, 
   Database,
   BookOpen,
-  CircuitBoard
+  CircuitBoard,
+  Moon,
+  Sun
 } from "lucide-react";
 import logoVersoAustral from "@/assets/logo-versoaustral-completo.png";
 import logoUfrgs from "@/assets/logo-ufrgs-oficial.png";
@@ -28,6 +31,7 @@ import logoPpglet from "@/assets/logo-ppglet.png";
 const Header = () => {
   const navigate = useNavigate();
   const { user, role, signOut, isAdmin } = useAuthContext();
+  const { mode, toggleTheme } = useTheme();
 
   const handleSignOut = async () => {
     await signOut();
@@ -63,8 +67,19 @@ const Header = () => {
           />
         </div>
         
-        {user ? (
-          <DropdownMenu>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleTheme}
+            className="rounded-full"
+            title={mode === 'academic' ? 'Alternar para Modo Cósmico' : 'Alternar para Modo Acadêmico'}
+          >
+            {mode === 'academic' ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
+          </Button>
+          
+          {user ? (
+            <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="relative h-10 w-10 rounded-full">
                 <Avatar className="h-10 w-10 border-2 border-primary">
@@ -141,11 +156,12 @@ const Header = () => {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-        ) : (
-          <Button asChild className="btn-versoaustral-secondary shrink-0">
-            <Link to="/auth">Entrar</Link>
-          </Button>
-        )}
+          ) : (
+            <Button asChild className="btn-versoaustral-secondary shrink-0">
+              <Link to="/auth">Entrar</Link>
+            </Button>
+          )}
+        </div>
       </div>
     </header>
   );

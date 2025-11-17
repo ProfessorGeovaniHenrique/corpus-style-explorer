@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Users, Key, UserCheck, Clock, TrendingUp, Calendar } from "lucide-react";
+import { AdminBreadcrumb } from "@/components/AdminBreadcrumb";
 import { format, subDays, startOfDay, endOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
@@ -120,6 +121,8 @@ export default function AdminMetrics() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 p-6">
       <div className="container mx-auto max-w-7xl space-y-6">
+        <AdminBreadcrumb currentPage="Métricas do Sistema" />
+        
         <div>
           <h1 className="text-3xl font-bold font-heading text-primary">
             Métricas do Sistema

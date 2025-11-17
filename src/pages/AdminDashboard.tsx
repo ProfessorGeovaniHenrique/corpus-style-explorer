@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { AdminBreadcrumb } from "@/components/AdminBreadcrumb";
 import {
   Select,
   SelectContent,
@@ -175,6 +176,8 @@ export default function AdminDashboard() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 p-6">
       <div className="container mx-auto max-w-7xl space-y-6">
+        <AdminBreadcrumb currentPage="Gerenciar Convites" />
+        
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold font-heading text-primary">

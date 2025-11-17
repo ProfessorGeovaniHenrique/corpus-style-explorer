@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuthContext } from "@/contexts/AuthContext";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { AdminBreadcrumb } from "@/components/AdminBreadcrumb";
 import {
   Card,
   CardContent,
@@ -46,7 +48,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Users, Shield, Edit, Trash2, Search } from "lucide-react";
+import { Users, Shield, Edit, Trash2, Search, UserPlus } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import type { Database } from "@/integrations/supabase/types";
@@ -63,6 +65,7 @@ interface UserWithRole {
 
 export default function AdminUsers() {
   const { user: currentUser } = useAuthContext();
+  const navigate = useNavigate();
   const [users, setUsers] = useState<UserWithRole[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -224,13 +227,24 @@ export default function AdminUsers() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 p-6">
       <div className="container mx-auto max-w-7xl space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold font-heading text-primary">
-            Gerenciamento de Usuários
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            Visualize e gerencie as roles de todos os usuários cadastrados
-          </p>
+        <AdminBreadcrumb currentPage="Gerenciar Usuários" />
+        
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold font-heading text-primary">
+              Gerenciamento de Usuários
+            </h1>
+            <p className="text-muted-foreground mt-1">
+              Visualize e gerencie as roles de todos os usuários cadastrados
+            </p>
+          </div>
+          <Button
+            onClick={() => navigate("/admin/dashboard")}
+            className="flex items-center gap-2"
+          >
+            <UserPlus className="h-4 w-4" />
+            Criar Convite
+          </Button>
         </div>
 
         <div className="grid gap-4 md:grid-cols-4">
@@ -346,8 +360,8 @@ export default function AdminUsers() {
                                 Avaliador
                               </Badge>
                             ) : (
-                              <Badge variant="outline" className="text-muted-foreground">
-                                Sem Role
+                              <Badge variant="secondary">
+                                Usuário
                               </Badge>
                             )}
                           </TableCell>
