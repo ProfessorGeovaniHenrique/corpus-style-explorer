@@ -373,6 +373,7 @@ async function processCorpusWithAI(
               contexto_esquerdo: batch[idx].contexto_esquerdo,
               contexto_direito: batch[idx].contexto_direito,
               posicao_no_corpus: batch[idx].posicao_no_corpus,
+              insignias_culturais: [], // TODO: inferir insígnias baseado em corpus_type e léxico dialectal
               metadata: {
                 artista: batch[idx].artista,
                 musica: batch[idx].musica,

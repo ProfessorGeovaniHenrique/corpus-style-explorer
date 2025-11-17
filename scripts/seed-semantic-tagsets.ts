@@ -155,82 +155,122 @@ const TAXONOMIA_BASE: TagsetSeed[] = [
   },
 
   // =============================================
-  // 04. CULTURA GAÚCHA
+  // 04. OBJETOS E ARTEFATOS
   // =============================================
   {
     codigo: '04',
-    nome: 'Cultura Gaúcha',
-    descricao: 'Elementos culturais específicos do Rio Grande do Sul',
+    nome: 'Objetos e Artefatos',
+    descricao: 'Instrumentos, ferramentas, equipamentos e objetos materiais',
     categoria_pai: null,
-    exemplos: ['gaúcho', 'chimarrão', 'churrasco', 'prenda', 'galpão'],
+    exemplos: ['ferramenta', 'utensílio', 'equipamento', 'instrumento'],
     status: 'ativo'
   },
   {
     codigo: '04.01',
-    nome: 'Lida Campeira',
-    descricao: 'Práticas e objetos da vida no campo gaúcho',
+    nome: 'Equipamentos de Montaria',
+    descricao: 'Arreios, selas, estribos e equipamentos para cavalgar',
     categoria_pai: '04',
-    exemplos: ['laço', 'boleadeira', 'cusco', 'mate', 'bombacha'],
+    exemplos: ['laço', 'boleadeira', 'xergão', 'pelego', 'arreio'],
     status: 'ativo'
   },
   {
     codigo: '04.02',
-    nome: 'Culinária Gaúcha',
-    descricao: 'Comidas e bebidas típicas do RS',
+    nome: 'Ferramentas de Trabalho Rural',
+    descricao: 'Implementos para trabalho no campo',
     categoria_pai: '04',
-    exemplos: ['chimarrão', 'churrasco', 'carreteiro', 'arroz-de-carreteiro', 'cachaça'],
+    exemplos: ['enxada', 'foice', 'machado', 'facão', 'cusco'],
     status: 'ativo'
   },
   {
     codigo: '04.03',
-    nome: 'Música e Dança Gaúcha',
-    descricao: 'Ritmos, instrumentos e danças tradicionais',
+    nome: 'Instrumentos Musicais',
+    descricao: 'Instrumentos para fazer música',
     categoria_pai: '04',
-    exemplos: ['vaneira', 'milonga', 'rancheira', 'gaita', 'violão'],
+    exemplos: ['gaita', 'violão', 'acordeão', 'zabumba', 'pandeiro'],
     status: 'ativo'
   },
 
   // =============================================
-  // 05. CULTURA NORDESTINA
+  // 05. VESTUÁRIO E INDUMENTÁRIA
   // =============================================
   {
     codigo: '05',
-    nome: 'Cultura Nordestina',
-    descricao: 'Elementos culturais específicos do Nordeste brasileiro',
+    nome: 'Vestuário e Indumentária',
+    descricao: 'Roupas, acessórios e modos de vestir',
     categoria_pai: null,
-    exemplos: ['sertão', 'forró', 'cordel', 'cangaço', 'retirante'],
+    exemplos: ['roupa', 'chapéu', 'calça', 'camisa', 'vestido'],
     status: 'ativo'
   },
   {
     codigo: '05.01',
-    nome: 'Sertão e Caatinga',
-    descricao: 'Vida no sertão, seca, flora e fauna típicas',
+    nome: 'Vestuário Tradicional',
+    descricao: 'Roupas típicas e tradicionais',
     categoria_pai: '05',
-    exemplos: ['sertão', 'caatinga', 'mandacaru', 'seca', 'barreiro'],
+    exemplos: ['bombacha', 'poncho', 'gibão', 'alpargata', 'lenço'],
     status: 'ativo'
   },
   {
     codigo: '05.02',
-    nome: 'Festas e Celebrações',
-    descricao: 'Festas populares, religiosas e profanas do Nordeste',
+    nome: 'Acessórios',
+    descricao: 'Complementos do vestuário',
     categoria_pai: '05',
-    exemplos: ['forró', 'São João', 'bumba-meu-boi', 'maracatu', 'reisado'],
-    status: 'ativo'
-  },
-  {
-    codigo: '05.03',
-    nome: 'Religiosidade Popular',
-    descricao: 'Crenças, santos, promessas, misticismo',
-    categoria_pai: '05',
-    exemplos: ['padre', 'santo', 'romaria', 'benzedeira', 'milagre'],
+    exemplos: ['chapéu', 'lenço', 'cinto', 'bota', 'esporas'],
     status: 'ativo'
   },
 
   // =============================================
-  // 06. TEMPO
+  // 06. ALIMENTAÇÃO
   // =============================================
   {
     codigo: '06',
+    nome: 'Alimentação',
+    descricao: 'Comidas, bebidas e práticas alimentares',
+    categoria_pai: null,
+    exemplos: ['comida', 'bebida', 'refeição', 'alimento'],
+    status: 'ativo'
+  },
+  {
+    codigo: '06.01',
+    nome: 'Bebidas',
+    descricao: 'Bebidas quentes, frias, alcoólicas e não alcoólicas',
+    categoria_pai: '06',
+    exemplos: ['chimarrão', 'café', 'cachaça', 'água', 'vinho'],
+    status: 'ativo'
+  },
+  {
+    codigo: '06.02',
+    nome: 'Pratos e Preparações',
+    descricao: 'Comidas preparadas e pratos típicos',
+    categoria_pai: '06',
+    exemplos: ['churrasco', 'carreteiro', 'buchada', 'feijão', 'arroz'],
+    status: 'ativo'
+  },
+
+  // =============================================
+  // 07. MÚSICA E DANÇA
+  // =============================================
+  {
+    codigo: '07',
+    nome: 'Música e Dança',
+    descricao: 'Ritmos, danças, estilos musicais',
+    categoria_pai: null,
+    exemplos: ['música', 'dança', 'ritmo', 'canção'],
+    status: 'ativo'
+  },
+  {
+    codigo: '07.01',
+    nome: 'Ritmos e Estilos',
+    descricao: 'Gêneros musicais e estilos de dança',
+    categoria_pai: '07',
+    exemplos: ['vaneira', 'milonga', 'forró', 'baião', 'xote'],
+    status: 'ativo'
+  },
+
+  // =============================================
+  // 08. TEMPO
+  // =============================================
+  {
+    codigo: '08',
     nome: 'Tempo',
     descricao: 'Temporalidade, ciclos, passagem do tempo',
     categoria_pai: null,

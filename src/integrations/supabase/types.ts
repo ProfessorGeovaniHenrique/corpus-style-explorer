@@ -183,6 +183,7 @@ export type Database = {
           contexto_direito: string | null
           contexto_esquerdo: string | null
           id: string
+          insignias_culturais: string[] | null
           job_id: string
           lema: string | null
           metadata: Json | null
@@ -199,6 +200,7 @@ export type Database = {
           contexto_direito?: string | null
           contexto_esquerdo?: string | null
           id?: string
+          insignias_culturais?: string[] | null
           job_id: string
           lema?: string | null
           metadata?: Json | null
@@ -215,6 +217,7 @@ export type Database = {
           contexto_direito?: string | null
           contexto_esquerdo?: string | null
           id?: string
+          insignias_culturais?: string[] | null
           job_id?: string
           lema?: string | null
           metadata?: Json | null
@@ -790,6 +793,7 @@ export type Database = {
           criado_em: string | null
           fonte: string | null
           id: string
+          insignias_culturais: string[] | null
           lema: string | null
           palavra: string
           pos: string | null
@@ -806,6 +810,7 @@ export type Database = {
           criado_em?: string | null
           fonte?: string | null
           id?: string
+          insignias_culturais?: string[] | null
           lema?: string | null
           palavra: string
           pos?: string | null
@@ -822,6 +827,7 @@ export type Database = {
           criado_em?: string | null
           fonte?: string | null
           id?: string
+          insignias_culturais?: string[] | null
           lema?: string | null
           palavra?: string
           pos?: string | null

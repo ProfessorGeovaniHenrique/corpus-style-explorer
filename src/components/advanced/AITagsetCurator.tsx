@@ -6,8 +6,11 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Copy, RotateCcw, CheckCircle2, Sparkles } from "lucide-react";
+import { INSIGNIAS_OPTIONS, type InsigniaCultural } from "@/data/types/cultural-insignia.types";
 import { toast } from "sonner";
+import { MultiSelectInsignias } from "@/components/ui/multi-select-insignias";
 
 interface Tagset {
   id: string;
@@ -62,6 +65,7 @@ export function AITagsetCurator({
   );
   const [editedPai, setEditedPai] = useState(aiSuggestion.paiRecomendado);
   const [editedNivel, setEditedNivel] = useState(aiSuggestion.nivelSugerido);
+  const [selectedInsignias, setSelectedInsignias] = useState<string[]>([]);
 
   const copiarSugestaoIA = () => {
     setEditedNome(aiSuggestion.melhorias?.nomeSugerido || tagsetOriginal.nome);
@@ -151,6 +155,20 @@ export function AITagsetCurator({
               <RotateCcw className="h-4 w-4 mr-2" />
               Restaurar Original
             </Button>
+          </div>
+
+          <Separator />
+
+          {/* Insígnias Culturais */}
+          <div className="space-y-2">
+            <MultiSelectInsignias
+              value={selectedInsignias}
+              onChange={setSelectedInsignias}
+            />
+            <p className="text-xs text-muted-foreground italic">
+              💡 As insígnias culturais são marcadores opcionais que indicam a identidade regional/étnica dos exemplos.
+              Exemplo: "xergão" está em DS "Equipamentos de Montaria" + Insígnia "Gaúcho"
+            </p>
           </div>
 
           <Separator />
