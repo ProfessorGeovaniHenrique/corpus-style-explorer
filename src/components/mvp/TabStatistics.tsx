@@ -261,18 +261,17 @@ export function TabStatistics({ demo = false }: TabStatisticsProps) {
 
   const dominiosChartData = (demo && demoDomains ? 
     demoDomains.map(d => ({
-      dominio: d.dominio.length > 25 ? d.dominio.substring(0, 25) + "..." : d.dominio,
-      dominioFull: d.dominio,
+      dominio: d.dominio,
       percentual: d.percentual,
       riquezaLexical: d.riquezaLexical,
       ocorrencias: d.ocorrencias,
       lemasUnicos: d.palavras.length,
-      status: 'equilibrado'
+      status: 'equilibrado',
+      cor: d.cor
     }))
     :
     dominiosNormalizados.map(d => ({
-      dominio: d.dominio.length > 25 ? d.dominio.substring(0, 25) + "..." : d.dominio,
-      dominioFull: d.dominio,
+      dominio: d.dominio,
       percentual: d.percentualTematico,
       riquezaLexical: d.riquezaLexical,
       ocorrencias: d.ocorrencias,
@@ -795,18 +794,45 @@ export function TabStatistics({ demo = false }: TabStatisticsProps) {
                   <Card className="card-academic">
                     <CardHeader>
                       <CardTitle className="text-base">Distribuição de Domínios Semânticos</CardTitle>
-                      <CardDescription>Percentual temático por domínio (cores por legibilidade)</CardDescription>
+                      <CardDescription>Percentual temático por domínio</CardDescription>
                     </CardHeader>
                     <CardContent>
-                      <ResponsiveContainer width="100%" height={300}>
-                        <BarChart data={dominiosChartData} layout="vertical">
+                      <ResponsiveContainer width="100%" height={500}>
+                        <BarChart 
+                          data={dominiosChartData} 
+                          layout="vertical"
+                          margin={{ top: 5, right: 30, left: 180, bottom: 5 }}
+                        >
                           <CartesianGrid strokeDasharray="3 3" />
                           <XAxis type="number" />
-                          <YAxis type="category" dataKey="dominio" width={150} />
-                          <RechartsTooltip />
-                          <Bar dataKey="percentual" radius={[0, 4, 4, 0]}>
+                          <YAxis 
+                            type="category" 
+                            dataKey="dominio" 
+                            width={170}
+                            tick={{ fontSize: 12 }}
+                          />
+                          <RechartsTooltip 
+                            content={({ payload }) => {
+                              if (!payload?.[0]) return null;
+                              const data = payload[0].payload;
+                              return (
+                                <div className="bg-popover p-4 rounded-lg border shadow-lg max-w-sm">
+                                  <p className="font-semibold text-base mb-2">{data.dominio}</p>
+                                  <div className="space-y-1 text-sm">
+                                    <p>Percentual: <span className="font-mono font-semibold">{data.percentual.toFixed(2)}%</span></p>
+                                    <p>Ocorrências: <span className="font-mono">{data.ocorrencias}</span></p>
+                                    <p>Lemas Únicos: <span className="font-mono">{data.lemasUnicos}</span></p>
+                                  </div>
+                                </div>
+                              );
+                            }}
+                          />
+                          <Bar dataKey="percentual" radius={[0, 8, 8, 0]}>
                             {dominiosChartData.map((entry, i) => (
-                              <Cell key={i} fill={getDomainColor(entry.dominioFull)} />
+                              <Cell 
+                                key={i} 
+                                fill={demo && entry.cor ? entry.cor : getDomainColor(entry.dominio)} 
+                              />
                             ))}
                           </Bar>
                         </BarChart>
@@ -820,13 +846,53 @@ export function TabStatistics({ demo = false }: TabStatisticsProps) {
                       <CardDescription>Frequência normalizada (ocorrências por 100 palavras)</CardDescription>
                     </CardHeader>
                     <CardContent>
-                      <ResponsiveContainer width="100%" height={300}>
-                        <BarChart data={palavrasFrequentesData}>
+                      <ResponsiveContainer width="100%" height={600}>
+                        <BarChart 
+                          data={palavrasFrequentesData} 
+                          layout="horizontal"
+                          margin={{ top: 5, right: 30, left: 100, bottom: 5 }}
+                        >
                           <CartesianGrid strokeDasharray="3 3" />
-                          <XAxis dataKey="palavra" angle={-45} textAnchor="end" height={80} />
-                          <YAxis />
-                          <RechartsTooltip />
-                          <Bar dataKey="frequencia" fill={ACADEMIC_RS_COLORS.verde.main} radius={[4, 4, 0, 0]} />
+                          <XAxis type="number" />
+                          <YAxis 
+                            dataKey="palavra" 
+                            type="category" 
+                            width={90}
+                            tick={{ fontSize: 14 }}
+                          />
+                          <RechartsTooltip 
+                            content={({ payload }) => {
+                              if (!payload?.[0]) return null;
+                              const data = payload[0].payload;
+                              return (
+                                <div className="bg-popover p-3 rounded-lg border shadow-lg">
+                                  <p className="font-semibold text-lg mb-1">{data.palavra}</p>
+                                  <p className="text-sm text-muted-foreground">
+                                    Frequência: <span className="font-mono font-semibold">{data.frequencia.toFixed(2)}%</span>
+                                  </p>
+                                </div>
+                              );
+                            }}
+                          />
+                          <Bar 
+                            dataKey="frequencia" 
+                            fill={ACADEMIC_RS_COLORS.verde.main}
+                            radius={[0, 8, 8, 0]}
+                          >
+                            {palavrasFrequentesData.map((entry, index) => {
+                              const colors = [
+                                ACADEMIC_RS_COLORS.verde.main,
+                                ACADEMIC_RS_COLORS.amarelo.main,
+                                ACADEMIC_RS_COLORS.vermelho.light
+                              ];
+                              return (
+                                <Cell 
+                                  key={`cell-${index}`} 
+                                  fill={colors[index % 3]} 
+                                />
+                              );
+                            })}
+                          </Bar>
                         </BarChart>
                       </ResponsiveContainer>
                     </CardContent>
@@ -851,8 +917,8 @@ export function TabStatistics({ demo = false }: TabStatisticsProps) {
                         </TableHeader>
                         <TableBody>
                           {dominiosChartData.map((d) => (
-                            <TableRow key={d.dominioFull}>
-                              <TableCell className="font-medium">{d.dominioFull}</TableCell>
+                            <TableRow key={d.dominio}>
+                              <TableCell className="font-medium">{d.dominio}</TableCell>
                               <TableCell className="text-right font-mono">{d.lemasUnicos}</TableCell>
                               <TableCell className="text-right font-mono">{d.ocorrencias}</TableCell>
                               <TableCell className="text-right font-mono font-semibold text-primary">
@@ -1188,54 +1254,67 @@ export function TabStatistics({ demo = false }: TabStatisticsProps) {
                       Relação entre Log-Likelihood e MI Score
                     </CardTitle>
                     <CardDescription>
-                      Cada ponto representa uma palavra. Palavras no canto superior direito têm alta 
+                      Cada ponto representa uma palavra. Tamanho do ponto = frequência. Palavras no canto superior direito têm alta 
                       significância estatística (LL) e forte associação (MI).
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <ResponsiveContainer width="100%" height={500}>
-                      <ScatterChart margin={{ top: 20, right: 20, bottom: 60, left: 60 }}>
+                    <ResponsiveContainer width="100%" height={600}>
+                      <ScatterChart margin={{ top: 20, right: 30, bottom: 80, left: 80 }}>
                         <CartesianGrid strokeDasharray="3 3" />
                         <XAxis 
                           type="number" 
                           dataKey="ll" 
-                          name="Log-Likelihood (LL)"
-                          label={{ value: 'Log-Likelihood (LL)', position: 'bottom', offset: 40 }}
+                          name="Log-Likelihood"
+                          label={{ 
+                            value: 'Log-Likelihood (LL)', 
+                            position: 'insideBottom', 
+                            offset: -20,
+                            style: { fontSize: 14, fontWeight: 600 }
+                          }}
                         />
                         <YAxis 
                           type="number" 
                           dataKey="mi" 
                           name="MI Score"
-                          label={{ value: 'MI Score', angle: -90, position: 'left', offset: 40 }}
+                          label={{ 
+                            value: 'MI Score', 
+                            angle: -90, 
+                            position: 'insideLeft',
+                            offset: -10,
+                            style: { fontSize: 14, fontWeight: 600 }
+                          }}
                         />
-                        <ZAxis type="number" dataKey="frequencia" range={[50, 400]} name="Freq. Norm." />
+                        <ZAxis type="number" dataKey="frequencia" range={[80, 500]} name="Freq. Norm." />
                         <RechartsTooltip 
                           cursor={{ strokeDasharray: '3 3' }}
                           content={({ active, payload }) => {
                             if (active && payload && payload.length) {
                               const data = payload[0].payload;
                               return (
-                                <div className="bg-background border rounded-lg p-3 shadow-lg">
-                                  <p className="font-semibold mb-1">{data.palavra}</p>
+                                <div className="bg-popover border rounded-lg p-4 shadow-lg max-w-xs">
+                                  <p className="font-semibold text-lg mb-2">{data.palavra}</p>
                                   {demo && data.dominio && (
                                     <Badge 
                                       variant="outline" 
-                                      className="mb-2"
+                                      className="mb-3"
                                       style={{ borderColor: data.cor, color: data.cor }}
                                     >
                                       {data.dominio}
                                     </Badge>
                                   )}
-                                  <p className="text-sm text-muted-foreground">LL: {data.ll.toFixed(2)}</p>
-                                  <p className="text-sm text-muted-foreground">MI: {data.mi.toFixed(2)}</p>
-                                  <p className="text-sm text-muted-foreground">Freq: {data.frequencia.toFixed(2)}%</p>
+                                  <div className="space-y-1 text-sm">
+                                    <p className="text-muted-foreground">LL: <span className="font-mono font-semibold text-foreground">{data.ll.toFixed(2)}</span></p>
+                                    <p className="text-muted-foreground">MI: <span className="font-mono font-semibold text-foreground">{data.mi.toFixed(2)}</span></p>
+                                    <p className="text-muted-foreground">Frequência: <span className="font-mono font-semibold text-foreground">{data.frequencia.toFixed(2)}%</span></p>
+                                  </div>
                                   <Badge 
                                     variant="outline" 
-                                    className={
+                                    className={`mt-3 ${
                                       data.significancia === 'Alta' ? 'bg-green-500/10 text-green-600 border-green-500/30' :
                                       data.significancia === 'Média' ? 'bg-yellow-500/10 text-yellow-600 border-yellow-500/30' :
                                       'bg-muted/20 text-muted-foreground border-border'
-                                    }
+                                    }`}
                                   >
                                     {data.significancia}
                                   </Badge>
@@ -1269,6 +1348,32 @@ export function TabStatistics({ demo = false }: TabStatisticsProps) {
                         </Scatter>
                       </ScatterChart>
                     </ResponsiveContainer>
+                  </CardContent>
+                </Card>
+                
+                {/* Legenda Explicativa */}
+                <Card className="card-academic">
+                  <CardContent className="pt-6">
+                    <div className="grid md:grid-cols-3 gap-4">
+                      <div className="text-center p-4 bg-green-500/10 rounded-lg border border-green-500/30">
+                        <div className="w-4 h-4 rounded-full bg-green-600 mx-auto mb-2" />
+                        <p className="font-semibold text-sm">Alta Significância</p>
+                        <p className="text-xs text-muted-foreground mt-1">LL &gt; 15.13</p>
+                        <p className="text-xs text-muted-foreground">p &lt; 0.001</p>
+                      </div>
+                      <div className="text-center p-4 bg-yellow-500/10 rounded-lg border border-yellow-500/30">
+                        <div className="w-4 h-4 rounded-full bg-yellow-600 mx-auto mb-2" />
+                        <p className="font-semibold text-sm">Média Significância</p>
+                        <p className="text-xs text-muted-foreground mt-1">LL: 6.63 - 15.13</p>
+                        <p className="text-xs text-muted-foreground">p &lt; 0.01</p>
+                      </div>
+                      <div className="text-center p-4 bg-muted/50 rounded-lg border">
+                        <div className="w-4 h-4 rounded-full bg-muted-foreground mx-auto mb-2" />
+                        <p className="font-semibold text-sm">Baixa Significância</p>
+                        <p className="text-xs text-muted-foreground mt-1">LL: 3.84 - 6.63</p>
+                        <p className="text-xs text-muted-foreground">p &lt; 0.05</p>
+                      </div>
+                    </div>
                   </CardContent>
                 </Card>
               </div>

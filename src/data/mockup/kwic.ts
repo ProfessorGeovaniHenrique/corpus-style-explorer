@@ -217,5 +217,28 @@ export const kwicDataMap: KWICDataMap = {
     keyword: "tarde",
     rightContext: "se aquerenciou",
     source: "Luiz Marenco - Quando o verso vem pras casa"
+  }],
+  "gateado": [{
+    leftContext: "No lombo de uma",
+    keyword: "gateado",
+    rightContext: "frente aberta de respeito",
+    source: "Luiz Marenco - Quando o verso vem pras casa"
+  }, {
+    leftContext: "Ser um galo prás manhãs, ou um",
+    keyword: "gateado",
+    rightContext: "prá encilha",
+    source: "Luiz Marenco - Quando o verso vem pras casa"
+  }],
+  "tropa": [{
+    leftContext: "A",
+    keyword: "tropa",
+    rightContext: "desgarrou nos caminhos da querência",
+    source: "Luiz Marenco - Quando o verso vem pras casa"
+  }],
+  "redomona": [{
+    leftContext: "E uma saudade",
+    keyword: "redomona",
+    rightContext: "pelos cantos do galpão",
+    source: "Luiz Marenco - Quando o verso vem pras casa"
   }]
 };
