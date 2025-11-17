@@ -153,12 +153,12 @@ async function processCorpusWithAI(
     return;
   }
 
-  // ✅ CORREÇÃO #5: Timeout e monitoramento (30 minutos)
-  const MAX_PROCESSING_TIME = 30 * 60 * 1000;
+  // ✅ CORREÇÃO CRÍTICA #2: Timeout reduzido para 15 minutos
+  const MAX_PROCESSING_TIME = 15 * 60 * 1000; // 15 minutos
   const startTime = Date.now();
 
   const timeoutPromise = new Promise<never>((_, reject) =>
-    setTimeout(() => reject(new Error('Timeout: Job excedeu 30 minutos')), MAX_PROCESSING_TIME)
+    setTimeout(() => reject(new Error('TIMEOUT: Job excedeu 15 minutos de processamento')), MAX_PROCESSING_TIME)
   );
 
   try {

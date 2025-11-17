@@ -90,29 +90,24 @@ function parseHouaissLine(line: string): HouaissEntry | null {
   }
 }
 
-serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+async function processInBackground(
+  jobId: string,
+  lines: string[],
+  supabaseUrl: string,
+  supabaseKey: string
+) {
+  const supabaseClient = createClient(supabaseUrl, supabaseKey);
+  let processed = 0;
+  let errors = 0;
+  const errorLog: string[] = [];
+
+  console.log(`[Job ${jobId}] Processando ${lines.length} linhas do Dicionário Houaiss...`);
 
   try {
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
-
-    const { fileContent } = await req.json();
-    
-    if (!fileContent) {
-      throw new Error('fileContent is required');
-    }
-
-    const lines = fileContent.split('\n');
-    let processed = 0;
-    let errors = 0;
-    const errorLog: string[] = [];
-
-    console.log(`Processando ${lines.length} linhas do Dicionário Houaiss...`);
+    await supabaseClient
+      .from('dictionary_import_jobs')
+      .update({ status: 'processando' })
+      .eq('id', jobId);
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i].trim();
@@ -178,24 +173,109 @@ serve(async (req) => {
 
         processed++;
         
+        // Atualizar progresso a cada 100 entradas
         if (processed % 100 === 0) {
-          console.log(`Processadas ${processed} entradas...`);
+          console.log(`[Job ${jobId}] Processadas ${processed} entradas...`);
+          await supabaseClient
+            .from('dictionary_import_jobs')
+            .update({ 
+              verbetes_processados: processed,
+              verbetes_inseridos: processed,
+              erros: errors
+            })
+            .eq('id', jobId);
         }
       } catch (err) {
-        console.error(`Erro processando linha ${i}:`, err);
+        console.error(`[Job ${jobId}] Erro processando linha ${i}:`, err);
         errors++;
         errorLog.push(`Linha ${i}: ${err instanceof Error ? err.message : String(err)}`);
       }
     }
 
-    console.log(`Processamento concluído: ${processed} entradas, ${errors} erros`);
+    console.log(`[Job ${jobId}] Processamento concluído: ${processed} entradas, ${errors} erros`);
 
+    // Finalizar job
+    await supabaseClient
+      .from('dictionary_import_jobs')
+      .update({ 
+        status: 'concluido',
+        verbetes_processados: processed,
+        verbetes_inseridos: processed,
+        erros: errors,
+        metadata: { errorLog: errorLog.slice(0, 10) }
+      })
+      .eq('id', jobId);
+
+  } catch (error) {
+    console.error(`[Job ${jobId}] Erro crítico:`, error);
+    await supabaseClient
+      .from('dictionary_import_jobs')
+      .update({ 
+        status: 'erro',
+        erro_mensagem: error instanceof Error ? error.message : String(error)
+      })
+      .eq('id', jobId);
+  }
+}
+
+serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+    const supabaseClient = createClient(supabaseUrl, supabaseKey);
+
+    const { fileContent } = await req.json();
+    
+    if (!fileContent) {
+      throw new Error('fileContent is required');
+    }
+
+    const lines = fileContent.split('\n');
+    const totalLines = lines.filter((l: string) => l.trim() && !l.trim().startsWith('#')).length;
+
+    console.log(`Criando job para processar ${totalLines} linhas do Houaiss...`);
+
+    // ✅ CORREÇÃO CRÍTICA #1: Criar job ANTES de processar
+    const { data: job, error: jobError } = await supabaseClient
+      .from('dictionary_import_jobs')
+      .insert({
+        tipo_dicionario: 'houaiss',
+        status: 'iniciado',
+        total_verbetes: totalLines,
+        verbetes_processados: 0,
+        verbetes_inseridos: 0,
+        erros: 0,
+        metadata: {
+          started_at: new Date().toISOString(),
+          total_lines: lines.length
+        }
+      })
+      .select()
+      .single();
+
+    if (jobError || !job) {
+      console.error('Erro ao criar job:', jobError);
+      throw new Error('Erro ao criar job de importação');
+    }
+
+    console.log(`Job ${job.id} criado. Iniciando processamento em background...`);
+
+    // ✅ CORREÇÃO CRÍTICA #1: Processar em background
+    // @ts-ignore
+    EdgeRuntime.waitUntil(
+      processInBackground(job.id, lines, supabaseUrl, supabaseKey)
+    );
+
+    // ✅ CORREÇÃO CRÍTICA #1: Retornar jobId IMEDIATAMENTE
     return new Response(
       JSON.stringify({
         success: true,
-        processed,
-        errors,
-        errorLog: errorLog.slice(0, 10) // Apenas primeiros 10 erros
+        jobId: job.id,
+        message: `Processamento do Houaiss iniciado em background. Total: ${totalLines} verbetes.`
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
