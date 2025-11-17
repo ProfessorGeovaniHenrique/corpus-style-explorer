@@ -67,6 +67,23 @@ const DOMAIN_MAPPING: Record<string, { domain: string; color: string; prosody: n
   "bomba": { domain: "Artefato Cultural", color: "#f59e0b", prosody: 0 }
 };
 
+// Descrições dos domínios semânticos
+const DOMAIN_DESCRIPTIONS: Record<string, string> = {
+  "Poesia": "Elementos metapoéticos e expressões líricas da tradição gaúcha",
+  "Natureza": "Elementos naturais, clima e fenômenos do ambiente pampeano",
+  "Paisagem Gaúcha": "Acidentes geográficos e características topográficas regionais",
+  "Sentimento": "Expressões afetivas, saudade e estados emocionais",
+  "Flora Regional": "Vegetação característica do bioma pampa",
+  "Paisagem": "Elementos gerais da geografia e ambiente natural",
+  "Arquitetura Rural": "Construções e estruturas típicas do campo",
+  "Fauna/Cavalo": "Animais, especialmente cavalos e pelagens",
+  "Cultura Gaúcha": "Costumes, tradições e elementos identitários",
+  "Identidade Regional": "Conceitos ligados ao pertencimento e territorialidade",
+  "Lida Campeira": "Trabalho no campo e práticas pecuárias",
+  "Artefato Cultural": "Objetos e instrumentos da cultura tradicional",
+  "Geral": "Termos sem classificação temática específica"
+};
+
 /**
  * Calcula Log-Likelihood
  */
@@ -128,6 +145,7 @@ function processDemoCorpus() {
     if (!acc[kw.dominio]) {
       acc[kw.dominio] = {
         dominio: kw.dominio,
+        descricao: DOMAIN_DESCRIPTIONS[kw.dominio] || "Domínio semântico identificado na análise",
         cor: kw.cor,
         palavras: [],
         ocorrencias: 0,

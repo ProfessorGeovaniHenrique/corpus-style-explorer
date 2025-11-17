@@ -20,6 +20,7 @@ export interface DemoKeyword {
 
 export interface DemoDomain {
   dominio: string;
+  descricao: string;
   cor: string;
   palavras: string[];
   ocorrencias: number;
