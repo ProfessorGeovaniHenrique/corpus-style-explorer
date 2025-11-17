@@ -40,7 +40,7 @@ export function MVPHeader({ activeTab, onTabChange }: MVPHeaderProps) {
               />
             </div>
             <p className="corpus-subtitle text-xs hidden md:block">
-              Corpus de Estudo: Clássicos da Música Gaúcha
+              o poder da Estilística de Corpus em suas mãos
             </p>
           </div>
 
