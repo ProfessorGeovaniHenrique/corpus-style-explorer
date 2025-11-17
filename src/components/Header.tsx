@@ -164,6 +164,10 @@ const Header = () => {
               <Link to="/auth">Entrar</Link>
             </Button>
           )}
+          </div>
+          
+          {/* Mobile Menu */}
+          <MobileMenu />
         </div>
       </div>
     </header>
