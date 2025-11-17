@@ -81,10 +81,16 @@ const Header = () => {
                 <span>Dashboard</span>
               </DropdownMenuItem>
               {isAdmin() && (
-                <DropdownMenuItem onClick={() => navigate("/admin/dashboard")}>
-                  <Shield className="mr-2 h-4 w-4" />
-                  <span>Painel Admin</span>
-                </DropdownMenuItem>
+                <>
+                  <DropdownMenuItem onClick={() => navigate("/admin/dashboard")}>
+                    <Shield className="mr-2 h-4 w-4" />
+                    <span>Gerenciar Convites</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate("/admin/metrics")}>
+                    <Shield className="mr-2 h-4 w-4" />
+                    <span>Métricas do Sistema</span>
+                  </DropdownMenuItem>
+                </>
               )}
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleSignOut}>

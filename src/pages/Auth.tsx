@@ -179,6 +179,15 @@ export default function Auth() {
                   {isLoading ? "Entrando..." : "Entrar"}
                 </Button>
               </form>
+              <div className="mt-4 text-center">
+                <Button
+                  variant="link"
+                  onClick={() => navigate("/forgot-password")}
+                  className="text-sm text-muted-foreground hover:text-primary"
+                >
+                  Esqueceu sua senha?
+                </Button>
+              </div>
             </TabsContent>
 
             <TabsContent value="signup" className="space-y-4">
