@@ -100,7 +100,7 @@ export function useKeywords() {
     }
   };
   
-  return { isLoading, error, isProcessed, processKeywords };
+  return { keywords, isLoading, error, isProcessed, processKeywords };
 }
 
 // Helper function para mapear corpus para caminho

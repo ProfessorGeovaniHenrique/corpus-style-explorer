@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Download, Search, Play, Loader2, ChevronDown, ChevronUp, TrendingUp, TrendingDown, MousePointerClick, Music, AlertCircle, BarChart3, Lightbulb, FileJson, FileDown, Share2, Settings2, Trash2 } from "lucide-react";
+import { Download, Search, Play, Loader2, ChevronDown, ChevronUp, TrendingUp, TrendingDown, MousePointerClick, Music, AlertCircle, BarChart3, Lightbulb, FileJson, FileDown, Share2, Settings2, Trash2, RotateCcw } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
   AlertDialog,
@@ -51,6 +51,7 @@ export function KeywordsTool() {
   
   // Estado do menu colapsável
   const [isConfigOpen, setIsConfigOpen] = useState(true);
+  const [hasShownToast, setHasShownToast] = useState(false);
   
   // Garantir que analysisConfig existe (fallback para valores padrão)
   const analysisConfig = keywordsState.analysisConfig || {
@@ -82,7 +83,7 @@ export function KeywordsTool() {
   const [errorEstudo, setErrorEstudo] = useState<string | null>(null);
   const [errorRef, setErrorRef] = useState<string | null>(null);
   
-  const { isLoading, error, processKeywords } = useKeywords();
+  const { keywords: hookKeywords, isLoading, error, isProcessed: hookIsProcessed, processKeywords } = useKeywords();
   const { navigateToKWIC } = useTools();
   const { currentMetadata, selection } = useSubcorpus();
   
@@ -125,19 +126,34 @@ export function KeywordsTool() {
     return baseMatches && modeMatches;
   }, [estudoCorpusBase, estudoMode, estudoArtist, selection]);
   
-  // Collapse automático após processamento
+  // Sincronizar hook com context
   useEffect(() => {
-    if (keywordsState.isProcessed && keywordsState.keywords.length > 0) {
+    if (hookIsProcessed && hookKeywords.length > 0) {
+      const needsUpdate = 
+        keywordsState.keywords.length !== hookKeywords.length ||
+        !keywordsState.isProcessed;
+      
+      if (needsUpdate) {
+        console.log('🔄 Sincronizando keywords do hook para o context');
+        setKeywordsState({ 
+          keywords: hookKeywords, 
+          isProcessed: true 
+        });
+      }
+    }
+  }, [hookIsProcessed, hookKeywords.length]);
+
+  // Auto-collapse menu após processamento com animação de entrada
+  useEffect(() => {
+    if (keywordsState.isProcessed && keywordsState.keywords.length > 0 && !hasShownToast) {
       setIsConfigOpen(false);
+      setHasShownToast(true);
       toast.success('Análise concluída!', {
-        description: 'Menu recolhido para otimizar espaço'
+        description: 'Menu recolhido para otimizar espaço',
+        duration: 4000
       });
     }
-  }, [keywordsState.isProcessed, keywordsState.keywords.length]);
-  
-  const handleKeywordsProcessed = useCallback((newKeywords: KeywordEntry[]) => {
-    setKeywordsState({ keywords: newKeywords, isProcessed: true });
-  }, [setKeywordsState]);
+  }, [keywordsState.isProcessed, keywordsState.keywords.length, hasShownToast]);
   
   // Carregar corpus full-text para preview KWIC
   const { corpus: fullTextCorpus, isLoading: isLoadingFullCorpus } = useFullTextCorpus(
@@ -638,6 +654,35 @@ export function KeywordsTool() {
       }
     });
   };
+
+  const handleReset = () => {
+    // Resetar Context
+    setKeywordsState({
+      keywords: [],
+      isProcessed: false,
+      searchTerm: '',
+      llFilter: 10.83,
+      sortColumn: 'll',
+      sortDirection: 'desc'
+    });
+    
+    // Resetar metadados locais
+    setEstudoMetadata(null);
+    setRefMetadata(null);
+    setErrorEstudo(null);
+    setErrorRef(null);
+    
+    // Resetar flag de toast
+    setHasShownToast(false);
+    
+    // Reabrir menu de configuração
+    setIsConfigOpen(true);
+    
+    toast.info('Interface resetada', {
+      description: 'Pronto para nova análise',
+      duration: 3000
+    });
+  };
   
   return (
     <div className="space-y-6">
@@ -664,69 +709,126 @@ export function KeywordsTool() {
       {/* Menu de Configuração Unificado e Colapsável */}
       <Collapsible open={isConfigOpen} onOpenChange={setIsConfigOpen}>
         <Card data-tour="keywords-config" className="border-l-4 border-l-primary">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
+          <CardHeader className="pb-3 bg-muted/30 border-b">
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <div className="flex items-center gap-3">
                 <CollapsibleTrigger asChild>
                   <Button 
-                    variant="ghost" 
+                    variant="outline" 
                     size="sm"
-                    className="p-1"
+                    className="hover:bg-primary/10 transition-colors shadow-sm"
                   >
-                    {isConfigOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                    {isConfigOpen ? (
+                      <>
+                        <ChevronUp className="h-4 w-4 mr-2" />
+                        <span className="hidden sm:inline">Recolher Menu</span>
+                      </>
+                    ) : (
+                      <>
+                        <ChevronDown className="h-4 w-4 mr-2" />
+                        <span className="hidden sm:inline">Expandir Menu</span>
+                      </>
+                    )}
                   </Button>
                 </CollapsibleTrigger>
-                <Settings2 className="h-4 w-4" />
-                <CardTitle className="text-base">Configurar Análise</CardTitle>
+                
+                <div className="flex items-center gap-2">
+                  <Settings2 className="h-5 w-5 text-primary" />
+                  <CardTitle className="text-base sm:text-lg">Configurar Análise</CardTitle>
+                </div>
+                
                 {!isConfigOpen && (
-                  <Badge variant="secondary" className="ml-2">
-                    {Object.values(analysisConfig).filter(Boolean).length} análises ativas
+                  <Badge variant="secondary" className="animate-in fade-in-0 hidden md:inline-flex">
+                    {Object.values(analysisConfig).filter(Boolean).length} análises
                   </Badge>
                 )}
               </div>
               
-              {/* Botão de Limpar Cache */}
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
+              <div className="flex items-center gap-2">
+                {/* Botão de Reset */}
+                {keywordsState.isProcessed && (
                   <Button 
                     variant="ghost" 
                     size="sm"
-                    className="h-8 text-xs text-muted-foreground hover:text-destructive"
+                    onClick={handleReset}
+                    className="text-muted-foreground hover:text-foreground transition-colors"
                   >
-                    <Trash2 className="h-3 w-3 mr-1" />
-                    Limpar Cache
+                    <RotateCcw className="h-4 w-4 mr-1" />
+                    <span className="hidden sm:inline">Resetar</span>
                   </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Limpar Cache e Recarregar?</AlertDialogTitle>
-                    <AlertDialogDescription className="space-y-2">
-                      <p>Esta ação irá:</p>
-                      <ul className="list-disc list-inside space-y-1 text-sm">
-                        <li>Remover todos os dados salvos do localStorage</li>
-                        <li>Resetar todas as configurações para valores padrão</li>
-                        <li>Recarregar a página automaticamente</li>
-                      </ul>
-                      <p className="font-semibold text-destructive mt-3">
-                        ⚠️ Esta ação não pode ser desfeita!
-                      </p>
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                    <AlertDialogAction 
-                      onClick={clearAllCache}
-                      className="bg-destructive hover:bg-destructive/90"
+                )}
+                
+                {/* Limpar Cache */}
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      className="h-8 text-xs text-muted-foreground hover:text-destructive"
                     >
-                      Sim, Limpar Tudo
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
+                      <Trash2 className="h-3 w-3 sm:mr-1" />
+                      <span className="hidden sm:inline">Limpar Cache</span>
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Limpar Cache e Recarregar?</AlertDialogTitle>
+                      <AlertDialogDescription className="space-y-2">
+                        <p>Esta ação irá:</p>
+                        <ul className="list-disc list-inside space-y-1 text-sm">
+                          <li>Remover todos os dados salvos do localStorage</li>
+                          <li>Resetar todas as configurações para valores padrão</li>
+                          <li>Recarregar a página automaticamente</li>
+                        </ul>
+                        <p className="font-semibold text-destructive mt-3">
+                          ⚠️ Esta ação não pode ser desfeita!
+                        </p>
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                      <AlertDialogAction 
+                        onClick={clearAllCache}
+                        className="bg-destructive hover:bg-destructive/90"
+                      >
+                        Sim, Limpar Tudo
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </div>
             </div>
+            
+            {/* Resumo expandido quando colapsado */}
             {!isConfigOpen && (
-              <div className="text-xs text-muted-foreground mt-2">
-                Estudo: {estudoMode === 'artist' && estudoArtist ? estudoArtist : `${estudoCorpusBase} (completo)`} vs Referência: {refMode === 'artist' && refArtist ? refArtist : `${refCorpusBase} (completo)`}
+              <div className="mt-3 p-3 bg-background/50 rounded-md border-l-2 border-primary space-y-2">
+                <div className="text-sm">
+                  <span className="font-medium text-foreground">Estudo:</span>{' '}
+                  <span className="text-muted-foreground">
+                    {estudoMode === 'artist' && estudoArtist ? estudoArtist : `${estudoCorpusBase} (completo)`}
+                  </span>
+                  <span className="mx-2 text-muted-foreground">vs</span>
+                  <span className="font-medium text-foreground">Referência:</span>{' '}
+                  <span className="text-muted-foreground">
+                    {refMode === 'artist' && refArtist ? refArtist : `${refCorpusBase} (completo)`}
+                  </span>
+                </div>
+                
+                {/* Preview das análises ativas */}
+                <div className="flex gap-2 flex-wrap">
+                  {analysisConfig.generateKeywordsList && (
+                    <Badge variant="outline" className="text-xs">📋 Lista</Badge>
+                  )}
+                  {analysisConfig.generateScatterPlot && (
+                    <Badge variant="outline" className="text-xs">📊 Dispersão</Badge>
+                  )}
+                  {analysisConfig.generateComparisonChart && (
+                    <Badge variant="outline" className="text-xs">📈 Comparativo</Badge>
+                  )}
+                  {analysisConfig.generateDispersion && (
+                    <Badge variant="outline" className="text-xs">🎯 Palavras</Badge>
+                  )}
+                </div>
               </div>
             )}
           </CardHeader>
@@ -852,17 +954,18 @@ export function KeywordsTool() {
           <Button
             onClick={handleProcessKeywords}
             disabled={isLoading}
-            className="w-full"
+            className="w-full relative overflow-hidden group"
             data-tour="keywords-process"
           >
             {isLoading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Processando...
+                Processando Keywords...
+                <span className="absolute bottom-0 left-0 h-1 bg-primary/30 animate-pulse w-full" />
               </>
             ) : (
               <>
-                <Play className="mr-2 h-4 w-4" />
+                <Play className="mr-2 h-4 w-4 group-hover:scale-110 transition-transform" />
                 Processar Keywords
               </>
             )}
