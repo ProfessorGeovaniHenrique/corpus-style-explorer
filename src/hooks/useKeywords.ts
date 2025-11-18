@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { KeywordEntry, CorpusType } from "@/data/types/corpus-tools.types";
+import { KeywordEntry, CorpusType, CorpusWord } from "@/data/types/corpus-tools.types";
 import { parseTSVCorpus } from "@/lib/corpusParser";
 import { generateKeywords } from "@/services/keywordService";
+import { loadFullTextCorpus } from "@/lib/fullTextParser";
 
 export function useKeywords() {
   const [keywords, setKeywords] = useState<KeywordEntry[]>([]);
@@ -10,55 +11,73 @@ export function useKeywords() {
   const [isProcessed, setIsProcessed] = useState(false);
   
   const processKeywords = async (
-    corpusEstudo: CorpusType,
-    corpusReferencia: CorpusType
+    estudoId: string,  // Pode ser 'gaucho', 'nordestino', ou 'gaucho-Luiz Marenco'
+    referenciaId: string
   ) => {
-    // Validação: corpus diferentes
-    if (corpusEstudo === corpusReferencia) {
-      setError('Os corpus de estudo e referência devem ser diferentes');
-      return;
-    }
-    
     setIsLoading(true);
     setError(null);
     setKeywords([]);
     setIsProcessed(false);
     
     try {
-      // Função helper para mapear corpus para caminho
-      const getCorpusPath = (corpus: CorpusType): string => {
-        switch(corpus) {
-          case 'gaucho':
-            return '/src/data/corpus/corpus-estudo-gaucho.txt';
-          case 'nordestino':
-            return '/src/data/corpus/corpus-referencia-nordestino.txt';
-          case 'marenco-verso':
-            return '/src/data/corpus/corpus-luiz-marenco-verso.txt';
-          default:
-            return '/src/data/corpus/corpus-estudo-gaucho.txt';
+      // Helper para carregar e processar corpus ou subcorpus
+      const loadCorpusData = async (id: string): Promise<CorpusWord[]> => {
+        // Detectar se é subcorpus (formato: 'corpus-artista')
+        if (id.includes('-')) {
+          const [corpusBase, artist] = id.split('-');
+          console.log(`📚 Carregando subcorpus: ${corpusBase} - Artista: ${artist}`);
+          
+          const fullCorpus = await loadFullTextCorpus(corpusBase as CorpusType);
+          
+          // Filtrar músicas do artista
+          const artistSongs = fullCorpus.musicas.filter(m => m.metadata.artista === artist);
+          console.log(`🎵 Músicas de ${artist}: ${artistSongs.length}`);
+          
+          if (artistSongs.length === 0) {
+            throw new Error(`Nenhuma música encontrada para o artista ${artist}`);
+          }
+          
+          // Converter para CorpusWord[] contando frequências
+          const wordFreqMap = new Map<string, number>();
+          artistSongs.forEach(song => {
+            song.palavras.forEach(word => {
+              const cleaned = word.toLowerCase();
+              if (cleaned) {
+                wordFreqMap.set(cleaned, (wordFreqMap.get(cleaned) || 0) + 1);
+              }
+            });
+          });
+          
+          const totalWords = Array.from(wordFreqMap.values()).reduce((a, b) => a + b, 0);
+          console.log(`📊 Total de palavras: ${totalWords}, Palavras únicas: ${wordFreqMap.size}`);
+          
+          return Array.from(wordFreqMap.entries())
+            .map(([word, freq], index) => ({
+              headword: word,
+              freq,
+              rank: index + 1,
+              range: 0, // Range não aplicável para subcorpus
+              normFreq: (freq / totalWords) * 1000000,
+              normRange: 0
+            }))
+            .sort((a, b) => b.freq - a.freq);
+        } else {
+          // Corpus completo - usar caminho TSV
+          console.log(`📚 Carregando corpus completo: ${id}`);
+          const path = getCorpusPath(id as CorpusType);
+          const response = await fetch(path);
+          const text = await response.text();
+          return parseTSVCorpus(text);
         }
       };
       
-      const estudoPath = getCorpusPath(corpusEstudo);
-      const referenciaPath = getCorpusPath(corpusReferencia);
-      
-      const [estudoResponse, referenciaResponse] = await Promise.all([
-        fetch(estudoPath),
-        fetch(referenciaPath)
+      const [estudoData, referenciaData] = await Promise.all([
+        loadCorpusData(estudoId),
+        loadCorpusData(referenciaId)
       ]);
-      
-      const [estudoText, referenciaText] = await Promise.all([
-        estudoResponse.text(),
-        referenciaResponse.text()
-      ]);
-      
-      const estudoData = parseTSVCorpus(estudoText);
-      const referenciaData = parseTSVCorpus(referenciaText);
       
       console.log(`📄 Corpus Estudo: ${estudoData.length} palavras únicas`);
       console.log(`📄 Corpus Referência: ${referenciaData.length} palavras únicas`);
-      console.log(`📊 Sample Estudo:`, estudoData.slice(0, 3));
-      console.log(`📊 Sample Referência:`, referenciaData.slice(0, 3));
       
       if (estudoData.length === 0) {
         throw new Error('Corpus de estudo vazio ou mal formatado');
@@ -75,11 +94,25 @@ export function useKeywords() {
       setIsProcessed(true);
     } catch (err) {
       console.error('Error processing keywords:', err);
-      setError('Erro ao processar corpus. Verifique os arquivos.');
+      setError(err instanceof Error ? err.message : 'Erro ao processar corpus. Verifique os arquivos.');
     } finally {
       setIsLoading(false);
     }
   };
   
   return { keywords, isLoading, error, isProcessed, processKeywords };
+}
+
+// Helper function para mapear corpus para caminho
+function getCorpusPath(corpus: CorpusType): string {
+  switch(corpus) {
+    case 'gaucho':
+      return '/src/data/corpus/corpus-estudo-gaucho.txt';
+    case 'nordestino':
+      return '/src/data/corpus/corpus-referencia-nordestino.txt';
+    case 'marenco-verso':
+      return '/src/data/corpus/corpus-luiz-marenco-verso.txt';
+    default:
+      return '/src/data/corpus/corpus-estudo-gaucho.txt';
+  }
 }

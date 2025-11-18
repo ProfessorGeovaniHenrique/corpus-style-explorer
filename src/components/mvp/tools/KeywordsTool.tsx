@@ -13,16 +13,25 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Download, Search, Play, Loader2, ChevronDown, ChevronUp, TrendingUp, TrendingDown, MousePointerClick, Music } from "lucide-react";
-import { KeywordEntry, CorpusType, CORPUS_CONFIG } from "@/data/types/corpus-tools.types";
+import { KeywordEntry, CorpusType } from "@/data/types/corpus-tools.types";
 import { useTools } from "@/contexts/ToolsContext";
 import { useSubcorpus } from "@/contexts/SubcorpusContext";
 import { toast } from "sonner";
+import { CorpusSubcorpusSelector } from "@/components/corpus/CorpusSubcorpusSelector";
 
 export function KeywordsTool() {
   useFeatureTour('keywords', keywordsTourSteps);
   
-  const [corpusEstudo, setCorpusEstudo] = useState<CorpusType>('gaucho');
-  const [corpusReferencia, setCorpusReferencia] = useState<CorpusType>('nordestino');
+  // Estado para Corpus de Estudo
+  const [estudoCorpusBase, setEstudoCorpusBase] = useState<CorpusType>('gaucho');
+  const [estudoMode, setEstudoMode] = useState<'complete' | 'artist'>('complete');
+  const [estudoArtist, setEstudoArtist] = useState<string | null>(null);
+  
+  // Estado para Corpus de Referência
+  const [refCorpusBase, setRefCorpusBase] = useState<CorpusType>('nordestino');
+  const [refMode, setRefMode] = useState<'complete' | 'artist'>('complete');
+  const [refArtist, setRefArtist] = useState<string | null>(null);
+  
   const { keywords, isLoading, error, isProcessed, processKeywords } = useKeywords();
   const { navigateToKWIC } = useTools();
   const { currentMetadata, selection } = useSubcorpus();
@@ -69,9 +78,51 @@ export function KeywordsTool() {
     }
   };
   
+  const handleProcessKeywords = async () => {
+    // Validação: não pode comparar corpus/subcorpus idênticos
+    if (
+      estudoCorpusBase === refCorpusBase && 
+      estudoMode === refMode &&
+      estudoMode === 'complete'
+    ) {
+      toast.error('Selecione corpus diferentes para comparação');
+      return;
+    }
+    
+    if (
+      estudoCorpusBase === refCorpusBase &&
+      estudoMode === 'artist' && refMode === 'artist' &&
+      estudoArtist === refArtist
+    ) {
+      toast.error('Selecione artistas diferentes para comparação');
+      return;
+    }
+    
+    if (estudoMode === 'artist' && !estudoArtist) {
+      toast.error('Selecione um artista para o corpus de estudo');
+      return;
+    }
+    
+    if (refMode === 'artist' && !refArtist) {
+      toast.error('Selecione um artista para o corpus de referência');
+      return;
+    }
+    
+    // Construir identificadores de corpus para processamento
+    const estudoId = estudoMode === 'complete' 
+      ? estudoCorpusBase 
+      : `${estudoCorpusBase}-${estudoArtist}`;
+      
+    const refId = refMode === 'complete'
+      ? refCorpusBase
+      : `${refCorpusBase}-${refArtist}`;
+    
+    await processKeywords(estudoId, refId);
+  };
+  
   const handleExportCSV = () => {
-    const estudoLabel = CORPUS_CONFIG[corpusEstudo].label;
-    const referenciaLabel = CORPUS_CONFIG[corpusReferencia].label;
+    const estudoLabel = estudoMode === 'complete' ? estudoCorpusBase : `${estudoCorpusBase}-${estudoArtist}`;
+    const referenciaLabel = refMode === 'complete' ? refCorpusBase : `${refCorpusBase}-${refArtist}`;
     
     const csv = [
       ['Rank', 'Palavra', 'Freq Estudo', 'Freq Referência', 'Norm Freq Estudo', 'Norm Freq Referência', 'Log-Likelihood', 'MI Score', 'Efeito', 'Significância'].join(','),
@@ -85,7 +136,7 @@ export function KeywordsTool() {
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = `keywords_${corpusEstudo}_vs_${corpusReferencia}_${new Date().toISOString().split('T')[0]}.csv`;
+    link.download = `keywords_${estudoLabel}_vs_${referenciaLabel}_${new Date().toISOString().split('T')[0]}.csv`;
     link.click();
     toast.success('Keywords exportadas com sucesso!');
   };
@@ -115,47 +166,55 @@ export function KeywordsTool() {
         </Alert>
       )}
       
-      {selection.mode === 'complete' && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Configuração de Análise</CardTitle>
-            <CardDescription>Selecione os corpora de estudo e referência</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Corpus de Estudo</Label>
-                <Select value={corpusEstudo} onValueChange={(v) => setCorpusEstudo(v as CorpusType)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="gaucho">Gaúcho Consolidado</SelectItem>
-                    <SelectItem value="nordestino">Nordestino</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Corpus de Referência</Label>
-                <Select value={corpusReferencia} onValueChange={(v) => setCorpusReferencia(v as CorpusType)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="gaucho">Gaúcho Consolidado</SelectItem>
-                    <SelectItem value="nordestino">Nordestino</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <Button onClick={() => processKeywords(corpusEstudo, corpusReferencia)} disabled={isLoading || corpusEstudo === corpusReferencia}>
-              {isLoading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Processando...</> : <><Play className="h-4 w-4 mr-2" />Gerar Keywords</>}
-            </Button>
-          </CardContent>
-        </Card>
-      )}
-      
-      {selection.mode !== 'complete' && (
-        <Button onClick={() => processKeywords(corpusEstudo, corpusReferencia)} disabled={isLoading}>
-          {isLoading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Processando...</> : <><TrendingUp className="h-4 w-4 mr-2" />Gerar Keywords</>}
-        </Button>
-      )}
+      <Card>
+        <CardHeader>
+          <CardTitle>Configuração de Análise</CardTitle>
+          <CardDescription>Selecione os corpora de estudo e referência para comparação</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <CorpusSubcorpusSelector 
+              label="Corpus de Estudo"
+              corpusBase={estudoCorpusBase}
+              onCorpusBaseChange={setEstudoCorpusBase}
+              mode={estudoMode}
+              onModeChange={setEstudoMode}
+              selectedArtist={estudoArtist}
+              onArtistChange={setEstudoArtist}
+              disabled={isLoading}
+            />
+            
+            <CorpusSubcorpusSelector 
+              label="Corpus de Referência"
+              corpusBase={refCorpusBase}
+              onCorpusBaseChange={setRefCorpusBase}
+              mode={refMode}
+              onModeChange={setRefMode}
+              selectedArtist={refArtist}
+              onArtistChange={setRefArtist}
+              disabled={isLoading}
+            />
+          </div>
+          
+          <Button 
+            onClick={handleProcessKeywords} 
+            disabled={isLoading}
+            className="w-full"
+          >
+            {isLoading ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Processando...
+              </>
+            ) : (
+              <>
+                <Play className="h-4 w-4 mr-2" />
+                Gerar Keywords
+              </>
+            )}
+          </Button>
+        </CardContent>
+      </Card>
       
       {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
       
