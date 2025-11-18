@@ -1,15 +1,14 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Download, Search, Loader2, ChevronDown, ChevronUp, MousePointerClick } from "lucide-react";
-import { CorpusType, CORPUS_CONFIG } from "@/data/types/corpus-tools.types";
+import { Download, Search, Loader2, ChevronDown, ChevronUp, MousePointerClick, Music } from "lucide-react";
 import { useTools } from "@/contexts/ToolsContext";
-import { useCorpusCache } from "@/contexts/CorpusContext";
+import { useSubcorpus } from "@/contexts/SubcorpusContext";
 import { toast } from "sonner";
 
 interface WordEntry {
@@ -19,31 +18,44 @@ interface WordEntry {
 }
 
 export function WordlistTool() {
-  const [corpusType, setCorpusType] = useState<CorpusType>('gaucho');
   const [wordlist, setWordlist] = useState<WordEntry[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [sortColumn, setSortColumn] = useState<'frequencia' | 'palavra'>('frequencia');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [isLoading, setIsLoading] = useState(false);
+  
   const { navigateToKWIC } = useTools();
-  const { getWordlistCache, isLoading } = useCorpusCache();
+  const { getFilteredCorpus, currentMetadata } = useSubcorpus();
 
   const loadWordlist = async () => {
+    setIsLoading(true);
     try {
-      const config = CORPUS_CONFIG[corpusType];
-      const cache = await getWordlistCache(corpusType, config.estudoPath);
+      const corpus = await getFilteredCorpus();
       
-      // Converter para formato WordEntry com normalização
-      const words: WordEntry[] = cache.words.map(word => ({
-        palavra: word.headword,
-        frequencia: word.freq,
-        frequenciaNormalizada: (word.freq / cache.totalTokens) * 10000
+      // Extrair palavras e contar frequências
+      const frequencyMap = new Map<string, number>();
+      corpus.musicas.forEach(musica => {
+        musica.palavras.forEach(palavra => {
+          const palavraLower = palavra.toLowerCase();
+          frequencyMap.set(palavraLower, (frequencyMap.get(palavraLower) || 0) + 1);
+        });
+      });
+      
+      // Converter para array e calcular freq normalizada
+      const totalTokens = corpus.totalPalavras;
+      const words = Array.from(frequencyMap.entries()).map(([text, frequency]) => ({
+        palavra: text,
+        frequencia: frequency,
+        frequenciaNormalizada: (frequency / totalTokens) * 10000
       }));
-
+      
       setWordlist(words);
-      toast.success(`${words.length.toLocaleString('pt-BR')} palavras carregadas`);
+      toast.success(`${words.length.toLocaleString('pt-BR')} palavras únicas`);
     } catch (error) {
-      console.error('Erro ao carregar wordlist:', error);
-      toast.error('Erro ao carregar wordlist');
+      console.error('Erro ao gerar wordlist:', error);
+      toast.error('Erro ao gerar wordlist');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -85,7 +97,8 @@ export function WordlistTool() {
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = `wordlist_${corpusType}_${new Date().toISOString().split('T')[0]}.csv`;
+    const subcorpusLabel = currentMetadata ? `_${currentMetadata.artista.replace(/\s+/g, '_')}` : '';
+    link.download = `wordlist${subcorpusLabel}_${new Date().toISOString().split('T')[0]}.csv`;
     link.click();
     toast.success('Wordlist exportada com sucesso');
   };
@@ -97,24 +110,28 @@ export function WordlistTool() {
 
   return (
     <div className="space-y-6">
+      {/* Indicador de Subcorpus */}
+      {currentMetadata && (
+        <Alert className="border-primary/20 bg-primary/5">
+          <Music className="h-4 w-4" />
+          <AlertDescription className="flex items-center gap-3">
+            <span>
+              Analisando subcorpus: <strong className="text-primary">{currentMetadata.artista}</strong>
+            </span>
+            <Badge variant="outline" className="gap-1">
+              {currentMetadata.totalMusicas} músicas
+            </Badge>
+            <span className="text-muted-foreground">•</span>
+            <span className="text-muted-foreground">
+              {currentMetadata.totalPalavras.toLocaleString()} palavras
+            </span>
+          </AlertDescription>
+        </Alert>
+      )}
+      
+      {/* Controles */}
       <div className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label>Corpus</Label>
-            <Select value={corpusType} onValueChange={(v) => setCorpusType(v as CorpusType)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {Object.entries(CORPUS_CONFIG).map(([key, config]) => (
-                  <SelectItem key={key} value={key}>
-                    {config.icon} {config.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
           <div className="space-y-2">
             <Label>Buscar palavra</Label>
             <div className="relative">
@@ -130,111 +147,104 @@ export function WordlistTool() {
         </div>
 
         <div className="flex gap-2">
-          <Button 
-            onClick={loadWordlist} 
-            disabled={isLoading}
-            className="flex-1"
-          >
+          <Button onClick={loadWordlist} disabled={isLoading}>
             {isLoading ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                 Carregando...
               </>
             ) : (
-              <>
-                <Search className="mr-2 h-4 w-4" />
-                Gerar Wordlist
-              </>
+              'Gerar Wordlist'
             )}
           </Button>
           
-          <Button 
-            onClick={handleExportCSV}
-            variant="outline"
-            disabled={wordlist.length === 0}
-          >
-            <Download className="mr-2 h-4 w-4" />
-            Exportar CSV
-          </Button>
+          {wordlist.length > 0 && (
+            <Button variant="outline" onClick={handleExportCSV}>
+              <Download className="h-4 w-4 mr-2" />
+              Exportar CSV
+            </Button>
+          )}
         </div>
       </div>
 
+      {/* Tabela */}
       {wordlist.length > 0 && (
-        <>
-          <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg border border-border">
-            <MousePointerClick className="h-4 w-4 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">
-              <strong>Dica:</strong> Clique em qualquer palavra para analisá-la no KWIC
-            </p>
-          </div>
-
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[80px]">Rank</TableHead>
-                  <TableHead>
-                    <Button
-                      variant="ghost"
-                      onClick={() => handleSort('palavra')}
-                      className="flex items-center gap-1 p-0 h-auto font-semibold hover:bg-transparent"
-                    >
-                      Palavra
-                      {sortColumn === 'palavra' && (
-                        sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />
-                      )}
-                    </Button>
-                  </TableHead>
-                  <TableHead className="text-right">
-                    <Button
-                      variant="ghost"
-                      onClick={() => handleSort('frequencia')}
-                      className="flex items-center gap-1 p-0 h-auto font-semibold hover:bg-transparent ml-auto"
-                    >
-                      Frequência
-                      {sortColumn === 'frequencia' && (
-                        sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />
-                      )}
-                    </Button>
-                  </TableHead>
-                  <TableHead className="text-right">Freq. Norm.</TableHead>
+        <div className="rounded-md border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-20">Rank</TableHead>
+                <TableHead>
+                  <Button
+                    variant="ghost"
+                    onClick={() => handleSort('palavra')}
+                    className="flex items-center gap-1 hover:bg-transparent p-0 h-auto font-semibold"
+                  >
+                    Palavra
+                    {sortColumn === 'palavra' && (
+                      sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />
+                    )}
+                  </Button>
+                </TableHead>
+                <TableHead className="text-right">
+                  <Button
+                    variant="ghost"
+                    onClick={() => handleSort('frequencia')}
+                    className="flex items-center justify-end gap-1 hover:bg-transparent p-0 h-auto font-semibold ml-auto"
+                  >
+                    Frequência
+                    {sortColumn === 'frequencia' && (
+                      sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />
+                    )}
+                  </Button>
+                </TableHead>
+                <TableHead className="text-right">
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger className="font-semibold">Freq. Norm.</TooltipTrigger>
+                      <TooltipContent>Por 10.000 palavras</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </TableHead>
+                <TableHead className="w-20 text-center">Ações</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredWordlist.slice(0, 100).map((word, idx) => (
+                <TableRow key={word.palavra}>
+                  <TableCell className="text-muted-foreground">{idx + 1}</TableCell>
+                  <TableCell className="font-mono font-medium">{word.palavra}</TableCell>
+                  <TableCell className="text-right">{word.frequencia.toLocaleString('pt-BR')}</TableCell>
+                  <TableCell className="text-right">{word.frequenciaNormalizada.toFixed(2)}</TableCell>
+                  <TableCell className="text-center">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleWordClick(word.palavra)}
+                            className="h-8 w-8"
+                          >
+                            <MousePointerClick className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Ver no KWIC</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredWordlist.slice(0, 100).map((word, idx) => (
-                  <TableRow key={idx}>
-                    <TableCell className="font-medium">{idx + 1}</TableCell>
-                    <TableCell>
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <button
-                              onClick={() => handleWordClick(word.palavra)}
-                              className="font-mono text-primary hover:underline hover:text-primary/80 transition-colors cursor-pointer text-left"
-                            >
-                              {word.palavra}
-                            </button>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>Clique para analisar no KWIC</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    </TableCell>
-                    <TableCell className="text-right">{word.frequencia.toLocaleString('pt-BR')}</TableCell>
-                    <TableCell className="text-right">{word.frequenciaNormalizada.toFixed(2)}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+              ))}
+            </TableBody>
+          </Table>
           
           {filteredWordlist.length > 100 && (
-            <p className="text-sm text-muted-foreground text-center">
-              Mostrando 100 de {filteredWordlist.length.toLocaleString('pt-BR')} resultados. Exporte para ver todos.
-            </p>
+            <div className="p-4 text-center text-sm text-muted-foreground">
+              Mostrando 100 de {filteredWordlist.length.toLocaleString('pt-BR')} palavras.
+              Exporte o CSV para ver todos os resultados.
+            </div>
           )}
-        </>
+        </div>
       )}
     </div>
   );

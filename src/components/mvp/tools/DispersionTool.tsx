@@ -75,7 +75,8 @@ export function DispersionTool() {
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = `dispersao_${palavra}_${corpusType}.csv`;
+    const subcorpusLabel = currentMetadata ? `_${currentMetadata.artista.replace(/\s+/g, '_')}` : '';
+    link.download = `dispersao_${analysis.palavra}${subcorpusLabel}_${new Date().toISOString().split('T')[0]}.csv`;
     link.click();
     
     toast.success('Dados exportados com sucesso');
@@ -99,6 +100,40 @@ export function DispersionTool() {
   
   return (
     <div className="space-y-6">
+      {/* Indicador de Subcorpus */}
+      {currentMetadata && (
+        <Alert className="border-primary/20 bg-primary/5">
+          <Music className="h-4 w-4" />
+          <AlertDescription className="flex items-center gap-3">
+            <span>
+              Analisando subcorpus: <strong className="text-primary">{currentMetadata.artista}</strong>
+            </span>
+            <Badge variant="outline" className="gap-1">
+              {currentMetadata.totalMusicas} músicas
+            </Badge>
+            <span className="text-muted-foreground">•</span>
+            <span className="text-muted-foreground">
+              {currentMetadata.totalPalavras.toLocaleString()} palavras
+            </span>
+          </AlertDescription>
+        </Alert>
+      )}
+      
+      {/* Progress bar durante carregamento */}
+      {isLoadingCorpus && (
+        <Card>
+          <CardContent className="pt-6">
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span>Carregando corpus...</span>
+              </div>
+              <Progress value={50} className="w-full" />
+            </div>
+          </CardContent>
+        </Card>
+      )}
+      
+      {/* Controles */}
       <Card>
         <CardHeader>
           <CardTitle>Análise de Dispersão</CardTitle>
@@ -107,247 +142,123 @@ export function DispersionTool() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {isCacheLoading && (
+          <div className="grid grid-cols-1 gap-4">
             <div className="space-y-2">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Carregando corpus...
+              <Label htmlFor="palavra-input">Palavra para análise</Label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="palavra-input"
+                  placeholder="Digite uma palavra..."
+                  value={palavra}
+                  onChange={(e) => setPalavra(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleAnalyze()}
+                  className="pl-9"
+                />
               </div>
-              <Progress value={progress} className="w-full" />
-            </div>
-          )}
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Corpus</Label>
-              <Select value={corpusType} onValueChange={(v) => setCorpusType(v as 'gaucho' | 'nordestino')}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="gaucho">🎸 Corpus Gaúcho</SelectItem>
-                  <SelectItem value="nordestino">🪘 Corpus Nordestino</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div className="space-y-2">
-              <Label>Palavra</Label>
-              <Input
-                placeholder="Digite uma palavra..."
-                value={palavra}
-                onChange={(e) => setPalavra(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleAnalyze()}
-              />
             </div>
           </div>
           
-          <Collapsible open={showFilters} onOpenChange={setShowFilters}>
-            <CollapsibleTrigger asChild>
-              <Button variant="outline" className="w-full">
-                <Filter className="mr-2 h-4 w-4" />
-                Filtros Avançados
-                {(selectedArtistas.length > 0 || selectedAlbuns.length > 0 || anoInicio || anoFim) && (
-                  <span className="ml-2 text-xs bg-primary text-primary-foreground rounded-full px-2 py-0.5">
-                    Ativos
-                  </span>
-                )}
-              </Button>
-            </CollapsibleTrigger>
-            <CollapsibleContent className="space-y-4 pt-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Filtrar por Artista</Label>
-                  <Select 
-                    value={selectedArtistas[0] || ''} 
-                    onValueChange={(v) => setSelectedArtistas(v ? [v] : [])}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Todos os artistas" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="">Todos os artistas</SelectItem>
-                      {artistasDisponiveis.map(artista => (
-                        <SelectItem key={artista} value={artista}>{artista}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label>Filtrar por Álbum</Label>
-                  <Select 
-                    value={selectedAlbuns[0] || ''} 
-                    onValueChange={(v) => setSelectedAlbuns(v ? [v] : [])}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Todos os álbuns" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="">Todos os álbuns</SelectItem>
-                      {albunsDisponiveis.map(album => (
-                        <SelectItem key={album} value={album}>{album}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label>Ano Início</Label>
-                  <Input
-                    type="number"
-                    placeholder="Ex: 1990"
-                    value={anoInicio}
-                    onChange={(e) => setAnoInicio(e.target.value)}
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label>Ano Fim</Label>
-                  <Input
-                    type="number"
-                    placeholder="Ex: 2020"
-                    value={anoFim}
-                    onChange={(e) => setAnoFim(e.target.value)}
-                  />
-                </div>
-              </div>
-              
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setSelectedArtistas([]);
-                  setSelectedAlbuns([]);
-                  setAnoInicio('');
-                  setAnoFim('');
-                }}
-                className="w-full"
-              >
-                Limpar Filtros
-              </Button>
-            </CollapsibleContent>
-          </Collapsible>
-          
           <div className="flex gap-2">
             <Button 
-              onClick={handleAnalyze}
-              disabled={isCacheLoading || isProcessing}
-              className="flex-1"
+              onClick={handleAnalyze} 
+              disabled={isProcessing || !corpus || !palavra.trim()}
+              className="gap-2"
             >
               {isProcessing ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Loader2 className="h-4 w-4 animate-spin" />
                   Analisando...
                 </>
               ) : (
                 <>
-                  <Search className="mr-2 h-4 w-4" />
-                  Analisar
+                  <TrendingUp className="h-4 w-4" />
+                  Analisar Dispersão
                 </>
               )}
             </Button>
             
-            <Button 
-              onClick={handleExport} 
-              variant="outline"
-              disabled={!analysis}
-            >
-              <Download className="mr-2 h-4 w-4" />
-              Exportar CSV
-            </Button>
+            {analysis && (
+              <Button variant="outline" onClick={handleExport} className="gap-2">
+                <Download className="h-4 w-4" />
+                Exportar CSV
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>
       
+      {/* Resultados */}
       {analysis && (
-        <>
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="h-5 w-5" />
-                Estatísticas de Dispersão
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="space-y-1">
-                  <p className="text-sm text-muted-foreground">Total de Ocorrências</p>
-                  <p className="text-2xl font-bold">{analysis.totalOcorrencias}</p>
-                </div>
-                
-                <div className="space-y-1">
-                  <p className="text-sm text-muted-foreground">Músicas com a Palavra</p>
-                  <p className="text-2xl font-bold">{analysis.musicasComPalavra}</p>
-                </div>
-                
-                <div className="space-y-1">
-                  <p className="text-sm text-muted-foreground">Coeficiente de Dispersão</p>
-                  <p className="text-2xl font-bold">{analysis.coeficienteDispersao.toFixed(3)}</p>
-                </div>
-                
-                <div className="space-y-1">
-                  <p className="text-sm text-muted-foreground">Densidade</p>
+        <div className="space-y-6">
+          {/* Métricas */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <Card>
+              <CardContent className="pt-6">
+                <div className="text-2xl font-bold">{analysis.totalOcorrencias}</div>
+                <p className="text-xs text-muted-foreground">Total de Ocorrências</p>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardContent className="pt-6">
+                <div className="text-2xl font-bold">{analysis.musicasComPalavra}</div>
+                <p className="text-xs text-muted-foreground">Músicas com a Palavra</p>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardContent className="pt-6">
+                <div className="text-2xl font-bold">{analysis.coeficienteDispersao.toFixed(2)}</div>
+                <p className="text-xs text-muted-foreground">Coeficiente de Dispersão</p>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-2">
                   <Badge 
                     variant={analysis.densidade === 'Alta' ? 'default' : analysis.densidade === 'Média' ? 'secondary' : 'outline'}
-                    className="text-base px-3 py-1"
+                    className="text-lg"
                   >
                     {analysis.densidade}
                   </Badge>
                 </div>
-              </div>
-              
-              <div className="mt-4 p-3 rounded-md bg-muted/50 text-sm text-muted-foreground">
-                <p className="font-medium mb-1">Interpretação:</p>
-                <p>
-                  {analysis.densidade === 'Alta' && 'A palavra está distribuída de forma equilibrada ao longo do corpus.'}
-                  {analysis.densidade === 'Média' && 'A palavra tem uma distribuição moderada, com algumas concentrações.'}
-                  {analysis.densidade === 'Baixa' && 'A palavra está concentrada em partes específicas do corpus.'}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+                <p className="text-xs text-muted-foreground mt-1">Densidade</p>
+              </CardContent>
+            </Card>
+          </div>
           
+          {/* Gráfico de dispersão */}
           <Card>
             <CardHeader>
-              <CardTitle>Gráfico de Dispersão</CardTitle>
+              <CardTitle>Distribuição de "{analysis.palavra}" no Corpus</CardTitle>
               <CardDescription>
-                Distribuição da palavra "{analysis.palavra}" ao longo do corpus
+                Cada ponto representa uma ocorrência da palavra ao longo do corpus
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={400}>
+              <ResponsiveContainer width="100%" height={200}>
                 <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <CartesianGrid strokeDasharray="3 3" />
                   <XAxis 
                     type="number" 
                     dataKey="x" 
-                    name="Posição" 
-                    unit="%"
                     domain={[0, 100]}
-                    stroke="hsl(var(--muted-foreground))"
+                    label={{ value: 'Posição no Corpus (%)', position: 'insideBottom', offset: -10 }}
                   />
-                  <YAxis 
-                    type="number" 
-                    dataKey="y" 
-                    name="Ocorrência"
-                    stroke="hsl(var(--muted-foreground))"
-                  />
+                  <YAxis type="number" domain={[0, 2]} hide />
                   <Tooltip 
-                    cursor={{ strokeDasharray: '3 3' }}
-                    contentStyle={{
-                      backgroundColor: 'hsl(var(--background))',
-                      border: '1px solid hsl(var(--border))',
-                      borderRadius: '6px'
-                    }}
-                    content={({ payload }) => {
-                      if (payload && payload.length > 0) {
+                    content={({ active, payload }) => {
+                      if (active && payload && payload.length) {
                         const data = payload[0].payload;
                         return (
-                          <div className="p-2 space-y-1">
-                            <p className="font-medium">{data.artista}</p>
+                          <div className="bg-background border rounded-lg p-3 shadow-lg">
+                            <p className="font-semibold">{data.artista}</p>
                             <p className="text-sm text-muted-foreground">{data.musica}</p>
-                            <p className="text-xs">Posição: {data.x.toFixed(1)}%</p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Posição: {data.x.toFixed(1)}%
+                            </p>
                           </div>
                         );
                       }
@@ -363,7 +274,7 @@ export function DispersionTool() {
               </ResponsiveContainer>
             </CardContent>
           </Card>
-        </>
+        </div>
       )}
     </div>
   );

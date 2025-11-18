@@ -3,13 +3,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Wrench, Sparkles } from "lucide-react";
 import { ToolsProvider, useTools } from "@/contexts/ToolsContext";
 import { CorpusProvider } from "@/contexts/CorpusContext";
+import { SubcorpusProvider } from "@/contexts/SubcorpusContext";
+import { UnifiedCorpusSelector } from "@/components/corpus/UnifiedCorpusSelector";
 import { WordlistTool } from "./tools/WordlistTool";
 import { KeywordsTool } from "./tools/KeywordsTool";
 import { KWICTool } from "./tools/KWICTool";
 import { DispersionTool } from "./tools/DispersionTool";
 import { NGramsTool } from "./tools/NGramsTool";
 import { AdvancedAnalysisTab } from "./tools/AdvancedAnalysisTab";
-
 import { useAnalytics } from '@/hooks/useAnalytics';
 
 function TabToolsContent() {
@@ -25,14 +26,19 @@ function TabToolsContent() {
 
   return (
     <Card className="card-academic">
-      <CardHeader>
-        <CardTitle className="section-header-academic flex items-center gap-2">
-          <Wrench className="w-5 h-5" />
-          Ferramentas de Estilística de Corpus
-        </CardTitle>
-        <CardDescription className="section-description-academic">
-          Análise linguística completa com ferramentas básicas e avançadas
-        </CardDescription>
+      <CardHeader className="space-y-4">
+        <div>
+          <CardTitle className="section-header-academic flex items-center gap-2">
+            <Wrench className="w-5 h-5" />
+            Ferramentas de Estilística de Corpus
+          </CardTitle>
+          <CardDescription className="section-description-academic">
+            Análise linguística completa com ferramentas básicas e avançadas
+          </CardDescription>
+        </div>
+        
+        {/* Seletor Unificado de Corpus/Subcorpus */}
+        <UnifiedCorpusSelector allowComparison={activeTab === 'keywords'} />
       </CardHeader>
       
       <CardContent>
@@ -91,12 +97,14 @@ function TabToolsContent() {
 
 export function TabTools() {
   return (
-    <CorpusProvider>
-      <ToolsProvider>
-        <div className="space-y-6">
-          <TabToolsContent />
-        </div>
-      </ToolsProvider>
-    </CorpusProvider>
+    <SubcorpusProvider>
+      <CorpusProvider>
+        <ToolsProvider>
+          <div className="space-y-6">
+            <TabToolsContent />
+          </div>
+        </ToolsProvider>
+      </CorpusProvider>
+    </SubcorpusProvider>
   );
 }

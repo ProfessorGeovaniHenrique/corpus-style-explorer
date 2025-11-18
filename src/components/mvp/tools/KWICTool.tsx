@@ -1,105 +1,69 @@
-import { useState, useEffect, useMemo } from "react";
-import { Search, Download, Loader2, Filter } from "lucide-react";
-import { useFeatureTour } from "@/hooks/useFeatureTour";
-import { kwicTourSteps } from "./KWICTool.tour";
+import { useState, useEffect } from "react";
+import { Search, Download, Loader2, Music } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Slider } from "@/components/ui/slider";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { useCorpusCache } from "@/contexts/CorpusContext";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { generateKWIC, exportKWICToCSV } from "@/services/kwicService";
 import { KWICContext, CorpusCompleto } from "@/data/types/full-text-corpus.types";
-import { useTools } from "@/contexts/ToolsContext";
 import { toast } from "sonner";
+import { useTools } from "@/contexts/ToolsContext";
+import { useSubcorpus } from "@/contexts/SubcorpusContext";
+import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
+import { useFeatureTour } from "@/hooks/useFeatureTour";
+import { kwicTourSteps } from "./KWICTool.tour";
 
 export function KWICTool() {
   useFeatureTour('kwic', kwicTourSteps);
   
-  const [corpusType, setCorpusType] = useState<'gaucho' | 'nordestino'>('gaucho');
+  const { selectedWord } = useTools();
+  const { getFilteredCorpus, currentMetadata } = useSubcorpus();
   const [palavra, setPalavra] = useState('');
-  const [contextoSize, setContextoSize] = useState([5]);
+  const [contextoSize, setContextoSize] = useState(5);
   const [results, setResults] = useState<KWICContext[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [showFilters, setShowFilters] = useState(false);
-  const [selectedArtistas, setSelectedArtistas] = useState<string[]>([]);
-  const [selectedAlbuns, setSelectedAlbuns] = useState<string[]>([]);
-  const [anoInicio, setAnoInicio] = useState<string>('');
-  const [anoFim, setAnoFim] = useState<string>('');
-  
-  const { selectedWord } = useTools();
-  const { getFullTextCache, isLoading: isCacheLoading } = useCorpusCache();
   const [corpus, setCorpus] = useState<CorpusCompleto | null>(null);
-  const [progress, setProgress] = useState(0);
-  
-  const filters = useMemo(() => ({
-    artistas: selectedArtistas.length > 0 ? selectedArtistas : undefined,
-    albuns: selectedAlbuns.length > 0 ? selectedAlbuns : undefined,
-    anoInicio: anoInicio ? parseInt(anoInicio) : undefined,
-    anoFim: anoFim ? parseInt(anoFim) : undefined,
-  }), [selectedArtistas, selectedAlbuns, anoInicio, anoFim]);
+  const [isLoadingCorpus, setIsLoadingCorpus] = useState(false);
   
   useEffect(() => {
     const loadCorpus = async () => {
+      setIsLoadingCorpus(true);
       try {
-        setProgress(30);
-        const cache = await getFullTextCache(corpusType, filters);
-        setCorpus(cache.corpus);
-        setProgress(100);
+        const filteredCorpus = await getFilteredCorpus();
+        setCorpus(filteredCorpus);
       } catch (error) {
         console.error('Erro ao carregar corpus:', error);
         toast.error('Erro ao carregar corpus');
+      } finally {
+        setIsLoadingCorpus(false);
       }
     };
-    
     loadCorpus();
-  }, [corpusType, filters, getFullTextCache]);
+  }, [getFilteredCorpus]);
   
-  // Auto-fill word from context
   useEffect(() => {
-    if (selectedWord && selectedWord !== palavra) {
-      setPalavra(selectedWord);
-    }
-  }, [selectedWord, palavra]);
-  
-  // Get unique artists and albums for filters
-  const artistasDisponiveis = useMemo(() => {
-    if (!corpus) return [];
-    return Array.from(new Set(corpus.musicas.map(m => m.metadata.artista))).sort();
-  }, [corpus]);
-  
-  const albunsDisponiveis = useMemo(() => {
-    if (!corpus) return [];
-    return Array.from(new Set(corpus.musicas.map(m => m.metadata.album))).sort();
-  }, [corpus]);
+    if (selectedWord) setPalavra(selectedWord);
+  }, [selectedWord]);
   
   const handleSearch = () => {
     if (!palavra.trim()) {
       toast.error('Digite uma palavra para buscar');
       return;
     }
-    
     if (!corpus) {
       toast.error('Corpus ainda não carregado');
       return;
     }
-    
     setIsProcessing(true);
-    
     setTimeout(() => {
-      const kwicResults = generateKWIC(corpus, palavra, contextoSize[0]);
-      setResults(kwicResults);
+      const contexts = generateKWIC(corpus, palavra, contextoSize);
+      setResults(contexts);
       setIsProcessing(false);
-      
-      if (kwicResults.length === 0) {
-        toast.warning(`Nenhuma ocorrência de "${palavra}" encontrada`);
-      } else {
-        toast.success(`${kwicResults.length} ocorrências encontradas`);
-      }
+      toast.success(`${contexts.length} ocorrências encontradas`);
     }, 100);
   };
   
@@ -108,240 +72,83 @@ export function KWICTool() {
       toast.error('Nenhum resultado para exportar');
       return;
     }
-    
     const csv = exportKWICToCSV(results);
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = `kwic_${palavra}_${corpusType}.csv`;
+    const subcorpusLabel = currentMetadata ? `_${currentMetadata.artista.replace(/\s+/g, '_')}` : '';
+    link.download = `kwic_${palavra}${subcorpusLabel}_${new Date().toISOString().split('T')[0]}.csv`;
     link.click();
-    
-    toast.success('Resultados exportados com sucesso');
+    toast.success('KWIC exportado com sucesso');
   };
   
   return (
     <div className="space-y-6">
+      {currentMetadata && (
+        <Alert className="border-primary/20 bg-primary/5">
+          <Music className="h-4 w-4" />
+          <AlertDescription className="flex items-center gap-3">
+            <span>Analisando subcorpus: <strong className="text-primary">{currentMetadata.artista}</strong></span>
+            <Badge variant="outline">{currentMetadata.totalMusicas} músicas</Badge>
+          </AlertDescription>
+        </Alert>
+      )}
+      
+      {isLoadingCorpus && (
+        <Card><CardContent className="pt-6"><Progress value={50} /></CardContent></Card>
+      )}
+      
       <Card>
         <CardHeader>
-          <CardTitle>KWIC - Keyword in Context</CardTitle>
-          <CardDescription>
-            Concordanciador: visualize todas as ocorrências de uma palavra no corpus com seu contexto
-          </CardDescription>
+          <CardTitle>Configuração KWIC</CardTitle>
+          <CardDescription>Configure a busca de concordâncias no corpus</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {isCacheLoading && (
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Carregando corpus...
-              </div>
-              <Progress value={progress} className="w-full" />
-            </div>
-          )}
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Corpus</Label>
-              <Select value={corpusType} onValueChange={(v) => setCorpusType(v as 'gaucho' | 'nordestino')}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="gaucho">🎸 Corpus Gaúcho</SelectItem>
-                  <SelectItem value="nordestino">🪘 Corpus Nordestino</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div className="space-y-2">
-              <Label>Palavra-chave</Label>
-              <Input
-                placeholder="Digite uma palavra..."
-                value={palavra}
-                onChange={(e) => setPalavra(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-              />
-            </div>
-          </div>
-          
           <div className="space-y-2">
-            <Label>Tamanho do Contexto: {contextoSize[0]} palavras</Label>
-            <Slider
-              value={contextoSize}
-              onValueChange={setContextoSize}
-              min={3}
-              max={10}
-              step={1}
-              className="w-full"
-            />
+            <Label>Palavra de busca</Label>
+            <Input value={palavra} onChange={(e) => setPalavra(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSearch()} />
           </div>
-          
-          <Collapsible open={showFilters} onOpenChange={setShowFilters}>
-            <CollapsibleTrigger asChild>
-              <Button variant="outline" className="w-full">
-                <Filter className="mr-2 h-4 w-4" />
-                Filtros Avançados
-                {(selectedArtistas.length > 0 || selectedAlbuns.length > 0 || anoInicio || anoFim) && (
-                  <span className="ml-2 text-xs bg-primary text-primary-foreground rounded-full px-2 py-0.5">
-                    Ativos
-                  </span>
-                )}
-              </Button>
-            </CollapsibleTrigger>
-            <CollapsibleContent className="space-y-4 pt-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Filtrar por Artista</Label>
-                  <Select 
-                    value={selectedArtistas[0] || ''} 
-                    onValueChange={(v) => setSelectedArtistas(v ? [v] : [])}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Todos os artistas" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="">Todos os artistas</SelectItem>
-                      {artistasDisponiveis.map(artista => (
-                        <SelectItem key={artista} value={artista}>{artista}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label>Filtrar por Álbum</Label>
-                  <Select 
-                    value={selectedAlbuns[0] || ''} 
-                    onValueChange={(v) => setSelectedAlbuns(v ? [v] : [])}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Todos os álbuns" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="">Todos os álbuns</SelectItem>
-                      {albunsDisponiveis.map(album => (
-                        <SelectItem key={album} value={album}>{album}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label>Ano Início</Label>
-                  <Input
-                    type="number"
-                    placeholder="Ex: 1990"
-                    value={anoInicio}
-                    onChange={(e) => setAnoInicio(e.target.value)}
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label>Ano Fim</Label>
-                  <Input
-                    type="number"
-                    placeholder="Ex: 2020"
-                    value={anoFim}
-                    onChange={(e) => setAnoFim(e.target.value)}
-                  />
-                </div>
-              </div>
-              
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setSelectedArtistas([]);
-                  setSelectedAlbuns([]);
-                  setAnoInicio('');
-                  setAnoFim('');
-                }}
-                className="w-full"
-              >
-                Limpar Filtros
-              </Button>
-            </CollapsibleContent>
-          </Collapsible>
-          
+          <div className="space-y-2">
+            <Label>Tamanho do contexto: {contextoSize} palavras</Label>
+            <Slider value={[contextoSize]} onValueChange={([v]) => setContextoSize(v)} min={3} max={15} step={1} />
+          </div>
           <div className="flex gap-2">
-            <Button 
-              onClick={handleSearch}
-              disabled={isCacheLoading || isProcessing}
-              className="flex-1"
-            >
-              {isProcessing ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Processando...
-                </>
-              ) : (
-                <>
-                  <Search className="mr-2 h-4 w-4" />
-                  Buscar
-                </>
-              )}
+            <Button onClick={handleSearch} disabled={isProcessing || !corpus}>
+              {isProcessing ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Buscando...</> : <><Search className="h-4 w-4 mr-2" />Buscar</>}
             </Button>
-            
-            <Button 
-              onClick={handleExport} 
-              variant="outline"
-              disabled={results.length === 0}
-            >
-              <Download className="mr-2 h-4 w-4" />
-              Exportar CSV
-            </Button>
+            {results.length > 0 && <Button variant="outline" onClick={handleExport}><Download className="h-4 w-4 mr-2" />Exportar</Button>}
           </div>
         </CardContent>
       </Card>
       
       {results.length > 0 && (
         <Card>
-          <CardHeader>
-            <CardTitle>
-              Resultados ({results.length} ocorrências)
-            </CardTitle>
-            <CardDescription>
-              Palavra: <span className="font-semibold text-foreground">{palavra}</span>
-            </CardDescription>
-          </CardHeader>
+          <CardHeader><CardTitle>{results.length} ocorrências encontradas</CardTitle></CardHeader>
           <CardContent>
-            <div className="rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[35%]">Contexto Esquerdo</TableHead>
-                    <TableHead className="w-[10%] text-center font-bold">Palavra</TableHead>
-                    <TableHead className="w-[35%]">Contexto Direito</TableHead>
-                    <TableHead className="w-[20%]">Fonte</TableHead>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[35%] text-right">Contexto Esquerdo</TableHead>
+                  <TableHead className="w-[15%] text-center">Palavra-Chave</TableHead>
+                  <TableHead className="w-[35%]">Contexto Direito</TableHead>
+                  <TableHead className="w-[15%]">Fonte</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {results.slice(0, 100).map((ctx, idx) => (
+                  <TableRow key={idx}>
+                    <TableCell className="text-right text-muted-foreground">{ctx.contextoEsquerdo}</TableCell>
+                    <TableCell className="text-center font-bold text-primary">{ctx.palavra}</TableCell>
+                    <TableCell className="text-muted-foreground">{ctx.contextoDireito}</TableCell>
+                    <TableCell className="text-xs">{ctx.metadata.artista} - {ctx.metadata.musica}</TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {results.slice(0, 100).map((result, idx) => (
-                    <TableRow key={idx}>
-                      <TableCell className="text-right text-muted-foreground">
-                        {result.contextoEsquerdo}
-                      </TableCell>
-                      <TableCell className="text-center font-bold text-primary">
-                        {result.palavra}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {result.contextoDireito}
-                      </TableCell>
-                      <TableCell className="text-xs">
-                        <div className="space-y-0.5">
-                          <div className="font-medium">{result.metadata.artista}</div>
-                          <div className="text-muted-foreground">{result.metadata.musica}</div>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+                ))}
+              </TableBody>
+            </Table>
             {results.length > 100 && (
-              <p className="text-sm text-muted-foreground mt-2 text-center">
-                Mostrando 100 de {results.length} resultados. Exporte para ver todos.
-              </p>
+              <div className="p-4 text-center text-sm text-muted-foreground">
+                Mostrando 100 de {results.length} resultados. Exporte o CSV para ver todos.
+              </div>
             )}
           </CardContent>
         </Card>

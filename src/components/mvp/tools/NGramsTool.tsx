@@ -1,5 +1,5 @@
-import { useState, useMemo, useEffect } from "react";
-import { Search, Download, Loader2, Hash, Filter } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Search, Download, Loader2, Hash, Music } from "lucide-react";
 import { useFeatureTour } from "@/hooks/useFeatureTour";
 import { ngramsTourSteps } from "./NGramsTool.tour";
 import { Button } from "@/components/ui/button";
@@ -8,65 +8,41 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { useCorpusCache } from "@/contexts/CorpusContext";
+import { useSubcorpus } from "@/contexts/SubcorpusContext";
 import { generateNGrams, exportNGramsToCSV } from "@/services/ngramsService";
 import { NGramAnalysis, CorpusCompleto } from "@/data/types/full-text-corpus.types";
 import { toast } from "sonner";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export function NGramsTool() {
   useFeatureTour('ngrams', ngramsTourSteps);
   
-  const [corpusType, setCorpusType] = useState<'gaucho' | 'nordestino'>('gaucho');
+  const { getFilteredCorpus, currentMetadata } = useSubcorpus();
   const [ngramSize, setNgramSize] = useState<2 | 3 | 4 | 5>(2);
   const [minFrequencia, setMinFrequencia] = useState<string>('2');
   const [maxResults, setMaxResults] = useState<string>('100');
   const [analysis, setAnalysis] = useState<NGramAnalysis | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [showFilters, setShowFilters] = useState(false);
-  const [selectedArtistas, setSelectedArtistas] = useState<string[]>([]);
-  const [selectedAlbuns, setSelectedAlbuns] = useState<string[]>([]);
-  const [anoInicio, setAnoInicio] = useState<string>('');
-  const [anoFim, setAnoFim] = useState<string>('');
-  
-  const filters = useMemo(() => ({
-    artistas: selectedArtistas.length > 0 ? selectedArtistas : undefined,
-    albuns: selectedAlbuns.length > 0 ? selectedAlbuns : undefined,
-    anoInicio: anoInicio ? parseInt(anoInicio) : undefined,
-    anoFim: anoFim ? parseInt(anoFim) : undefined,
-  }), [selectedArtistas, selectedAlbuns, anoInicio, anoFim]);
-  
-  const { getFullTextCache, isLoading: isCacheLoading } = useCorpusCache();
   const [corpus, setCorpus] = useState<CorpusCompleto | null>(null);
-  const [progress, setProgress] = useState(0);
+  const [isLoadingCorpus, setIsLoadingCorpus] = useState(false);
   
   useEffect(() => {
     const loadCorpus = async () => {
+      setIsLoadingCorpus(true);
       try {
-        setProgress(30);
-        const cache = await getFullTextCache(corpusType, filters);
-        setCorpus(cache.corpus);
-        setProgress(100);
+        const filteredCorpus = await getFilteredCorpus();
+        setCorpus(filteredCorpus);
       } catch (error) {
         console.error('Erro ao carregar corpus:', error);
         toast.error('Erro ao carregar corpus');
+      } finally {
+        setIsLoadingCorpus(false);
       }
     };
-    
     loadCorpus();
-  }, [corpusType, filters, getFullTextCache]);
-  
-  const artistasDisponiveis = useMemo(() => {
-    if (!corpus) return [];
-    return Array.from(new Set(corpus.musicas.map(m => m.metadata.artista))).sort();
-  }, [corpus]);
-  
-  const albunsDisponiveis = useMemo(() => {
-    if (!corpus) return [];
-    return Array.from(new Set(corpus.musicas.map(m => m.metadata.album))).sort();
-  }, [corpus]);
+  }, [getFilteredCorpus]);
   
   const handleGenerate = () => {
     if (!corpus) {
@@ -105,145 +81,95 @@ export function NGramsTool() {
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = `${ngramSize}grams_${corpusType}.csv`;
+    const subcorpusLabel = currentMetadata ? `_${currentMetadata.artista.replace(/\s+/g, '_')}` : '';
+    link.download = `${analysis.n}-grams${subcorpusLabel}_${new Date().toISOString().split('T')[0]}.csv`;
     link.click();
-    
-    toast.success('N-grams exportados');
+    toast.success('N-grams exportados com sucesso');
   };
   
   return (
     <div className="space-y-6">
+      {currentMetadata && (
+        <Alert className="border-primary/20 bg-primary/5">
+          <Music className="h-4 w-4" />
+          <AlertDescription className="flex items-center gap-3">
+            <span>Analisando subcorpus: <strong className="text-primary">{currentMetadata.artista}</strong></span>
+            <Badge variant="outline">{currentMetadata.totalMusicas} músicas</Badge>
+          </AlertDescription>
+        </Alert>
+      )}
+      
+      {isLoadingCorpus && (
+        <Card><CardContent className="pt-6"><Progress value={50} /></CardContent></Card>
+      )}
+      
       <Card>
         <CardHeader>
-          <CardTitle>Análise de N-grams</CardTitle>
-          <CardDescription>Identifique sequências frequentes no corpus</CardDescription>
+          <CardTitle>Configuração N-grams</CardTitle>
+          <CardDescription>Configure a extração de sequências de palavras</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {isCacheLoading && (
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Carregando corpus...
-              </div>
-              <Progress value={progress} className="w-full" />
-            </div>
-          )}
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Corpus</Label>
-              <Select value={corpusType} onValueChange={(v) => setCorpusType(v as 'gaucho' | 'nordestino')}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="gaucho">🎸 Corpus Gaúcho</SelectItem>
-                  <SelectItem value="nordestino">🪘 Corpus Nordestino</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            
+          <div className="grid grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label>Tamanho do N-gram</Label>
-              <Select value={String(ngramSize)} onValueChange={(v) => setNgramSize(parseInt(v) as 2 | 3 | 4 | 5)}>
+              <Select value={ngramSize.toString()} onValueChange={(v) => setNgramSize(parseInt(v) as 2 | 3 | 4 | 5)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="2">2-grams</SelectItem>
-                  <SelectItem value="3">3-grams</SelectItem>
+                  <SelectItem value="2">2-grams (bigramas)</SelectItem>
+                  <SelectItem value="3">3-grams (trigramas)</SelectItem>
                   <SelectItem value="4">4-grams</SelectItem>
                   <SelectItem value="5">5-grams</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-            
             <div className="space-y-2">
               <Label>Frequência Mínima</Label>
               <Input type="number" min="1" value={minFrequencia} onChange={(e) => setMinFrequencia(e.target.value)} />
             </div>
-            
             <div className="space-y-2">
-              <Label>Máximo de Resultados</Label>
-              <Input type="number" min="10" max="1000" step="10" value={maxResults} onChange={(e) => setMaxResults(e.target.value)} />
+              <Label>Máx. Resultados</Label>
+              <Input type="number" min="10" max="1000" value={maxResults} onChange={(e) => setMaxResults(e.target.value)} />
             </div>
           </div>
-          
-          <Collapsible open={showFilters} onOpenChange={setShowFilters}>
-            <CollapsibleTrigger asChild>
-              <Button variant="outline" className="w-full">
-                <Filter className="mr-2 h-4 w-4" />Filtros Avançados
-                {(selectedArtistas.length > 0 || selectedAlbuns.length > 0 || anoInicio || anoFim) && (
-                  <span className="ml-2 text-xs bg-primary text-primary-foreground rounded-full px-2 py-0.5">Ativos</span>
-                )}
-              </Button>
-            </CollapsibleTrigger>
-            <CollapsibleContent className="space-y-4 pt-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Artista</Label>
-                  <Select value={selectedArtistas[0] || ''} onValueChange={(v) => setSelectedArtistas(v ? [v] : [])}>
-                    <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="">Todos</SelectItem>
-                      {artistasDisponiveis.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Álbum</Label>
-                  <Select value={selectedAlbuns[0] || ''} onValueChange={(v) => setSelectedAlbuns(v ? [v] : [])}>
-                    <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="">Todos</SelectItem>
-                      {albunsDisponiveis.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Ano Início</Label>
-                  <Input type="number" placeholder="Ex: 1990" value={anoInicio} onChange={(e) => setAnoInicio(e.target.value)} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Ano Fim</Label>
-                  <Input type="number" placeholder="Ex: 2020" value={anoFim} onChange={(e) => setAnoFim(e.target.value)} />
-                </div>
-              </div>
-              <Button variant="ghost" size="sm" onClick={() => { setSelectedArtistas([]); setSelectedAlbuns([]); setAnoInicio(''); setAnoFim(''); }} className="w-full">Limpar Filtros</Button>
-            </CollapsibleContent>
-          </Collapsible>
-          
           <div className="flex gap-2">
-            <Button onClick={handleGenerate} disabled={isCacheLoading || isProcessing} className="flex-1">
-              {isProcessing ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Gerando...</> : <><Hash className="mr-2 h-4 w-4" />Gerar</>}
+            <Button onClick={handleGenerate} disabled={isProcessing || !corpus}>
+              {isProcessing ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Gerando...</> : <><Hash className="h-4 w-4 mr-2" />Gerar N-grams</>}
             </Button>
-            <Button onClick={handleExport} variant="outline" disabled={!analysis}><Download className="mr-2 h-4 w-4" />CSV</Button>
+            {analysis && <Button variant="outline" onClick={handleExport}><Download className="h-4 w-4 mr-2" />Exportar</Button>}
           </div>
         </CardContent>
       </Card>
       
       {analysis && (
         <Card>
-          <CardHeader><CardTitle>{analysis.ngrams.length} resultados</CardTitle></CardHeader>
+          <CardHeader>
+            <CardTitle>{analysis.ngrams.length} {analysis.n}-grams encontrados</CardTitle>
+            <CardDescription>{analysis.ngramsUnicos} únicos no corpus</CardDescription>
+          </CardHeader>
           <CardContent>
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[80px]">Rank</TableHead>
+                  <TableHead className="w-16">Rank</TableHead>
                   <TableHead>N-gram</TableHead>
-                  <TableHead className="w-[120px] text-right">Freq</TableHead>
-                  <TableHead>Exemplo</TableHead>
+                  <TableHead className="text-right">Frequência</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {analysis.ngrams.map((ng, idx) => (
+                {analysis.ngrams.slice(0, 100).map((ng, idx) => (
                   <TableRow key={idx}>
-                    <TableCell>{idx + 1}</TableCell>
-                    <TableCell className="font-mono font-semibold">{ng.ngram}</TableCell>
-                    <TableCell className="text-right"><Badge variant="secondary">{ng.frequencia}</Badge></TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {ng.ocorrencias && ng.ocorrencias[0] ? ng.ocorrencias[0].contexto.substring(0, 60) + '...' : '-'}
-                    </TableCell>
+                    <TableCell className="text-muted-foreground">{idx + 1}</TableCell>
+                    <TableCell className="font-mono">{ng.ngram}</TableCell>
+                    <TableCell className="text-right">{ng.frequencia}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
+            {analysis.ngrams.length > 100 && (
+              <div className="p-4 text-center text-sm text-muted-foreground">
+                Mostrando 100 de {analysis.ngrams.length} n-grams. Exporte o CSV para ver todos.
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
