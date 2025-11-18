@@ -20,6 +20,12 @@ interface KeywordsState {
   sortColumn: 'palavra' | 'keyword' | 'll' | 'freqEstudo' | 'freqReferencia' | 'freqRef' | 'effect' | 'efeito';
   sortDirection: 'asc' | 'desc';
   isProcessed: boolean;
+  analysisConfig: {
+    generateKeywordsList: boolean;
+    generateScatterPlot: boolean;
+    generateComparisonChart: boolean;
+    generateDispersion: boolean;
+  };
 }
 
 interface WordlistState {
@@ -83,6 +89,12 @@ interface ToolsContextType {
   ngramsState: NgramsState;
   setNgramsState: (state: Partial<NgramsState>) => void;
   clearNgramsState: () => void;
+  
+  saveStatus: {
+    isSaving: boolean;
+    lastSaved: Date | null;
+    error: string | null;
+  };
 }
 
 // ==================== ESTADOS INICIAIS ====================
@@ -101,7 +113,13 @@ const INITIAL_KEYWORDS_STATE: KeywordsState = {
   llFilter: 0,
   sortColumn: 'll',
   sortDirection: 'desc',
-  isProcessed: false
+  isProcessed: false,
+  analysisConfig: {
+    generateKeywordsList: true,
+    generateScatterPlot: false,
+    generateComparisonChart: false,
+    generateDispersion: false,
+  }
 };
 
 const INITIAL_WORDLIST_STATE: WordlistState = {
@@ -173,6 +191,17 @@ const ToolsContext = createContext<ToolsContextType | undefined>(undefined);
 export function ToolsProvider({ children }: { children: ReactNode }) {
   const [selectedWord, setSelectedWord] = useState('');
   const [activeTab, setActiveTab] = useState('basicas');
+  
+  // Estado do indicador de salvamento
+  const [saveStatus, setSaveStatus] = useState<{
+    isSaving: boolean;
+    lastSaved: Date | null;
+    error: string | null;
+  }>({
+    isSaving: false,
+    lastSaved: null,
+    error: null
+  });
   
   // Estados das ferramentas com persistência
   const [keywordsState, setKeywordsStateInternal] = useState<KeywordsState>(() =>
