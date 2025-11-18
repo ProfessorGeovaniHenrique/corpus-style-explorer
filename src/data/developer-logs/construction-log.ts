@@ -300,9 +300,9 @@ export const constructionLog: ConstructionPhase[] = [
     metrics: {},
     scientificBasis: [
       {
-        source: "BERBER SARDINHA, Tony. Linguística de Corpus. São Paulo: Manole, 2004.",
-        extractedConcepts: ["Anotação semântica", "Domínios semânticos"],
-        citationKey: "sardinha2004"
+        source: "MCINTYRE, Dan; WALKER, Brian; MCINTYRE, Dan. Corpus stylistics. Edinburgh: Edinburgh University Press, 2019.",
+        extractedConcepts: ["Anotação semântica", "Domínios semânticos", "Estilística de corpus"],
+        citationKey: "mcintyre2019"
       }
     ],
     nextSteps: [
