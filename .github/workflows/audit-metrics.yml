@@ -83,11 +83,11 @@ jobs:
           echo ""
           echo "🚀 Enviando requisição para Edge Function..."
           
-          RESPONSE=$(curl -v -X POST \
+          RESPONSE=$(echo "$PAYLOAD" | curl -v -X POST \
             "${SUPABASE_URL}/functions/v1/audit-project-metrics" \
             -H "Authorization: Bearer ${SUPABASE_KEY}" \
             -H "Content-Type: application/json" \
-            --data-raw "$PAYLOAD" \
+            --data-binary @- \
             -w "\n%{http_code}" \
             -s)
           
