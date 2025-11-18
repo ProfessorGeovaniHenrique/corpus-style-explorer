@@ -28,7 +28,8 @@ import { useCallback } from "react";
 import { useFullTextCorpus } from "@/hooks/useFullTextCorpus";
 import { generateKWIC } from "@/services/kwicService";
 import { SaveIndicator } from '@/components/ui/save-indicator';
-import { KeywordsConfigPanel } from './KeywordsConfigPanel';
+import { KeywordsConfigPanel } from '@/components/mvp/tools/KeywordsConfigPanel';
+import { AnimatedChartWrapper } from '@/components/ui/animated-chart-wrapper';
 
 export function KeywordsTool() {
   useFeatureTour('keywords', keywordsTourSteps);
@@ -331,7 +332,7 @@ export function KeywordsTool() {
   };
   
   const handleWordClick = (palavra: string) => {
-    navigateToKWIC(palavra);
+    navigateToKWIC(palavra, 'keywords');
     
     toast.info(`Navegando para KWIC: "${palavra}"`, {
       description: 'A palavra foi transferida para a ferramenta KWIC',
@@ -786,8 +787,11 @@ export function KeywordsTool() {
         </CardContent>
       </Card>
       
-      {/* Gráfico Comparativo de Barras - RENDERIZAÇÃO CONDICIONAL */}
-      {analysisConfig.generateComparisonChart && chartData && (
+      {/* Gráfico Comparativo - COM ANIMAÇÃO */}
+      <AnimatedChartWrapper 
+        show={analysisConfig.generateComparisonChart && chartData !== null}
+        id="comparison-chart"
+      >
         <Card className="mb-6">
           <CardHeader>
             <div className="flex items-center gap-2">
@@ -857,7 +861,7 @@ export function KeywordsTool() {
             )}
           </CardContent>
         </Card>
-      )}
+      </AnimatedChartWrapper>
 
       {error && (
         <Alert variant="destructive">
@@ -866,8 +870,11 @@ export function KeywordsTool() {
       )}
 
 
-      {/* Scatter Plot: LL vs Frequência - RENDERIZAÇÃO CONDICIONAL */}
-      {analysisConfig.generateScatterPlot && isProcessed && scatterData.length > 0 && (
+      {/* Scatter Plot - COM ANIMAÇÃO */}
+      <AnimatedChartWrapper 
+        show={analysisConfig.generateScatterPlot && isProcessed && scatterData.length > 0}
+        id="scatter-plot"
+      >
         <Card className="mb-6">
           <CardHeader>
             <div className="flex items-center justify-between">
@@ -994,7 +1001,7 @@ export function KeywordsTool() {
             </div>
           </CardContent>
         </Card>
-      )}
+      </AnimatedChartWrapper>
 
       {/* Botões de Exportação */}
       {isProcessed && keywordsState.keywords.length > 0 && estudoMetadata && refMetadata && (
