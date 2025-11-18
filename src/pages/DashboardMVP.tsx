@@ -8,6 +8,7 @@ import { TabTools } from "@/components/mvp/TabTools";
 import { TabValidation } from "@/components/mvp/TabValidation";
 import { TabSubcorpus } from "@/components/mvp/TabSubcorpus";
 import { useAuthContext } from "@/contexts/AuthContext";
+import { CorpusProvider } from "@/contexts/CorpusContext";
 import { SubcorpusProvider } from "@/contexts/SubcorpusContext";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Lock } from "lucide-react";
@@ -26,19 +27,20 @@ export default function DashboardMVP() {
   }, [user, loading, activeTab]);
 
   return (
-    <SubcorpusProvider>
-      <div className="min-h-screen flex flex-col bg-background">
-        <MVPHeader 
-          activeTab={activeTab} 
-          onTabChange={setActiveTab}
-          isAuthenticated={!!user}
-          isLoading={loading}
-          hasToolsAccess={hasToolsAccess()}
-          hasTestsAccess={hasTestsAccess()}
-        />
-        
-        {/* Badge Flutuante de Subcorpus Ativo */}
-        <SubcorpusIndicator />
+    <CorpusProvider>
+      <SubcorpusProvider>
+        <div className="min-h-screen flex flex-col bg-background">
+          <MVPHeader 
+            activeTab={activeTab} 
+            onTabChange={setActiveTab}
+            isAuthenticated={!!user}
+            isLoading={loading}
+            hasToolsAccess={hasToolsAccess()}
+            hasTestsAccess={hasTestsAccess()}
+          />
+          
+          {/* Badge Flutuante de Subcorpus Ativo */}
+          <SubcorpusIndicator />
 
       {/* Conteúdo scrollável com espaçamento ajustado para header unificado */}
       <main className="container-academic py-4 md:py-8 mt-[180px] md:mt-[200px]">
@@ -94,8 +96,9 @@ export default function DashboardMVP() {
         </AnimatePresence>
       </main>
 
-        <MVPFooter />
-      </div>
-    </SubcorpusProvider>
+          <MVPFooter />
+        </div>
+      </SubcorpusProvider>
+    </CorpusProvider>
   );
 }
