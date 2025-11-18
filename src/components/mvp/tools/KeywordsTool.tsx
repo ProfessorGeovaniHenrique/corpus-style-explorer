@@ -27,13 +27,16 @@ import { loadFullTextCorpus } from "@/lib/fullTextParser";
 import { useCallback } from "react";
 import { useFullTextCorpus } from "@/hooks/useFullTextCorpus";
 import { generateKWIC } from "@/services/kwicService";
+import { SaveIndicator } from '@/components/ui/save-indicator';
+import { KeywordsConfigPanel } from './KeywordsConfigPanel';
 
 export function KeywordsTool() {
   useFeatureTour('keywords', keywordsTourSteps);
   const [searchParams, setSearchParams] = useSearchParams();
   
   // Estado persistido no context
-  const { keywordsState, setKeywordsState } = useTools();
+  const { keywordsState, setKeywordsState, saveStatus } = useTools();
+  const { analysisConfig } = keywordsState;
   
   // Usar estado do context
   const estudoCorpusBase = keywordsState.estudoCorpusBase;
@@ -73,6 +76,7 @@ export function KeywordsTool() {
   
   // Dados para o gráfico comparativo
   const chartData = useMemo(() => {
+    if (!analysisConfig.generateComparisonChart) return null;
     if (!estudoMetadata || !refMetadata) return null;
 
     return [
@@ -97,7 +101,7 @@ export function KeywordsTool() {
         [refMetadata.artista]: refMetadata.totalMusicas,
       }
     ];
-  }, [estudoMetadata, refMetadata]);
+  }, [estudoMetadata, refMetadata, analysisConfig.generateComparisonChart]);
 
   // Configuração do gráfico
   const chartConfig = useMemo(() => {
@@ -139,6 +143,7 @@ export function KeywordsTool() {
   
   // Dados para o scatter plot (LL vs Frequência)
   const scatterData = useMemo(() => {
+    if (!analysisConfig.generateScatterPlot) return [];
     if (!keywordsState.keywords || keywordsState.keywords.length === 0) return [];
 
     return keywordsState.keywords.map(kw => ({
@@ -151,7 +156,7 @@ export function KeywordsTool() {
       mi: kw.mi,
       isOutlier: kw.ll > 50 || kw.freqEstudo > 200,
     }));
-  }, [keywordsState.keywords]);
+  }, [keywordsState.keywords, analysisConfig.generateScatterPlot]);
   
   // Calcular metadados do subcorpus
   const calculateSubcorpusMetadata = async (
@@ -572,6 +577,22 @@ export function KeywordsTool() {
         </AlertDescription>
       </Alert>
 
+      {/* Header com Indicador de Salvamento */}
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <h2 className="text-xl font-bold">Análise de Keywords</h2>
+        </div>
+        
+        <SaveIndicator
+          isSaving={saveStatus.isSaving}
+          lastSaved={saveStatus.lastSaved}
+          error={saveStatus.error}
+        />
+      </div>
+
+      {/* Menu de Configuração Fixo */}
+      <KeywordsConfigPanel />
+
       <Card data-tour="keywords-config">
         <CardHeader>
           <CardTitle>Configurar Análise</CardTitle>
@@ -758,8 +779,8 @@ export function KeywordsTool() {
         </CardContent>
       </Card>
       
-      {/* Gráfico Comparativo de Barras */}
-      {chartData && (
+      {/* Gráfico Comparativo de Barras - RENDERIZAÇÃO CONDICIONAL */}
+      {analysisConfig.generateComparisonChart && chartData && (
         <Card className="mb-6">
           <CardHeader>
             <div className="flex items-center gap-2">
@@ -838,8 +859,8 @@ export function KeywordsTool() {
       )}
 
 
-      {/* Scatter Plot: LL vs Frequência */}
-      {isProcessed && scatterData.length > 0 && (
+      {/* Scatter Plot: LL vs Frequência - RENDERIZAÇÃO CONDICIONAL */}
+      {analysisConfig.generateScatterPlot && isProcessed && scatterData.length > 0 && (
         <Card className="mb-6">
           <CardHeader>
             <div className="flex items-center justify-between">

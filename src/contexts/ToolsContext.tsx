@@ -1,7 +1,9 @@
-import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import { createContext, useContext, useState, ReactNode, useEffect, useMemo } from 'react';
 import { KeywordEntry, CorpusType } from '@/data/types/corpus-tools.types';
 import { DispersionAnalysis, NGramAnalysis, KWICContext, SongMetadata } from '@/data/types/full-text-corpus.types';
 import { Collocation } from '@/services/collocationService';
+import { debounce } from '@/lib/performanceUtils';
+import { useNavigate } from 'react-router-dom';
 
 // ==================== INTERFACES DE ESTADO ====================
 
@@ -184,6 +186,81 @@ function saveToStorage<T>(key: string, value: T): void {
   }
 }
 
+/**
+ * Comprime dados grandes antes de salvar no localStorage
+ * Remove dados desnecessários para reduzir tamanho
+ */
+function compressStateForStorage<T>(value: T, key: string): T {
+  // Se for keywords e contiver arrays grandes de dados visuais, comprimir
+  if (key === STORAGE_KEYS.keywords && typeof value === 'object' && value !== null) {
+    const keywordsState = value as unknown as KeywordsState;
+    
+    // Manter apenas dados essenciais se análises visuais estão desabilitadas
+    const compressed = { ...keywordsState };
+    
+    // Não salvar keywords se lista não está ativa (mas manter se já processado)
+    if (!keywordsState.analysisConfig.generateKeywordsList && !keywordsState.isProcessed) {
+      compressed.keywords = [];
+    }
+    
+    return compressed as unknown as T;
+  }
+  
+  return value;
+}
+
+/**
+ * Salva no localStorage de forma não-bloqueante com feedback visual
+ */
+function saveToStorageIdle<T>(
+  key: string, 
+  value: T, 
+  setSaveStatus: (status: any) => void
+): void {
+  setSaveStatus((prev: any) => ({ ...prev, isSaving: true }));
+  
+  try {
+    const compressed = compressStateForStorage(value, key);
+    const serialized = JSON.stringify(compressed);
+    
+    // Usar requestIdleCallback se disponível (não bloqueia a UI)
+    if ('requestIdleCallback' in window) {
+      requestIdleCallback(() => {
+        try {
+          localStorage.setItem(key, serialized);
+          setSaveStatus({
+            isSaving: false,
+            lastSaved: new Date(),
+            error: null
+          });
+        } catch (error) {
+          console.error(`Failed to save ${key}:`, error);
+          setSaveStatus({
+            isSaving: false,
+            lastSaved: null,
+            error: 'Erro ao salvar dados'
+          });
+        }
+      }, { timeout: 2000 });
+    } else {
+      // Fallback para navegadores sem requestIdleCallback
+      localStorage.setItem(key, serialized);
+      setSaveStatus({
+        isSaving: false,
+        lastSaved: new Date(),
+        error: null
+      });
+    }
+  } catch (error) {
+    console.error(`Failed to save ${key}:`, error);
+    setSaveStatus({
+      isSaving: false,
+      lastSaved: null,
+      error: 'Erro ao salvar dados'
+    });
+  }
+}
+
 // ==================== CONTEXT ====================
 
 const ToolsContext = createContext<ToolsContextType | undefined>(undefined);
@@ -223,27 +300,63 @@ export function ToolsProvider({ children }: { children: ReactNode }) {
   const [ngramsState, setNgramsStateInternal] = useState<NgramsState>(() =>
     loadFromStorage(STORAGE_KEYS.ngrams, INITIAL_NGRAMS_STATE)
   );
+
+  // ✅ Funções debounced para salvamento otimizado
+  const debouncedSaveKeywords = useMemo(
+    () => debounce((state: KeywordsState) => {
+      saveToStorageIdle(STORAGE_KEYS.keywords, state, setSaveStatus);
+    }, 500),
+    []
+  );
+
+  const debouncedSaveWordlist = useMemo(
+    () => debounce((state: WordlistState) => {
+      saveToStorageIdle(STORAGE_KEYS.wordlist, state, setSaveStatus);
+    }, 500),
+    []
+  );
+
+  const debouncedSaveKwic = useMemo(
+    () => debounce((state: KWICState) => {
+      saveToStorageIdle(STORAGE_KEYS.kwic, state, setSaveStatus);
+    }, 500),
+    []
+  );
+
+  const debouncedSaveDispersion = useMemo(
+    () => debounce((state: DispersionState) => {
+      saveToStorageIdle(STORAGE_KEYS.dispersion, state, setSaveStatus);
+    }, 500),
+    []
+  );
+
+  const debouncedSaveNgrams = useMemo(
+    () => debounce((state: NgramsState) => {
+      saveToStorageIdle(STORAGE_KEYS.ngrams, state, setSaveStatus);
+    }, 500),
+    []
+  );
   
-  // Sync com localStorage
+  // ✅ Sync com localStorage OTIMIZADO (com debounce + feedback)
   useEffect(() => {
-    saveToStorage(STORAGE_KEYS.keywords, keywordsState);
-  }, [keywordsState]);
-  
+    debouncedSaveKeywords(keywordsState);
+  }, [keywordsState, debouncedSaveKeywords]);
+
   useEffect(() => {
-    saveToStorage(STORAGE_KEYS.wordlist, wordlistState);
-  }, [wordlistState]);
-  
+    debouncedSaveWordlist(wordlistState);
+  }, [wordlistState, debouncedSaveWordlist]);
+
   useEffect(() => {
-    saveToStorage(STORAGE_KEYS.kwic, kwicState);
-  }, [kwicState]);
-  
+    debouncedSaveKwic(kwicState);
+  }, [kwicState, debouncedSaveKwic]);
+
   useEffect(() => {
-    saveToStorage(STORAGE_KEYS.dispersion, dispersionState);
-  }, [dispersionState]);
-  
+    debouncedSaveDispersion(dispersionState);
+  }, [dispersionState, debouncedSaveDispersion]);
+
   useEffect(() => {
-    saveToStorage(STORAGE_KEYS.ngrams, ngramsState);
-  }, [ngramsState]);
+    debouncedSaveNgrams(ngramsState);
+  }, [ngramsState, debouncedSaveNgrams]);
   
   // Setters com merge parcial
   const setKeywordsState = (partial: Partial<KeywordsState>) => {
@@ -297,6 +410,8 @@ export function ToolsProvider({ children }: { children: ReactNode }) {
     setActiveTab('basicas');
   };
 
+  const navigate = useNavigate();
+  
   return (
     <ToolsContext.Provider value={{
       selectedWord,
