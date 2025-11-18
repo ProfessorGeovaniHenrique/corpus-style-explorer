@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { Search, Download, Loader2, Music } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,6 +16,41 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
 import { useFeatureTour } from "@/hooks/useFeatureTour";
 import { kwicTourSteps } from "./KWICTool.tour";
+
+const KWICTableComponent = React.memo(({ results }: { results: any[] }) => {
+  return (
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>Contexto Esquerdo</TableHead>
+          <TableHead className="text-center font-bold">Palavra-Chave</TableHead>
+          <TableHead>Contexto Direito</TableHead>
+          <TableHead>Fonte</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {results.map((result, idx) => (
+          <TableRow key={idx}>
+            <TableCell className="text-right text-muted-foreground">
+              {result.esquerda}
+            </TableCell>
+            <TableCell className="text-center font-bold">
+              {result.palavra}
+            </TableCell>
+            <TableCell className="text-muted-foreground">
+              {result.direita}
+            </TableCell>
+            <TableCell className="text-sm">
+              {result.artista} - {result.musica}
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+  );
+}, (prevProps, nextProps) => {
+  return prevProps.results === nextProps.results;
+});
 
 export function KWICTool() {
   useFeatureTour('kwic', kwicTourSteps);

@@ -57,16 +57,13 @@ export function KeywordsTool() {
   const [errorEstudo, setErrorEstudo] = useState<string | null>(null);
   const [errorRef, setErrorRef] = useState<string | null>(null);
   
-  const { keywords, isLoading, error, processKeywords } = useKeywords();
+  const { isLoading, error, processKeywords } = useKeywords();
   const { navigateToKWIC } = useTools();
   const { currentMetadata, selection } = useSubcorpus();
   
-  // Sincronizar keywords com context quando mudar
-  useEffect(() => {
-    if (keywords.length > 0) {
-      setKeywordsState({ keywords, isProcessed: true });
-    }
-  }, [keywords]);
+  const handleKeywordsProcessed = useCallback((newKeywords: KeywordEntry[]) => {
+    setKeywordsState({ keywords: newKeywords, isProcessed: true });
+  }, [setKeywordsState]);
   
   // Carregar corpus full-text para preview KWIC
   const { corpus: fullTextCorpus, isLoading: isLoadingFullCorpus } = useFullTextCorpus(

@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,6 +16,64 @@ interface WordEntry {
   frequencia: number;
   frequenciaNormalizada: number;
 }
+
+const WordlistTableComponent = React.memo(({ 
+  wordlist, 
+  sortColumn,
+  sortDirection,
+  onSort, 
+  onWordClick
+}: { 
+  wordlist: WordEntry[];
+  sortColumn: string;
+  sortDirection: 'asc' | 'desc';
+  onSort: (col: string) => void;
+  onWordClick: (word: string) => void;
+}) => {
+  return (
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead 
+            className="cursor-pointer hover:bg-muted/50"
+            onClick={() => onSort('palavra')}
+          >
+            Palavra {sortColumn === 'palavra' && (sortDirection === 'asc' ? '↑' : '↓')}
+          </TableHead>
+          <TableHead 
+            className="text-right cursor-pointer hover:bg-muted/50"
+            onClick={() => onSort('frequencia')}
+          >
+            Frequência {sortColumn === 'frequencia' && (sortDirection === 'asc' ? '↑' : '↓')}
+          </TableHead>
+          <TableHead className="text-center">Freq. Normalizada</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {wordlist.map((entry, idx) => (
+          <TableRow key={idx}>
+            <TableCell 
+              className="font-medium cursor-pointer hover:text-primary"
+              onClick={() => onWordClick(entry.palavra)}
+            >
+              {entry.palavra}
+            </TableCell>
+            <TableCell className="text-right">{entry.frequencia}</TableCell>
+            <TableCell className="text-center">
+              {entry.frequenciaNormalizada.toFixed(2)}
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+  );
+}, (prevProps, nextProps) => {
+  return (
+    prevProps.wordlist === nextProps.wordlist &&
+    prevProps.sortColumn === nextProps.sortColumn &&
+    prevProps.sortDirection === nextProps.sortDirection
+  );
+});
 
 export function WordlistTool() {
   const { wordlistState, setWordlistState, navigateToKWIC } = useTools();

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { Search, Download, Loader2, Hash, Music } from "lucide-react";
 import { useFeatureTour } from "@/hooks/useFeatureTour";
 import { ngramsTourSteps } from "./NGramsTool.tour";
@@ -16,6 +16,31 @@ import { toast } from "sonner";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+
+const NgramsTableComponent = React.memo(({ ngrams }: { ngrams: any[] }) => {
+  return (
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead className="w-[80px]">Rank</TableHead>
+          <TableHead>N-Gram</TableHead>
+          <TableHead className="text-right">Frequência</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {ngrams.map((ngram, idx) => (
+          <TableRow key={idx}>
+            <TableCell>{ngram.rank}</TableCell>
+            <TableCell className="font-medium">{ngram.ngram}</TableCell>
+            <TableCell className="text-right">{ngram.frequencia}</TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+  );
+}, (prevProps, nextProps) => {
+  return prevProps.ngrams === nextProps.ngrams;
+});
 
 export function NGramsTool() {
   useFeatureTour('ngrams', ngramsTourSteps);

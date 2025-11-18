@@ -79,7 +79,8 @@ export function DialectalAnalysisTool() {
   const [filterTipo, setFilterTipo] = useState<string>('todos');
   const [analysis, setAnalysis] = useState<ReturnType<typeof generateDialectalAnalysis> | null>(null);
   
-  const { keywords, isLoading, error, processKeywords } = useKeywords();
+  const { isLoading, error, processKeywords } = useKeywords();
+  const { keywordsState } = useTools();
 
   const handleAnalyze = async () => {
     if (corpusEstudo === corpusReferencia) {
@@ -87,18 +88,14 @@ export function DialectalAnalysisTool() {
       return;
     }
 
-    // Primeiro processa as keywords
-    await processKeywords(corpusEstudo, corpusReferencia);
+    await processKeywords(corpusEstudo, corpusReferencia, (kws) => {
+      if (kws.length > 0) {
+        const dialectalAnalysis = generateDialectalAnalysis(kws);
+        setAnalysis(dialectalAnalysis);
+        toast.success(`${dialectalAnalysis.estatisticas.totalMarcas} marcas dialetais detectadas!`);
+      }
+    });
   };
-
-  // Quando keywords são processadas, gera análise dialetal
-  useMemo(() => {
-    if (keywords.length > 0) {
-      const dialectalAnalysis = generateDialectalAnalysis(keywords);
-      setAnalysis(dialectalAnalysis);
-      toast.success(`${dialectalAnalysis.estatisticas.totalMarcas} marcas dialetais detectadas!`);
-    }
-  }, [keywords]);
 
   // Filtros aplicados
   const filteredMarcas = useMemo(() => {
