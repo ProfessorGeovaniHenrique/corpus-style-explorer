@@ -171,7 +171,17 @@ const STORAGE_KEYS = {
 function loadFromStorage<T>(key: string, defaultValue: T): T {
   try {
     const stored = localStorage.getItem(key);
-    return stored ? JSON.parse(stored) : defaultValue;
+    if (!stored) return defaultValue;
+    
+    const parsed = JSON.parse(stored);
+    
+    // Fazer merge profundo com defaultValue para garantir que propriedades novas existam
+    // Isso é crucial quando adicionamos novas propriedades ao schema
+    if (typeof defaultValue === 'object' && defaultValue !== null) {
+      return { ...defaultValue, ...parsed } as T;
+    }
+    
+    return parsed;
   } catch (error) {
     console.warn(`Failed to load ${key} from storage:`, error);
     return defaultValue;

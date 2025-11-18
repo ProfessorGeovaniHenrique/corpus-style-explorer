@@ -36,7 +36,14 @@ export function KeywordsTool() {
   
   // Estado persistido no context
   const { keywordsState, setKeywordsState, saveStatus } = useTools();
-  const { analysisConfig } = keywordsState;
+  
+  // Garantir que analysisConfig existe (fallback para valores padrão)
+  const analysisConfig = keywordsState.analysisConfig || {
+    generateKeywordsList: true,
+    generateScatterPlot: false,
+    generateComparisonChart: false,
+    generateDispersion: false,
+  };
   
   // Usar estado do context
   const estudoCorpusBase = keywordsState.estudoCorpusBase;
