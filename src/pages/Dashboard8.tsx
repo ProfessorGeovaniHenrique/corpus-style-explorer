@@ -5,6 +5,7 @@ import { SpaceNavigationHub } from '@/components/SpaceNavigationHub';
 import { ControlPanel } from '@/components/ControlPanel/ControlPanel';
 import { ControlToolbar } from '@/components/ControlPanel/ControlToolbar';
 import { KWICModal } from '@/components/KWICModal';
+import { useKWICModal } from '@/hooks/useKWICModal';
 import { Starfield8K } from '@/components/v3/Starfield8K';
 import { ScannerPlanet } from '@/components/v3/ScannerPlanet';
 import { OrbitalRings } from '@/components/v3/OrbitalRings';
@@ -213,9 +214,16 @@ export default function Dashboard8() {
   const [isConsoleMinimized, setIsConsoleMinimized] = useState(false);
   const [autoRotate, setAutoRotate] = useState(true);
   const [isPaused, setIsPaused] = useState(false);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [selectedWordForModal, setSelectedWordForModal] = useState<string>('');
   const [selectedProbeId, setSelectedProbeId] = useState<string | null>(null);
+  
+  const { 
+    isOpen: kwicModalOpen, 
+    closeModal: closeKwicModal, 
+    selectedWord: kwicSelectedWord, 
+    kwicData, 
+    isLoading: kwicLoading, 
+    openModal: openKwicModal 
+  } = useKWICModal('gaucho');
 
   const [codexState, setCodexState] = useState<'auto-open' | 'closed' | 'pinned'>('auto-open');
   const [openSections, setOpenSections] = useState({
@@ -315,10 +323,9 @@ export default function Dashboard8() {
     }, 1500);
     
     setSelectedProbeId(probe.id);
-    setSelectedWordForModal(probe.word);
-    setModalOpen(true);
-    toast.info(`Palavra: ${probe.word}`);
-  }, []);
+    openKwicModal(probe.word);
+    toast.info(`Analisando: ${probe.word}`);
+  }, [openKwicModal]);
 
   const handleReset = useCallback(() => {
     navigateToUniverse();
@@ -493,14 +500,25 @@ export default function Dashboard8() {
       </div>
 
       <KWICModal
-        open={modalOpen}
+        open={kwicModalOpen}
         onOpenChange={(open) => {
-          setModalOpen(open);
-          if (!open) setSelectedProbeId(null);
+          if (!open) {
+            closeKwicModal();
+            setSelectedProbeId(null);
+          }
         }}
-        word={selectedWordForModal}
-        data={[]}
+        word={kwicSelectedWord}
+        data={kwicData}
       />
+      
+      {kwicLoading && (
+        <div className="absolute top-4 right-4 bg-cyan-500/20 backdrop-blur-sm px-4 py-2 rounded-lg border border-cyan-500/30 z-50">
+          <div className="flex items-center gap-2">
+            <div className="animate-spin h-4 w-4 border-2 border-cyan-400 border-t-transparent rounded-full" />
+            <span className="text-cyan-300 text-sm font-mono">Escaneando concordâncias...</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
