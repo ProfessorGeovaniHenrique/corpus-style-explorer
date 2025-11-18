@@ -1,3 +1,4 @@
+import React from 'react';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 
@@ -15,7 +16,7 @@ interface PaginationControlsProps {
   canGoNext: boolean;
 }
 
-export function PaginationControls({
+export const PaginationControls = React.memo(function PaginationControls({
   currentPage,
   totalPages,
   startIndex,
@@ -87,4 +88,11 @@ export function PaginationControls({
       </div>
     </div>
   );
-}
+}, (prevProps, nextProps) => {
+  return (
+    prevProps.currentPage === nextProps.currentPage &&
+    prevProps.totalPages === nextProps.totalPages &&
+    prevProps.canGoPrev === nextProps.canGoPrev &&
+    prevProps.canGoNext === nextProps.canGoNext
+  );
+});
