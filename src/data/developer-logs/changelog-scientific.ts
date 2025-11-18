@@ -197,7 +197,8 @@ export const scientificChangelog: ScientificChangelog[] = [
     date: "2025-02-20",
     methodology: "Anotação semântica automática com processamento computacional + validação humana",
     keyReferences: [
-      "BERBER SARDINHA, Tony. Linguística de Corpus. São Paulo: Manole, 2004.",
+      "MCINTYRE, Dan; WALKER, Brian; MCINTYRE, Dan. Corpus stylistics. Edinburgh: Edinburgh University Press, 2019.",
+      "RAYSON, P. et al. The UCREL semantic analysis system. In: WORKSHOP ON BEYOND NAMED ENTITY RECOGNITION SEMANTIC LABELLING FOR NLP TASKS, 4., 2004, Lisboa. Proceedings... Lisboa: LREC, 2004. p. 7-12.",
       "LANDIS, J. Richard; KOCH, Gary G. The Measurement of Observer Agreement for Categorical Data. 1977."
     ],
     scientificAdvances: [
