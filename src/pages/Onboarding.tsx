@@ -42,103 +42,76 @@ const onboardingSteps = [
   },
   {
     id: 2,
-    title: "Aba Apresentação",
-    description: "Demonstração completa com corpus de estudo pré-carregado",
-    icon: Sparkles,
+    title: "Orientação Rápida",
+    description: "Conheça as 3 áreas principais da plataforma",
+    icon: BarChart3,
     content: (
       <div className="space-y-4">
-        <p>A <strong>Aba Apresentação</strong> oferece uma demonstração completa das capacidades analíticas:</p>
-        <ul className="space-y-2 list-disc list-inside">
-          <li><strong>Domínios Semânticos:</strong> Tabela interativa com distribuição lexical</li>
-          <li><strong>Estatísticas:</strong> Gráficos comparativos entre corpus</li>
-          <li><strong>Nuvem Semântica:</strong> Visualização D3 com zoom/pan e concordâncias KWIC</li>
-        </ul>
-        <Alert className="bg-blue-50 border-blue-200">
-          <Sparkles className="w-4 h-4 text-blue-600" />
-          <AlertDescription className="text-blue-900">
-            Esta aba está disponível para todos, inclusive visitantes!
-          </AlertDescription>
-        </Alert>
+        <p className="text-center mb-6">A plataforma está organizada em 3 abas principais:</p>
+        <div className="space-y-3">
+          <div className="p-4 border-l-4 border-primary bg-primary/5 rounded-r-lg">
+            <div className="flex items-center gap-3 mb-2">
+              <Sparkles className="w-5 h-5 text-primary" />
+              <p className="font-semibold">Apresentação</p>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Demonstração com corpus pré-carregado. Explore domínios semânticos, estatísticas e visualizações interativas.
+            </p>
+          </div>
+          <div className="p-4 border-l-4 border-amber-500 bg-amber-50 dark:bg-amber-950/20 rounded-r-lg">
+            <div className="flex items-center gap-3 mb-2">
+              <Wrench className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+              <p className="font-semibold">Ferramentas</p>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Suite profissional: KWIC, Keywords, Wordlist, N-grams e Dispersão. Requer login para salvar análises.
+            </p>
+          </div>
+          <div className="p-4 border-l-4 border-blue-500 bg-blue-50 dark:bg-blue-950/20 rounded-r-lg">
+            <div className="flex items-center gap-3 mb-2">
+              <Database className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+              <p className="font-semibold">Subcorpus</p>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Crie e compare subcorpus específicos por artista, região ou conjunto.
+            </p>
+          </div>
+        </div>
       </div>
     ),
   },
   {
     id: 3,
-    title: "Aba Ferramentas",
-    description: "Suite completa de análise linguística de corpus",
-    icon: Wrench,
-    content: (
-      <div className="space-y-4">
-        <p>Acesse ferramentas profissionais de Linguística de Corpus:</p>
-        <div className="grid grid-cols-2 gap-3">
-          <div className="p-3 border rounded-lg">
-            <p className="font-semibold text-sm mb-1">📋 Wordlist</p>
-            <p className="text-xs text-muted-foreground">Lista de palavras por frequência</p>
-          </div>
-          <div className="p-3 border rounded-lg">
-            <p className="font-semibold text-sm mb-1">🔑 Keywords</p>
-            <p className="text-xs text-muted-foreground">Palavras-chave estatísticas</p>
-          </div>
-          <div className="p-3 border rounded-lg">
-            <p className="font-semibold text-sm mb-1">🔍 KWIC</p>
-            <p className="text-xs text-muted-foreground">Concordâncias em contexto</p>
-          </div>
-          <div className="p-3 border rounded-lg">
-            <p className="font-semibold text-sm mb-1">📊 Dispersão</p>
-            <p className="text-xs text-muted-foreground">Distribuição temporal</p>
-          </div>
-          <div className="p-3 border rounded-lg">
-            <p className="font-semibold text-sm mb-1">🔤 N-grams</p>
-            <p className="text-xs text-muted-foreground">Sequências frequentes</p>
-          </div>
-        </div>
-        <Alert className="bg-green-50 border-green-200">
-          <Check className="w-4 h-4 text-green-600" />
-          <AlertDescription className="text-green-900">
-            Você tem acesso completo a todas estas ferramentas!
-          </AlertDescription>
-        </Alert>
-      </div>
-    ),
-  },
-  {
-    id: 4,
-    title: "Aba Testes",
-    description: "Validação humana e auditoria de corpus (apenas Admin/Evaluator)",
-    icon: FlaskConical,
-    content: (
-      <div className="space-y-4">
-        <p>A <strong>Aba Testes</strong> é exclusiva para Administradores e Avaliadores:</p>
-        <ul className="space-y-2 list-disc list-inside">
-          <li><strong>Validação Humana:</strong> Revisar análises automáticas</li>
-          <li><strong>Auditoria de Corpus:</strong> Verificar integridade dos dados</li>
-          <li><strong>Testes de Comparação:</strong> Validar estatísticas</li>
-        </ul>
-        <Alert className="bg-amber-50 border-amber-200">
-          <FlaskConical className="w-4 h-4 text-amber-600" />
-          <AlertDescription className="text-amber-900">
-            Esta aba estará visível apenas se você tiver permissões de Administrador ou Avaliador.
-          </AlertDescription>
-        </Alert>
-      </div>
-    ),
-  },
-  {
-    id: 5,
-    title: "Pronto para Começar!",
-    description: "Explore a plataforma e descubra insights linguísticos",
+    title: "Pronto para começar!",
+    description: "Escolha como deseja explorar a plataforma",
     icon: Check,
     content: (
       <div className="space-y-6 text-center">
-        <div className="w-20 h-20 mx-auto bg-primary/20 rounded-full flex items-center justify-center">
-          <Check className="w-10 h-10 text-primary" />
+        <div className="w-20 h-20 mx-auto bg-gradient-to-br from-primary to-primary/60 rounded-full flex items-center justify-center">
+          <Check className="w-10 h-10 text-primary-foreground" />
         </div>
-        <p className="text-lg">
-          Você está pronto para explorar o VersoAustral!
-        </p>
-        <div className="space-y-2">
-          <p className="text-sm text-muted-foreground">💡 <strong>Dica:</strong> Use o botão "Iniciar Tour Guiado" na Aba Apresentação para uma demonstração interativa</p>
-          <p className="text-sm text-muted-foreground">🔖 <strong>Atalho:</strong> Pressione <kbd className="px-2 py-1 bg-muted rounded">Ctrl + K</kbd> para busca rápida</p>
+        <div className="space-y-3">
+          <h3 className="text-xl font-semibold">Tudo pronto!</h3>
+          <p className="text-muted-foreground max-w-md mx-auto">
+            Você pode começar com um tour rápido de 30 segundos ou explorar a plataforma por conta própria.
+          </p>
+        </div>
+        <div className="flex flex-col sm:flex-row gap-3 justify-center pt-4">
+          <Button size="lg" className="gap-2" onClick={() => {
+            localStorage.setItem('onboarding_completed', 'true');
+            localStorage.setItem('show_quick_tour', 'true');
+            window.location.href = '/dashboard-mvp';
+          }}>
+            <Sparkles className="w-5 h-5" />
+            Ver demo rápida (30s)
+          </Button>
+          <Button variant="outline" size="lg" className="gap-2" onClick={() => {
+            localStorage.setItem('onboarding_completed', 'true');
+            window.location.href = '/dashboard-mvp';
+          }}>
+            <ArrowRight className="w-5 h-5" />
+            Explorar sozinho
+          </Button>
         </div>
       </div>
     ),

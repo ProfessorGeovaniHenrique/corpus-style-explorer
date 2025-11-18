@@ -71,9 +71,13 @@ export function MVPHeader({
       {/* Seção 2: Navegação (apenas se props forem fornecidas) */}
       {showNavigation && <div className="border-t border-border/50">
           <nav className="container-academic py-2 md:py-3">
-            <div className="grid w-full max-w-4xl mx-auto grid-cols-4 gap-2">
+            <div className="grid w-full max-w-4xl mx-auto grid-cols-4 gap-2" data-tour="header-tabs">
               {/* Aba Apresentação - Sempre visível */}
-              <button onClick={() => onTabChange('apresentacao')} className={cn("tabs-academic-trigger", activeTab === 'apresentacao' && "active")}>
+              <button 
+                onClick={() => onTabChange('apresentacao')} 
+                className={cn("tabs-academic-trigger", activeTab === 'apresentacao' && "active")}
+                data-tour="header-tab-apresentacao"
+              >
                 <Sparkles className="w-4 h-4" />
                 <span className="hidden sm:inline">Apresentação</span>
               </button>
@@ -86,6 +90,7 @@ export function MVPHeader({
                     "tabs-academic-trigger",
                     activeTab === 'tools' && "active"
                   )}
+                  data-tour="header-tab-tools"
                 >
                   <Wrench className="w-4 h-4" />
                   <span className="hidden sm:inline">Ferramentas</span>
@@ -120,6 +125,7 @@ export function MVPHeader({
                     "tabs-academic-trigger",
                     activeTab === 'subcorpus' && "active"
                   )}
+                  data-tour="header-tab-subcorpus"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M9 18V5l12-2v13"></path>
@@ -158,6 +164,7 @@ export function MVPHeader({
                     "tabs-academic-trigger",
                     activeTab === 'validation' && "active"
                   )}
+                  data-tour="header-tab-validation"
                 >
                   <FlaskConical className="w-4 h-4" />
                   <span className="hidden sm:inline">Testes</span>

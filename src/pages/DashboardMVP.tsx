@@ -19,6 +19,19 @@ export default function DashboardMVP() {
   const [activeTab, setActiveTab] = useState<TabType>('apresentacao');
   const { user, loading, hasToolsAccess, hasTestsAccess } = useAuthContext();
   
+  // Quick Tour Integration
+  useEffect(() => {
+    const shouldShowQuickTour = localStorage.getItem('show_quick_tour') === 'true';
+    if (shouldShowQuickTour) {
+      localStorage.removeItem('show_quick_tour');
+      // Importar e iniciar tour dinamicamente
+      import('@/hooks/useQuickTour').then(({ useQuickTour }) => {
+        const { startQuickTour } = useQuickTour();
+        setTimeout(() => startQuickTour(), 1000);
+      });
+    }
+  }, []);
+  
   // Proteger: Se usuário não autenticado tentar acessar aba restrita, voltar para apresentação
   useEffect(() => {
     if (!loading && !user && (activeTab === 'tools' || activeTab === 'subcorpus' || activeTab === 'validation')) {
