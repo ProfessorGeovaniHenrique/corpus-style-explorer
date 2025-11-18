@@ -1,11 +1,121 @@
-import { createContext, useContext, useState, ReactNode, useEffect, useMemo } from 'react';
+import { createContext, useContext, useState, useEffect, useMemo, useCallback, ReactNode } from 'react';
 import { KeywordEntry, CorpusType } from '@/data/types/corpus-tools.types';
 import { DispersionAnalysis, NGramAnalysis, KWICContext, SongMetadata } from '@/data/types/full-text-corpus.types';
 import { Collocation } from '@/services/collocationService';
 import { debounce } from '@/lib/performanceUtils';
-import { useNavigate } from 'react-router-dom';
 
-// ==================== INTERFACES DE ESTADO ====================
+// ==================== SCHEMA VERSIONING ====================
+
+const CURRENT_SCHEMA_VERSION = {
+  keywords: 2, // v2: Added analysisConfig
+  wordlist: 1,
+  kwic: 1,
+  dispersion: 1,
+  ngrams: 1
+};
+
+interface StorageWithVersion<T> {
+  version: number;
+  data: T;
+}
+
+/**
+ * Migra dados antigos do localStorage para o schema atual
+ */
+function migrateKeywordsSchema(data: any, fromVersion: number): KeywordsState {
+  console.group(`🔄 Migrando schema de Keywords: v${fromVersion} → v${CURRENT_SCHEMA_VERSION.keywords}`);
+  
+  let migrated = { ...data };
+  
+  // Migração v1 → v2: Adicionar analysisConfig
+  if (fromVersion < 2) {
+    console.log('✅ Adicionando analysisConfig ao schema...');
+    migrated.analysisConfig = {
+      generateKeywordsList: true,
+      generateScatterPlot: false,
+      generateComparisonChart: false,
+      generateDispersion: false,
+    };
+  }
+  
+  console.log('📦 Dados migrados:', migrated);
+  console.groupEnd();
+  
+  return migrated as KeywordsState;
+}
+
+/**
+ * Salva dados com versionamento
+ */
+function saveWithVersion<T>(key: string, data: T, version: number): void {
+  const wrapped: StorageWithVersion<T> = {
+    version,
+    data
+  };
+  localStorage.setItem(key, JSON.stringify(wrapped));
+}
+
+/**
+ * Carrega dados com migração automática
+ */
+function loadWithMigration<T>(
+  key: string, 
+  defaultValue: T, 
+  currentVersion: number,
+  migrator?: (data: any, fromVersion: number) => T
+): T {
+  try {
+    const stored = localStorage.getItem(key);
+    if (!stored) {
+      console.log(`📭 Nenhum dado encontrado para "${key}". Usando valores padrão.`);
+      return defaultValue;
+    }
+    
+    const parsed = JSON.parse(stored);
+    
+    // Verificar se é formato novo (com versão)
+    if (parsed.version !== undefined) {
+      const storedVersion = parsed.version;
+      
+      if (storedVersion === currentVersion) {
+        console.log(`✅ Schema de "${key}" está atualizado (v${currentVersion})`);
+        return { ...defaultValue, ...parsed.data } as T;
+      }
+      
+      // Necessário migrar
+      if (storedVersion < currentVersion && migrator) {
+        console.warn(`⚠️ Schema antigo detectado para "${key}": v${storedVersion} (atual: v${currentVersion})`);
+        const migrated = migrator(parsed.data, storedVersion);
+        
+        // Salvar versão migrada
+        saveWithVersion(key, migrated, currentVersion);
+        console.log(`✅ Migração concluída e salva para "${key}"`);
+        
+        return migrated;
+      }
+    } else {
+      // Formato antigo (sem versionamento) - tratar como v1
+      console.warn(`⚠️ Dados legados detectados para "${key}" (sem versão). Migrando...`);
+      
+      if (migrator) {
+        const migrated = migrator(parsed, 1);
+        saveWithVersion(key, migrated, currentVersion);
+        console.log(`✅ Dados legados migrados para v${currentVersion}`);
+        return migrated;
+      }
+      
+      // Fallback: merge com default
+      return { ...defaultValue, ...parsed } as T;
+    }
+    
+    return defaultValue;
+  } catch (error) {
+    console.error(`❌ Erro ao carregar/migrar "${key}":`, error);
+    return defaultValue;
+  }
+}
+
+// ==================== TYPE DEFINITIONS ====================
 
 interface KeywordsState {
   estudoCorpusBase: CorpusType;
@@ -65,13 +175,6 @@ interface NgramsState {
 }
 
 interface ToolsContextType {
-  selectedWord: string;
-  setSelectedWord: (word: string) => void;
-  activeTab: string;
-  setActiveTab: (tab: string) => void;
-  navigateToKWIC: (word: string) => void;
-  
-  // Estados das ferramentas
   keywordsState: KeywordsState;
   setKeywordsState: (state: Partial<KeywordsState>) => void;
   clearKeywordsState: () => void;
@@ -92,14 +195,22 @@ interface ToolsContextType {
   setNgramsState: (state: Partial<NgramsState>) => void;
   clearNgramsState: () => void;
   
+  selectedWord: string;
+  setSelectedWord: (word: string) => void;
+  activeTab: string;
+  setActiveTab: (tab: string) => void;
+  navigateToKWIC: (word: string, sourceTab: string) => void;
+  
   saveStatus: {
     isSaving: boolean;
     lastSaved: Date | null;
     error: string | null;
   };
+  
+  clearAllCache: () => void;
 }
 
-// ==================== ESTADOS INICIAIS ====================
+// ==================== INITIAL STATES ====================
 
 const INITIAL_KEYWORDS_STATE: KeywordsState = {
   estudoCorpusBase: 'gaucho',
@@ -128,112 +239,80 @@ const INITIAL_WORDLIST_STATE: WordlistState = {
   wordlist: [],
   searchTerm: '',
   sortColumn: 'frequencia',
-  sortDirection: 'desc'
+  sortDirection: 'desc',
 };
 
 const INITIAL_KWIC_STATE: KWICState = {
   palavra: '',
-  contextoEsquerdo: 5,
-  contextoDireito: 5,
+  contextoEsquerdo: 3,
+  contextoDireito: 3,
   results: [],
   selectedArtists: [],
   selectedMusicas: [],
   anoInicio: null,
   anoFim: null,
-  janelaColocacional: 3,
-  minFreqColocacao: 3,
+  janelaColocacional: 5,
+  minFreqColocacao: 2,
   colocacoes: [],
-  dispersionAnalysis: null
+  dispersionAnalysis: null,
 };
 
 const INITIAL_DISPERSION_STATE: DispersionState = {
   palavra: '',
-  analysis: null
+  analysis: null,
 };
 
 const INITIAL_NGRAMS_STATE: NgramsState = {
   ngramSize: 2,
   minFrequencia: '2',
-  maxResults: '100',
-  analysis: null
+  maxResults: '50',
+  analysis: null,
 };
 
-// ==================== STORAGE HELPERS ====================
+// ==================== STORAGE ====================
 
 const STORAGE_KEYS = {
   keywords: 'tools_keywords_state',
   wordlist: 'tools_wordlist_state',
   kwic: 'tools_kwic_state',
   dispersion: 'tools_dispersion_state',
-  ngrams: 'tools_ngrams_state'
+  ngrams: 'tools_ngrams_state',
 };
 
-function loadFromStorage<T>(key: string, defaultValue: T): T {
-  try {
-    const stored = localStorage.getItem(key);
-    if (!stored) return defaultValue;
-    
-    const parsed = JSON.parse(stored);
-    
-    // Fazer merge profundo com defaultValue para garantir que propriedades novas existam
-    // Isso é crucial quando adicionamos novas propriedades ao schema
-    if (typeof defaultValue === 'object' && defaultValue !== null) {
-      return { ...defaultValue, ...parsed } as T;
-    }
-    
-    return parsed;
-  } catch (error) {
-    console.warn(`Failed to load ${key} from storage:`, error);
-    return defaultValue;
-  }
-}
-
-function saveToStorage<T>(key: string, value: T): void {
-  try {
-    localStorage.setItem(key, JSON.stringify(value));
-  } catch (error) {
-    console.warn(`Failed to save ${key} to storage:`, error);
-  }
-}
-
-/**
- * Comprime dados grandes antes de salvar no localStorage
- * Remove dados desnecessários para reduzir tamanho
- */
 function compressStateForStorage<T>(value: T, key: string): T {
-  // Se for keywords e contiver arrays grandes de dados visuais, comprimir
-  if (key === STORAGE_KEYS.keywords && typeof value === 'object' && value !== null) {
-    const keywordsState = value as unknown as KeywordsState;
+  if (key === STORAGE_KEYS.keywords) {
+    const state = value as unknown as KeywordsState;
     
-    // Manter apenas dados essenciais se análises visuais estão desabilitadas
-    const compressed = { ...keywordsState };
-    
-    // Não salvar keywords se lista não está ativa (mas manter se já processado)
-    if (!keywordsState.analysisConfig.generateKeywordsList && !keywordsState.isProcessed) {
-      compressed.keywords = [];
+    // Se a lista de keywords não foi gerada, remover array para economizar espaço
+    if (!state.analysisConfig?.generateKeywordsList && !state.isProcessed) {
+      return {
+        ...state,
+        keywords: []
+      } as unknown as T;
     }
-    
-    return compressed as unknown as T;
   }
   
   return value;
 }
 
-/**
- * Salva no localStorage de forma não-bloqueante com feedback visual
- */
 function saveToStorageIdle<T>(
   key: string, 
-  value: T, 
+  value: T,
+  version: number,
   setSaveStatus: (status: any) => void
 ): void {
   setSaveStatus((prev: any) => ({ ...prev, isSaving: true }));
   
   try {
     const compressed = compressStateForStorage(value, key);
-    const serialized = JSON.stringify(compressed);
     
-    // Usar requestIdleCallback se disponível (não bloqueia a UI)
+    // Salvar com versionamento
+    const wrapped: StorageWithVersion<T> = {
+      version,
+      data: compressed
+    };
+    const serialized = JSON.stringify(wrapped);
+    
     if ('requestIdleCallback' in window) {
       requestIdleCallback(() => {
         try {
@@ -244,16 +323,15 @@ function saveToStorageIdle<T>(
             error: null
           });
         } catch (error) {
-          console.error(`Failed to save ${key}:`, error);
-          setSaveStatus({
+          console.error('Error saving to localStorage:', error);
+          setSaveStatus((prev: any) => ({
+            ...prev,
             isSaving: false,
-            lastSaved: null,
             error: 'Erro ao salvar dados'
-          });
+          }));
         }
-      }, { timeout: 2000 });
+      });
     } else {
-      // Fallback para navegadores sem requestIdleCallback
       localStorage.setItem(key, serialized);
       setSaveStatus({
         isSaving: false,
@@ -262,12 +340,12 @@ function saveToStorageIdle<T>(
       });
     }
   } catch (error) {
-    console.error(`Failed to save ${key}:`, error);
-    setSaveStatus({
+    console.error('Error preparing localStorage save:', error);
+    setSaveStatus((prev: any) => ({
+      ...prev,
       isSaving: false,
-      lastSaved: null,
-      error: 'Erro ao salvar dados'
-    });
+      error: 'Erro ao preparar salvamento'
+    }));
   }
 }
 
@@ -276,78 +354,88 @@ function saveToStorageIdle<T>(
 const ToolsContext = createContext<ToolsContextType | undefined>(undefined);
 
 export function ToolsProvider({ children }: { children: ReactNode }) {
-  const [selectedWord, setSelectedWord] = useState('');
-  const [activeTab, setActiveTab] = useState('basicas');
-  
-  // Estado do indicador de salvamento
-  const [saveStatus, setSaveStatus] = useState<{
-    isSaving: boolean;
-    lastSaved: Date | null;
-    error: string | null;
-  }>({
+  const [selectedWord, setSelectedWord] = useState<string>('');
+  const [activeTab, setActiveTab] = useState<string>('');
+  const [saveStatus, setSaveStatus] = useState({
     isSaving: false,
-    lastSaved: null,
-    error: null
+    lastSaved: null as Date | null,
+    error: null as string | null
   });
-  
-  // Estados das ferramentas com persistência
+
   const [keywordsState, setKeywordsStateInternal] = useState<KeywordsState>(() =>
-    loadFromStorage(STORAGE_KEYS.keywords, INITIAL_KEYWORDS_STATE)
+    loadWithMigration(
+      STORAGE_KEYS.keywords, 
+      INITIAL_KEYWORDS_STATE,
+      CURRENT_SCHEMA_VERSION.keywords,
+      migrateKeywordsSchema
+    )
   );
-  
   const [wordlistState, setWordlistStateInternal] = useState<WordlistState>(() =>
-    loadFromStorage(STORAGE_KEYS.wordlist, INITIAL_WORDLIST_STATE)
+    loadWithMigration(
+      STORAGE_KEYS.wordlist, 
+      INITIAL_WORDLIST_STATE,
+      CURRENT_SCHEMA_VERSION.wordlist
+    )
   );
-  
   const [kwicState, setKwicStateInternal] = useState<KWICState>(() =>
-    loadFromStorage(STORAGE_KEYS.kwic, INITIAL_KWIC_STATE)
+    loadWithMigration(
+      STORAGE_KEYS.kwic, 
+      INITIAL_KWIC_STATE,
+      CURRENT_SCHEMA_VERSION.kwic
+    )
   );
-  
   const [dispersionState, setDispersionStateInternal] = useState<DispersionState>(() =>
-    loadFromStorage(STORAGE_KEYS.dispersion, INITIAL_DISPERSION_STATE)
+    loadWithMigration(
+      STORAGE_KEYS.dispersion, 
+      INITIAL_DISPERSION_STATE,
+      CURRENT_SCHEMA_VERSION.dispersion
+    )
   );
-  
   const [ngramsState, setNgramsStateInternal] = useState<NgramsState>(() =>
-    loadFromStorage(STORAGE_KEYS.ngrams, INITIAL_NGRAMS_STATE)
+    loadWithMigration(
+      STORAGE_KEYS.ngrams, 
+      INITIAL_NGRAMS_STATE,
+      CURRENT_SCHEMA_VERSION.ngrams
+    )
   );
 
-  // ✅ Funções debounced para salvamento otimizado
+  // Debounced save functions
   const debouncedSaveKeywords = useMemo(
     () => debounce((state: KeywordsState) => {
-      saveToStorageIdle(STORAGE_KEYS.keywords, state, setSaveStatus);
+      saveToStorageIdle(STORAGE_KEYS.keywords, state, CURRENT_SCHEMA_VERSION.keywords, setSaveStatus);
     }, 500),
     []
   );
 
   const debouncedSaveWordlist = useMemo(
     () => debounce((state: WordlistState) => {
-      saveToStorageIdle(STORAGE_KEYS.wordlist, state, setSaveStatus);
+      saveToStorageIdle(STORAGE_KEYS.wordlist, state, CURRENT_SCHEMA_VERSION.wordlist, setSaveStatus);
     }, 500),
     []
   );
 
   const debouncedSaveKwic = useMemo(
     () => debounce((state: KWICState) => {
-      saveToStorageIdle(STORAGE_KEYS.kwic, state, setSaveStatus);
+      saveToStorageIdle(STORAGE_KEYS.kwic, state, CURRENT_SCHEMA_VERSION.kwic, setSaveStatus);
     }, 500),
     []
   );
 
   const debouncedSaveDispersion = useMemo(
     () => debounce((state: DispersionState) => {
-      saveToStorageIdle(STORAGE_KEYS.dispersion, state, setSaveStatus);
+      saveToStorageIdle(STORAGE_KEYS.dispersion, state, CURRENT_SCHEMA_VERSION.dispersion, setSaveStatus);
     }, 500),
     []
   );
 
   const debouncedSaveNgrams = useMemo(
     () => debounce((state: NgramsState) => {
-      saveToStorageIdle(STORAGE_KEYS.ngrams, state, setSaveStatus);
+      saveToStorageIdle(STORAGE_KEYS.ngrams, state, CURRENT_SCHEMA_VERSION.ngrams, setSaveStatus);
     }, 500),
     []
   );
-  
-  // ✅ Sync com localStorage OTIMIZADO (com debounce + feedback)
+
+  // Auto-save effects
   useEffect(() => {
     debouncedSaveKeywords(keywordsState);
   }, [keywordsState, debouncedSaveKeywords]);
@@ -367,94 +455,103 @@ export function ToolsProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     debouncedSaveNgrams(ngramsState);
   }, [ngramsState, debouncedSaveNgrams]);
-  
-  // Setters com merge parcial
+
+  // Setters
   const setKeywordsState = (partial: Partial<KeywordsState>) => {
     setKeywordsStateInternal(prev => ({ ...prev, ...partial }));
   };
-  
+
   const setWordlistState = (partial: Partial<WordlistState>) => {
     setWordlistStateInternal(prev => ({ ...prev, ...partial }));
   };
-  
+
   const setKwicState = (partial: Partial<KWICState>) => {
     setKwicStateInternal(prev => ({ ...prev, ...partial }));
   };
-  
+
   const setDispersionState = (partial: Partial<DispersionState>) => {
     setDispersionStateInternal(prev => ({ ...prev, ...partial }));
   };
-  
+
   const setNgramsState = (partial: Partial<NgramsState>) => {
     setNgramsStateInternal(prev => ({ ...prev, ...partial }));
   };
-  
+
   // Clear functions
-  const clearKeywordsState = () => {
-    setKeywordsStateInternal(INITIAL_KEYWORDS_STATE);
-    localStorage.removeItem(STORAGE_KEYS.keywords);
-  };
-  
-  const clearWordlistState = () => {
-    setWordlistStateInternal(INITIAL_WORDLIST_STATE);
-    localStorage.removeItem(STORAGE_KEYS.wordlist);
-  };
-  
-  const clearKwicState = () => {
-    setKwicStateInternal(INITIAL_KWIC_STATE);
-    localStorage.removeItem(STORAGE_KEYS.kwic);
-  };
-  
-  const clearDispersionState = () => {
-    setDispersionStateInternal(INITIAL_DISPERSION_STATE);
-    localStorage.removeItem(STORAGE_KEYS.dispersion);
-  };
-  
-  const clearNgramsState = () => {
-    setNgramsStateInternal(INITIAL_NGRAMS_STATE);
-    localStorage.removeItem(STORAGE_KEYS.ngrams);
-  };
+  const clearKeywordsState = () => setKeywordsStateInternal(INITIAL_KEYWORDS_STATE);
+  const clearWordlistState = () => setWordlistStateInternal(INITIAL_WORDLIST_STATE);
+  const clearKwicState = () => setKwicStateInternal(INITIAL_KWIC_STATE);
+  const clearDispersionState = () => setDispersionStateInternal(INITIAL_DISPERSION_STATE);
+  const clearNgramsState = () => setNgramsStateInternal(INITIAL_NGRAMS_STATE);
 
-  const navigateToKWIC = (word: string) => {
+  const navigateToKWIC = (word: string, sourceTab: string) => {
+    console.log(`🔗 Navegando para KWIC com palavra: "${word}" (origem: ${sourceTab})`);
     setSelectedWord(word);
-    setActiveTab('basicas');
+    setActiveTab('kwic');
   };
 
-  const navigate = useNavigate();
-  
-  return (
-    <ToolsContext.Provider value={{
-      selectedWord,
-      setSelectedWord,
-      activeTab,
-      setActiveTab,
-      navigateToKWIC,
-      keywordsState,
-      setKeywordsState,
-      clearKeywordsState,
-      wordlistState,
-      setWordlistState,
-      clearWordlistState,
-      kwicState,
-      setKwicState,
-      clearKwicState,
-      dispersionState,
-      setDispersionState,
-      clearDispersionState,
-      ngramsState,
-      setNgramsState,
-      clearNgramsState,
-      saveStatus
-    }}>
-      {children}
-    </ToolsContext.Provider>
-  );
+  const clearAllCache = useCallback(() => {
+    console.group('🧹 Limpando cache completo do localStorage');
+    
+    // Remover todos os dados das ferramentas
+    Object.values(STORAGE_KEYS).forEach(key => {
+      console.log(`🗑️ Removendo: ${key}`);
+      localStorage.removeItem(key);
+    });
+    
+    // Resetar todos os estados para valores iniciais
+    setKeywordsStateInternal(INITIAL_KEYWORDS_STATE);
+    setWordlistStateInternal(INITIAL_WORDLIST_STATE);
+    setKwicStateInternal(INITIAL_KWIC_STATE);
+    setDispersionStateInternal(INITIAL_DISPERSION_STATE);
+    setNgramsStateInternal(INITIAL_NGRAMS_STATE);
+    
+    console.log('✅ Cache limpo com sucesso!');
+    console.groupEnd();
+    
+    // Recarregar página para garantir estado limpo
+    setTimeout(() => {
+      window.location.reload();
+    }, 500);
+  }, []);
+
+  const value = {
+    keywordsState,
+    setKeywordsState,
+    clearKeywordsState,
+    
+    wordlistState,
+    setWordlistState,
+    clearWordlistState,
+    
+    kwicState,
+    setKwicState,
+    clearKwicState,
+    
+    dispersionState,
+    setDispersionState,
+    clearDispersionState,
+    
+    ngramsState,
+    setNgramsState,
+    clearNgramsState,
+    
+    selectedWord,
+    setSelectedWord,
+    activeTab,
+    setActiveTab,
+    navigateToKWIC,
+    saveStatus,
+    clearAllCache,
+  };
+
+  return <ToolsContext.Provider value={value}>{children}</ToolsContext.Provider>;
 }
 
 export function useTools() {
   const context = useContext(ToolsContext);
-  if (!context) {
-    throw new Error('useTools must be used within ToolsProvider');
+  if (context === undefined) {
+    throw new Error('useTools must be used within a ToolsProvider');
   }
   return context;
 }

@@ -169,7 +169,7 @@ export function WordlistTool() {
   };
 
   const handleWordClick = (palavra: string) => {
-    navigateToKWIC(palavra);
+    navigateToKWIC(palavra, 'wordlist');
     toast.success(`Buscando "${palavra}" no KWIC...`);
   };
 
