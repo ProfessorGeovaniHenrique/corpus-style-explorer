@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Menu, Moon, Sun, Home, Wrench, Sparkles, Shield, Users, BarChart3, Database, BookOpen, CircuitBoard, LogOut } from 'lucide-react';
+import { Menu, Moon, Sun, Home, Wrench, Sparkles, Shield, Users, BarChart3, Database, BookOpen, CircuitBoard, History, LogOut } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -158,6 +158,15 @@ export function MobileMenu() {
               >
                 <BookOpen className="h-4 w-4" />
                 <span>Developer Logs</span>
+              </Button>
+              
+              <Button 
+                variant="ghost" 
+                onClick={() => handleNavigate('/developer-history')}
+                className="justify-start gap-2"
+              >
+                <History className="h-4 w-4" />
+                <span>Developer History</span>
               </Button>
               
               <Button 

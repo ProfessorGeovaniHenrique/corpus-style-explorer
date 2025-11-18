@@ -21,6 +21,7 @@ import {
   Database,
   BookOpen,
   CircuitBoard,
+  History,
   Moon,
   Sun
 } from "lucide-react";
@@ -144,6 +145,11 @@ const Header = () => {
                   <DropdownMenuItem onClick={() => navigate("/developer-logs")}>
                     <BookOpen className="mr-2 h-4 w-4" />
                     <span>Developer Logs</span>
+                  </DropdownMenuItem>
+                  
+                  <DropdownMenuItem onClick={() => navigate("/developer-history")}>
+                    <History className="mr-2 h-4 w-4" />
+                    <span>Developer History</span>
                   </DropdownMenuItem>
                   
                   <DropdownMenuItem onClick={() => navigate("/devops-metrics")}>
