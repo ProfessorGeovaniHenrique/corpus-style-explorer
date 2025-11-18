@@ -200,7 +200,15 @@ interface ToolsContextType {
   setSelectedWord: (word: string) => void;
   activeTab: string;
   setActiveTab: (tab: string) => void;
-  navigateToKWIC: (word: string, sourceTab: string) => void;
+  navigateToKWIC: (
+    word: string, 
+    sourceTab: string,
+    corpusContext?: {
+      corpusBase: CorpusType;
+      mode: 'complete' | 'artist';
+      artist: string | null;
+    }
+  ) => void;
   
   saveStatus: {
     isSaving: boolean;
@@ -485,8 +493,30 @@ export function ToolsProvider({ children }: { children: ReactNode }) {
   const clearDispersionState = () => setDispersionStateInternal(INITIAL_DISPERSION_STATE);
   const clearNgramsState = () => setNgramsStateInternal(INITIAL_NGRAMS_STATE);
 
-  const navigateToKWIC = (word: string, sourceTab: string) => {
-    console.log(`🔗 Navegando para KWIC com palavra: "${word}" (origem: ${sourceTab})`);
+  const navigateToKWIC = (
+    word: string, 
+    sourceTab: string,
+    corpusContext?: {
+      corpusBase: CorpusType;
+      mode: 'complete' | 'artist';
+      artist: string | null;
+    }
+  ) => {
+    console.log(`🔗 Navegando para KWIC: "${word}" (origem: ${sourceTab})`);
+    
+    // Salvar contexto temporário para busca contextual
+    if (corpusContext) {
+      const kwicContext = {
+        corpusBase: corpusContext.corpusBase,
+        mode: corpusContext.mode === 'artist' ? 'single' : 'complete',
+        artistaA: corpusContext.artist,
+        timestamp: Date.now()
+      };
+      
+      sessionStorage.setItem('kwic-temp-context', JSON.stringify(kwicContext));
+      console.log('💾 Contexto temporário salvo:', kwicContext);
+    }
+    
     setSelectedWord(word);
     setActiveTab('kwic');
   };

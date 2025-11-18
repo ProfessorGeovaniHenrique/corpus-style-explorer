@@ -8,9 +8,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { generateKWIC, exportKWICToCSV } from "@/services/kwicService";
 import { KWICContext, CorpusCompleto } from "@/data/types/full-text-corpus.types";
+import { CorpusType } from "@/data/types/corpus-tools.types";
 import { toast } from "sonner";
 import { useTools } from "@/contexts/ToolsContext";
 import { useSubcorpus } from "@/contexts/SubcorpusContext";
+import { loadSpecificCorpus } from "@/contexts/CorpusContext";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
@@ -60,6 +62,11 @@ export function KWICTool() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [corpus, setCorpus] = useState<CorpusCompleto | null>(null);
   const [isLoadingCorpus, setIsLoadingCorpus] = useState(false);
+  const [tempCorpusContext, setTempCorpusContext] = useState<{
+    corpusBase: CorpusType;
+    mode: 'complete' | 'single';
+    artistaA: string | null;
+  } | null>(null);
   
   // Usar estado do context
   const palavra = kwicState.palavra;
@@ -71,11 +78,61 @@ export function KWICTool() {
   const results = kwicState.results;
   const setResults = (val: KWICContext[]) => setKwicState({ results: val });
   
+  // Consumir contexto temporário do sessionStorage (apenas uma vez no mount)
+  useEffect(() => {
+    const tempContext = sessionStorage.getItem('kwic-temp-context');
+    
+    if (tempContext) {
+      try {
+        const parsed = JSON.parse(tempContext);
+        
+        // Validar idade do contexto (máximo 5 segundos)
+        if (Date.now() - parsed.timestamp < 5000) {
+          setTempCorpusContext({
+            corpusBase: parsed.corpusBase,
+            mode: parsed.mode,
+            artistaA: parsed.artistaA
+          });
+          
+          console.log('✅ Contexto temporário carregado:', parsed);
+          
+          const corpusDesc = parsed.mode === 'single' && parsed.artistaA
+            ? parsed.artistaA
+            : `${parsed.corpusBase} (completo)`;
+          
+          toast.info('Busca contextual ativada', {
+            description: `Usando corpus: ${corpusDesc}`,
+            duration: 3000
+          });
+        }
+      } catch (error) {
+        console.error('Erro ao parsear contexto temporário:', error);
+      } finally {
+        // SEMPRE limpar após consumir
+        sessionStorage.removeItem('kwic-temp-context');
+      }
+    }
+  }, []);
+  
+  // Carregar corpus (contextual ou global)
   useEffect(() => {
     const loadCorpus = async () => {
       setIsLoadingCorpus(true);
       try {
-        const filteredCorpus = await getFilteredCorpus();
+        let filteredCorpus: CorpusCompleto;
+        
+        // Priorizar contexto temporário (busca pontual)
+        if (tempCorpusContext) {
+          console.log('📦 Carregando corpus contextual:', tempCorpusContext);
+          filteredCorpus = await loadSpecificCorpus(tempCorpusContext);
+          
+          // Limpar após usar (não persiste)
+          setTempCorpusContext(null);
+        } else {
+          // Comportamento padrão: usar SubcorpusContext global
+          filteredCorpus = await getFilteredCorpus();
+        }
+        
         setCorpus(filteredCorpus);
       } catch (error) {
         console.error('Erro ao carregar corpus:', error);
@@ -85,7 +142,7 @@ export function KWICTool() {
       }
     };
     loadCorpus();
-  }, [getFilteredCorpus]);
+  }, [getFilteredCorpus, tempCorpusContext]);
   
   useEffect(() => {
     if (selectedWord) {

@@ -411,11 +411,19 @@ export function KeywordsTool() {
   };
   
   const handleWordClick = (palavra: string) => {
-    navigateToKWIC(palavra, 'keywords');
+    navigateToKWIC(palavra, 'keywords', {
+      corpusBase: estudoCorpusBase,
+      mode: estudoMode,
+      artist: estudoArtist
+    });
+    
+    const corpusDesc = estudoMode === 'artist' && estudoArtist
+      ? estudoArtist
+      : `${estudoCorpusBase} (completo)`;
     
     toast.info(`Navegando para KWIC: "${palavra}"`, {
-      description: 'A palavra foi transferida para a ferramenta KWIC',
-      duration: 3000
+      description: `Busca contextual no corpus: ${corpusDesc}`,
+      duration: 4000
     });
   };
   

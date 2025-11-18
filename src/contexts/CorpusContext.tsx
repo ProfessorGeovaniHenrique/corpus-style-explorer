@@ -4,6 +4,35 @@ import { parseTSVCorpus, calculateTotalTokens } from '@/lib/corpusParser';
 import { loadFullTextCorpus } from '@/lib/fullTextParser';
 import { CorpusCompleto } from '@/data/types/full-text-corpus.types';
 
+/**
+ * Carrega corpus específico para busca contextual isolada (sem alterar estado global)
+ */
+export async function loadSpecificCorpus(context: {
+  corpusBase: CorpusType;
+  mode: 'complete' | 'single';
+  artistaA: string | null;
+}): Promise<CorpusCompleto> {
+  console.log('📦 loadSpecificCorpus chamado com:', context);
+  
+  const { corpusBase, mode, artistaA } = context;
+  
+  // Se modo completo, carregar corpus inteiro
+  if (mode === 'complete') {
+    return await loadFullTextCorpus(corpusBase);
+  }
+  
+  // Modo single: filtrar por artista
+  if (mode === 'single' && artistaA) {
+    return await loadFullTextCorpus(corpusBase, {
+      artistas: [artistaA]
+    });
+  }
+  
+  // Fallback: corpus completo
+  console.warn('⚠️ Contexto inválido para loadSpecificCorpus, usando corpus completo');
+  return await loadFullTextCorpus(corpusBase);
+}
+
 interface WordlistCache {
   words: Array<{ headword: string; freq: number }>;
   totalTokens: number;
