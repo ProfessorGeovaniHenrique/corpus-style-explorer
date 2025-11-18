@@ -1373,6 +1373,36 @@ export type Database = {
           },
         ]
       }
+      sync_metadata: {
+        Row: {
+          created_at: string | null
+          data_hash: string
+          id: string
+          items_synced: number | null
+          last_sync_at: string | null
+          source: string
+          sync_duration_ms: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          data_hash: string
+          id?: string
+          items_synced?: number | null
+          last_sync_at?: string | null
+          source: string
+          sync_duration_ms?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          data_hash?: string
+          id?: string
+          items_synced?: number | null
+          last_sync_at?: string | null
+          source?: string
+          sync_duration_ms?: number | null
+        }
+        Relationships: []
+      }
       system_alerts: {
         Row: {
           acknowledged: boolean

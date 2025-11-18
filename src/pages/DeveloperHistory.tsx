@@ -14,6 +14,7 @@ import { ExportMenu } from "@/components/dev-history/ExportMenu";
 import { MilestoneProgress } from "@/components/dev-history/MilestoneProgress";
 import { VelocityChart } from "@/components/dev-history/VelocityChart";
 import { SearchBar } from "@/components/dev-history/SearchBar";
+import { SyncStatusDashboard } from "@/components/dev-history/SyncStatusDashboard";
 import type { SearchResult } from "@/hooks/useDevHistorySearch";
 
 export default function DeveloperHistory() {
@@ -71,6 +72,9 @@ export default function DeveloperHistory() {
             </Button>
           </div>
         </div>
+
+        {/* Sync Status Dashboard */}
+        <SyncStatusDashboard />
 
         {/* Quick Stats */}
         <ProjectStats />
