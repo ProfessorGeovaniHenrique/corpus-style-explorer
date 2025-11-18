@@ -1,7 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { FileText, ArrowLeft, Download, Bug, Bot, Zap, Wrench, BarChart3, Shield } from "lucide-react";
+import { FileText, ArrowLeft, Download, Bug, Bot, Zap, Wrench, BarChart3, Shield, Database } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { exportDeveloperLogsToPDF } from "@/utils/exportDeveloperLogs";
 import { useState } from "react";
@@ -12,7 +12,8 @@ import {
   TemporalEvolutionDashboard,
   CreditsSavingsIndicator,
   AIAnalysisReview,
-  AnnotationDebugPanel
+  AnnotationDebugPanel,
+  SubcorpusDebugPanel
 } from '@/components/devlogs';
 import { projectStats } from "@/data/developer-logs/construction-log";
 
@@ -126,7 +127,7 @@ export default function DeveloperLogs() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6 mt-6 container mx-auto px-4 pb-8">
-          <TabsList className="grid w-full grid-cols-6 lg:w-auto">
+          <TabsList className="grid w-full grid-cols-7 lg:w-auto">
             <TabsTrigger value="ai-assistant" className="gap-2">
               <Bot className="w-4 h-4" />
               <span className="hidden sm:inline">🤖 IA Assistant</span>
@@ -150,6 +151,10 @@ export default function DeveloperLogs() {
             <TabsTrigger value="temporal-evolution" className="gap-2">
               <BarChart3 className="w-4 h-4" />
               <span className="hidden sm:inline">📊 Evolução</span>
+            </TabsTrigger>
+            <TabsTrigger value="subcorpus-debug" className="gap-2">
+              <Database className="w-4 h-4" />
+              <span className="hidden sm:inline">🔍 Subcorpus Debug</span>
             </TabsTrigger>
           </TabsList>
 
@@ -184,6 +189,11 @@ export default function DeveloperLogs() {
           {/* TAB TEMPORAL EVOLUTION: Dashboard de Evolução */}
           <TabsContent value="temporal-evolution">
             <TemporalEvolutionDashboard />
+          </TabsContent>
+
+          {/* TAB SUBCORPUS DEBUG: Debug do SubcorpusContext */}
+          <TabsContent value="subcorpus-debug">
+            <SubcorpusDebugPanel />
           </TabsContent>
         </Tabs>
       </div>

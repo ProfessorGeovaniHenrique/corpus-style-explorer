@@ -13,3 +13,4 @@ export { TemporalEvolutionDashboard } from './TemporalEvolutionDashboard';
 export { CreditsSavingsIndicator } from './CreditsSavingsIndicator';
 export { AIAnalysisReview } from './AIAnalysisReview';
 export { AnnotationDebugPanel } from './AnnotationDebugPanel';
+export { SubcorpusDebugPanel } from './SubcorpusDebugPanel';
