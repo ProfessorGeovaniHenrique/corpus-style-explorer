@@ -132,6 +132,7 @@ interface KeywordsState {
   sortColumn: 'palavra' | 'keyword' | 'll' | 'freqEstudo' | 'freqReferencia' | 'freqRef' | 'effect' | 'efeito';
   sortDirection: 'asc' | 'desc';
   isProcessed: boolean;
+  hasInitialized?: boolean;
   analysisConfig: {
     generateKeywordsList: boolean;
     generateScatterPlot: boolean;

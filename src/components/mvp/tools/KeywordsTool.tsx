@@ -72,6 +72,45 @@ export function KeywordsTool() {
   const { navigateToKWIC } = useTools();
   const { currentMetadata, selection } = useSubcorpus();
   
+  // Sincronização inicial com corpus global (uma única vez)
+  useEffect(() => {
+    if (!keywordsState.hasInitialized && selection) {
+      console.log('🔄 Sincronizando Keywords Tool com seleção global da sidebar');
+      
+      // Converter modo do contexto para modo do Keywords Tool
+      let newMode: 'complete' | 'artist' = 'complete';
+      let newArtist: string | null = null;
+      
+      if (selection.mode === 'single' && selection.artistaA) {
+        newMode = 'artist';
+        newArtist = selection.artistaA;
+      }
+      
+      setKeywordsState({
+        estudoCorpusBase: selection.corpusBase,
+        estudoMode: newMode,
+        estudoArtist: newArtist,
+        hasInitialized: true
+      });
+    }
+  }, [keywordsState.hasInitialized, selection, setKeywordsState]);
+  
+  // Verificar se está sincronizado com o corpus global
+  const isSyncedWithGlobal = useMemo(() => {
+    if (!selection) return false;
+    
+    const baseMatches = estudoCorpusBase === selection.corpusBase;
+    
+    // Sincronizado se:
+    // - Ambos no modo complete OU
+    // - Keywords em 'artist' e contexto em 'single' com mesmo artista
+    const modeMatches = 
+      (estudoMode === 'complete' && selection.mode === 'complete') ||
+      (estudoMode === 'artist' && selection.mode === 'single' && estudoArtist === selection.artistaA);
+    
+    return baseMatches && modeMatches;
+  }, [estudoCorpusBase, estudoMode, estudoArtist, selection]);
+  
   const handleKeywordsProcessed = useCallback((newKeywords: KeywordEntry[]) => {
     setKeywordsState({ keywords: newKeywords, isProcessed: true });
   }, [setKeywordsState]);
@@ -610,16 +649,24 @@ export function KeywordsTool() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4" data-tour="keywords-corpus">
-            <CorpusSubcorpusSelector 
-              label="Corpus de Estudo"
-              corpusBase={estudoCorpusBase}
-              onCorpusBaseChange={setEstudoCorpusBase}
-              mode={estudoMode}
-              onModeChange={setEstudoMode}
-              selectedArtist={estudoArtist}
-              onArtistChange={setEstudoArtist}
-              disabled={isLoading}
-            />
+            <div className="space-y-2">
+              {isSyncedWithGlobal && (
+                <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20">
+                  <span className="mr-1">✓</span>
+                  Pré-selecionado da navegação
+                </Badge>
+              )}
+              <CorpusSubcorpusSelector 
+                label="Corpus de Estudo"
+                corpusBase={estudoCorpusBase}
+                onCorpusBaseChange={setEstudoCorpusBase}
+                mode={estudoMode}
+                onModeChange={setEstudoMode}
+                selectedArtist={estudoArtist}
+                onArtistChange={setEstudoArtist}
+                disabled={isLoading}
+              />
+            </div>
             
             <CorpusSubcorpusSelector 
               label="Corpus de Referência"
