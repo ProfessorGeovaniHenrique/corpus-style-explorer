@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { useFullTextCorpus } from './useFullTextCorpus';
 import { generateKWIC } from '@/services/kwicService';
 import { toast } from 'sonner';
@@ -24,10 +24,12 @@ export function useKWICModal(corpusType: CorpusType = 'gaucho') {
   const [selectedWord, setSelectedWord] = useState('');
   const [kwicData, setKwicData] = useState<KWICData[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const lastRequestedWord = useRef<string>('');
   
   const { corpus, isReady } = useFullTextCorpus(corpusType);
   
   const openModal = useCallback(async (word: string) => {
+    lastRequestedWord.current = word;
     setSelectedWord(word);
     setIsOpen(true);
     setIsLoading(true);
@@ -35,6 +37,11 @@ export function useKWICModal(corpusType: CorpusType = 'gaucho') {
     try {
       if (corpus && isReady) {
         const contexts = generateKWIC(corpus, word, 5);
+        
+        // Validar se ainda é a última busca solicitada
+        if (lastRequestedWord.current !== word) {
+          return;
+        }
         
         const formatted: KWICData[] = contexts.map(ctx => ({
           leftContext: ctx.contextoEsquerdo,
@@ -53,7 +60,10 @@ export function useKWICModal(corpusType: CorpusType = 'gaucho') {
       console.error('Erro ao gerar KWIC:', error);
       toast.error('Erro ao buscar concordâncias');
     } finally {
-      setIsLoading(false);
+      // Apenas desativar loading se ainda for a busca atual
+      if (lastRequestedWord.current === word) {
+        setIsLoading(false);
+      }
     }
   }, [corpus, isReady]);
   
