@@ -199,17 +199,18 @@ export function KeywordsTool() {
     
     const csvContent = [
       ['Palavra', 'Freq Estudo', 'Freq Ref', 'LL', '%Diff', 'Significância', 'Efeito'].join(','),
-      ...filteredKeywords.map(kw => 
-        [
+      ...filteredKeywords.map(kw => {
+        const percDiff = ((kw.freqEstudo - kw.freqReferencia) / kw.freqReferencia) * 100;
+        return [
           kw.palavra,
           kw.freqEstudo,
-          kw.freqRef,
+          kw.freqReferencia,
           kw.ll.toFixed(2),
-          kw.percDiff.toFixed(2),
+          percDiff.toFixed(2),
           kw.significancia,
           kw.efeito
-        ].join(',')
-      )
+        ].join(',');
+      })
     ].join('\n');
     
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -220,7 +221,7 @@ export function KeywordsTool() {
   };
   
   const handleWordClick = (palavra: string) => {
-    navigateToKWIC(palavra, selection.corpusBase, false);
+    navigateToKWIC(palavra);
   };
   
   return (
@@ -516,11 +517,11 @@ export function KeywordsTool() {
                       <Button 
                         variant="ghost" 
                         size="sm" 
-                        onClick={() => handleSort('freqRef')}
+                        onClick={() => handleSort('freqReferencia')}
                         className="h-8 px-2"
                       >
                         Freq Ref
-                        {sortColumn === 'freqRef' && (
+                        {sortColumn === 'freqReferencia' && (
                           sortDirection === 'asc' ? <ChevronUp className="ml-1 h-3 w-3" /> : <ChevronDown className="ml-1 h-3 w-3" />
                         )}
                       </Button>
@@ -551,11 +552,11 @@ export function KeywordsTool() {
                       <Button 
                         variant="ghost" 
                         size="sm" 
-                        onClick={() => handleSort('percDiff')}
+                        onClick={() => handleSort('ll')}
                         className="h-8 px-2"
                       >
                         % Diff
-                        {sortColumn === 'percDiff' && (
+                        {sortColumn === 'll' && (
                           sortDirection === 'asc' ? <ChevronUp className="ml-1 h-3 w-3" /> : <ChevronDown className="ml-1 h-3 w-3" />
                         )}
                       </Button>
@@ -578,14 +579,19 @@ export function KeywordsTool() {
                         </button>
                       </TableCell>
                       <TableCell className="text-right">{kw.freqEstudo}</TableCell>
-                      <TableCell className="text-right">{kw.freqRef}</TableCell>
+                      <TableCell className="text-right">{kw.freqReferencia}</TableCell>
                       <TableCell className="text-right">
                         <span className="font-mono text-sm">{kw.ll.toFixed(2)}</span>
                       </TableCell>
                       <TableCell className="text-right">
-                        <span className={`font-mono text-sm ${kw.percDiff > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                          {kw.percDiff > 0 ? '+' : ''}{kw.percDiff.toFixed(1)}%
-                        </span>
+                        {(() => {
+                          const percDiff = ((kw.freqEstudo - kw.freqReferencia) / kw.freqReferencia) * 100;
+                          return (
+                            <span className={`font-mono text-sm ${percDiff > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                              {percDiff > 0 ? '+' : ''}{percDiff.toFixed(1)}%
+                            </span>
+                          );
+                        })()}
                       </TableCell>
                       <TableCell>
                         <Badge 
