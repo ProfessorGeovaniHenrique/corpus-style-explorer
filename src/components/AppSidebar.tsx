@@ -1,4 +1,4 @@
-import { LayoutDashboard, FolderOpen, Sparkles, FileText, CircuitBoard, Info, BookOpen } from "lucide-react";
+import { LayoutDashboard, FolderOpen, Sparkles, FileText, CircuitBoard, Info, BookOpen, History as HistoryIcon } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
 import { useFeatureAccess } from "@/hooks/useFeatureAccess";
@@ -37,10 +37,11 @@ const advancedItems = [
   { title: "Novas Funcionalidades (Beta)", url: "/advanced-mode", icon: Sparkles, disabled: false },
 ];
 
-const devItems = [
-  { title: "Developer Logs", url: "/developer-logs", icon: BookOpen },
-  { title: "DevOps Metrics", url: "/devops-metrics", icon: CircuitBoard },
-];
+  const devItems = [
+    { title: "Developer Logs", url: "/developer-logs", icon: BookOpen },
+    { title: "Developer History", url: "/developer-history", icon: HistoryIcon },
+    { title: "DevOps Metrics", url: "/devops-metrics", icon: CircuitBoard },
+  ];
 
 export function AppSidebar() {
   const { open } = useSidebar();

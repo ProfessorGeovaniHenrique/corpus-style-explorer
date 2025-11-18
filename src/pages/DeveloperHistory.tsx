@@ -9,6 +9,7 @@ import { ScientificEvolution } from "@/components/dev-history/ScientificEvolutio
 import { CorrectionsTable } from "@/components/dev-history/CorrectionsTable";
 import { ProjectStats } from "@/components/dev-history/ProjectStats";
 import { UpdateStatusButton } from "@/components/dev-history/UpdateStatusButton";
+import { ProductRoadmap } from "@/components/dev-history/ProductRoadmap";
 import { toast } from "sonner";
 
 export default function DeveloperHistory() {
@@ -50,11 +51,12 @@ export default function DeveloperHistory() {
 
         {/* Main Content Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="timeline">Timeline de Construção</TabsTrigger>
             <TabsTrigger value="scientific">Evolução Científica</TabsTrigger>
             <TabsTrigger value="corrections">Correções Críticas</TabsTrigger>
             <TabsTrigger value="methodologies">Metodologias</TabsTrigger>
+            <TabsTrigger value="roadmap">Roadmap & MVP</TabsTrigger>
           </TabsList>
 
           <TabsContent value="timeline" className="space-y-4 mt-6">
@@ -73,6 +75,10 @@ export default function DeveloperHistory() {
             <div className="grid gap-4">
               <ScientificEvolution showMethodologies />
             </div>
+          </TabsContent>
+
+          <TabsContent value="roadmap" className="space-y-4 mt-6">
+            <ProductRoadmap />
           </TabsContent>
         </Tabs>
       </div>
