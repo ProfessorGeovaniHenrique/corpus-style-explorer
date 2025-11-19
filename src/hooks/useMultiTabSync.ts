@@ -1,5 +1,7 @@
 import { useEffect, useCallback, useRef } from 'react';
 import { EnrichmentSession } from '@/lib/enrichmentSchemas';
+import { toast } from 'sonner';
+import { logger } from '@/lib/logger';
 
 const CHANNEL_NAME = 'enrichment_sync';
 
@@ -8,11 +10,12 @@ type SyncMessage = {
   data?: EnrichmentSession;
   timestamp: number;
   tabId: string;
+  senderId: string; // FASE 2.2: Para detecção de conflitos
 };
 
 /**
- * Hook para sincronização entre múltiplas abas usando Broadcast Channel API
- * Previne conflitos quando usuário abre sistema em várias abas
+ * Hook para sincronização entre múltiplas abas com resolução de conflitos
+ * FASE 2.2: Multi-Tab Conflict Resolution implementado
  */
 export function useMultiTabSync(
   onSessionUpdate: (session: EnrichmentSession) => void,
@@ -21,24 +24,29 @@ export function useMultiTabSync(
   const channelRef = useRef<BroadcastChannel | null>(null);
   const tabIdRef = useRef<string>(generateTabId());
   const lastUpdateRef = useRef<number>(0);
+  const lastBroadcastRef = useRef<number>(0); // Timestamp do último broadcast desta aba
 
   /**
    * Broadcast atualização de sessão para outras abas
+   * FASE 2.2: Inclui senderId para detecção de conflitos
    */
   const broadcastSessionUpdate = useCallback((session: EnrichmentSession) => {
     if (!channelRef.current) return;
     
+    const now = Date.now();
     const message: SyncMessage = {
       type: 'session_updated',
       data: session,
-      timestamp: Date.now(),
+      timestamp: now,
       tabId: tabIdRef.current,
+      senderId: tabIdRef.current,
     };
     
     channelRef.current.postMessage(message);
-    lastUpdateRef.current = message.timestamp;
+    lastUpdateRef.current = now;
+    lastBroadcastRef.current = now;
     
-    console.log('📡 Broadcast session update to other tabs');
+    logger.info('📡 Broadcast session update to other tabs');
   }, []);
 
   /**
@@ -51,10 +59,11 @@ export function useMultiTabSync(
       type: 'session_cleared',
       timestamp: Date.now(),
       tabId: tabIdRef.current,
+      senderId: tabIdRef.current,
     };
     
     channelRef.current.postMessage(message);
-    console.log('📡 Broadcast session clear to other tabs');
+    logger.info('📡 Broadcast session clear to other tabs');
   }, []);
 
   /**
@@ -67,10 +76,11 @@ export function useMultiTabSync(
       type: 'request_sync',
       timestamp: Date.now(),
       tabId: tabIdRef.current,
+      senderId: tabIdRef.current,
     };
     
     channelRef.current.postMessage(message);
-    console.log('📡 Requesting sync from other tabs');
+    logger.info('📡 Requesting sync from other tabs');
   }, []);
 
   useEffect(() => {
@@ -86,15 +96,31 @@ export function useMultiTabSync(
 
     // Listener para mensagens de outras abas
     channel.onmessage = (event: MessageEvent<SyncMessage>) => {
-      const { type, data, timestamp, tabId } = event.data;
+      const { type, data, timestamp, tabId, senderId } = event.data;
       
       // Ignorar mensagens da própria aba
-      if (tabId === tabIdRef.current) return;
+      if (senderId === tabIdRef.current) {
+        logger.debug('📨 Ignorando mensagem da própria aba');
+        return;
+      }
       
-      // Ignorar mensagens antigas (evitar loops)
-      if (timestamp <= lastUpdateRef.current) return;
+      // FASE 2.2: Detecção de conflito (mensagens com <5s de diferença)
+      const timeDiff = Math.abs(timestamp - lastBroadcastRef.current);
+      if (timeDiff < 5000 && lastBroadcastRef.current > 0) {
+        logger.warn(`⚠️ Conflito detectado! Diferença de ${timeDiff}ms entre abas`);
+        toast.warning('Conflito entre abas detectado', {
+          description: 'Múltiplas abas editando simultaneamente. Usando última modificação.',
+          duration: 4000,
+        });
+      }
       
-      console.log(`📨 Received ${type} from tab ${tabId}`);
+      // Ignorar mensagens antigas (evitar loops) - Last-Write-Wins
+      if (timestamp <= lastUpdateRef.current) {
+        logger.debug('📨 Mensagem antiga ignorada');
+        return;
+      }
+      
+      logger.info(`📨 Received ${type} from tab ${tabId.slice(0, 12)}...`);
       
       switch (type) {
         case 'session_updated':
@@ -110,8 +136,7 @@ export function useMultiTabSync(
           
         case 'request_sync':
           // Se temos dados, enviar para a aba que pediu
-          // (isso será implementado no componente pai)
-          console.log('📡 Sync request received from new tab');
+          logger.info('📡 Sync request received from new tab');
           break;
       }
     };

@@ -3,6 +3,7 @@ import LZString from 'lz-string';
 import { EnrichmentSession, validateEnrichmentSession } from '@/lib/enrichmentSchemas';
 import { retryWithBackoff } from '@/lib/retryUtils';
 import { notifications } from '@/lib/notifications';
+import { logger } from '@/lib/logger';
 
 /**
  * Serviço de persistência cloud (Supabase)
@@ -30,6 +31,7 @@ export interface CloudSession {
 
 /**
  * Salva sessão no Supabase com retry logic
+ * FASE 4.2: RLS Policy Verification
  */
 export async function saveSessionToCloud(
   session: EnrichmentSession,
@@ -39,8 +41,28 @@ export async function saveSessionToCloud(
     // Obter user_id
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
-      console.warn('⚠️ User not authenticated, skipping cloud save');
+      logger.warn('⚠️ User not authenticated, skipping cloud save');
       return null;
+    }
+
+    // Teste de permissão RLS antes de salvar
+    try {
+      const { error: permissionError } = await supabase
+        .from('enrichment_sessions')
+        .select('id')
+        .eq('user_id', user.id)
+        .limit(1);
+
+      if (permissionError && permissionError.code === '42501') {
+        logger.error('❌ RLS bloqueou acesso:', permissionError);
+        notifications.error(
+          'Erro de permissão',
+          'Políticas de segurança do banco impedem salvamento. Contate administrador.'
+        );
+        return null;
+      }
+    } catch (permError) {
+      logger.warn('⚠️ Teste de permissão falhou, tentando save mesmo assim');
     }
 
     // Comprimir dados
@@ -96,10 +118,10 @@ export async function saveSessionToCloud(
       }
     });
 
-    console.log(`☁️ Session saved to cloud (${json.length} bytes, compressed to ${compressed.length} bytes)`);
+    logger.info(`☁️ Session saved to cloud (${json.length} bytes, compressed to ${compressed.length} bytes)`);
     return result.id;
   } catch (error) {
-    console.error('❌ Failed to save session to cloud:', error);
+    logger.error('❌ Failed to save session to cloud:', error);
     notifications.error('Erro ao salvar na nuvem', 'Continuando com salvamento local');
     return null;
   }
@@ -147,10 +169,10 @@ export async function loadSessionFromCloud(sessionId?: string): Promise<Enrichme
     const parsed = JSON.parse(json);
     const validated = validateEnrichmentSession(parsed);
 
-    console.log(`☁️ Session loaded from cloud (session_id: ${data.id})`);
+    logger.info(`☁️ Session loaded from cloud (session_id: ${data.id})`);
     return validated;
   } catch (error) {
-    console.error('❌ Failed to load session from cloud:', error);
+    logger.error('❌ Failed to load session from cloud:', error);
     return null;
   }
 }
@@ -172,7 +194,7 @@ export async function listUserSessions(): Promise<CloudSession[]> {
     if (error) throw error;
     return data || [];
   } catch (error) {
-    console.error('❌ Failed to list sessions:', error);
+    logger.error('❌ Failed to list sessions:', error);
     return [];
   }
 }
@@ -189,10 +211,10 @@ export async function deleteCloudSession(sessionId: string): Promise<boolean> {
 
     if (error) throw error;
 
-    console.log(`☁️ Session deleted from cloud (${sessionId})`);
+    logger.info(`☁️ Session deleted from cloud (${sessionId})`);
     return true;
   } catch (error) {
-    console.error('❌ Failed to delete session:', error);
+    logger.error('❌ Failed to delete session:', error);
     return false;
   }
 }
@@ -209,10 +231,10 @@ export function resolveConflict(
   const cloudTime = new Date(cloudSession.lastSavedAt).getTime();
 
   if (localTime > cloudTime) {
-    console.log('🔀 Conflict resolved: local session is newer');
+    logger.info('🔀 Conflict resolved: local session is newer');
     return localSession;
   } else {
-    console.log('🔀 Conflict resolved: cloud session is newer');
+    logger.info('🔀 Conflict resolved: cloud session is newer');
     return cloudSession;
   }
 }
