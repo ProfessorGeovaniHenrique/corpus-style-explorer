@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { withRetry } from "../_shared/retry.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -7,7 +8,7 @@ const corsHeaders = {
 };
 
 const BATCH_SIZE = 1000;
-const TIMEOUT_MS = 50000;
+const TIMEOUT_MS = 90000; // 90 segundos
 
 interface ProcessRequest {
   fileContent: string;
@@ -41,51 +42,107 @@ interface HouaissEntry {
   contexto?: string;
 }
 
+/**
+ * Parser para formato real do Dicionário Houaiss
+ * 
+ * Formatos suportados:
+ * 1. "aarônico = «lj. (s.m1.) ver MONTANHÊS"
+ * 2. "aba « s,/. 1 adjacência: arrabalde, arredor, cercania > afastamento, distância"
+ * 3. "palavra « adj. definição: sinônimo1, sinônimo2 > antônimo1"
+ * 4. "palavra « pos » acepcao: descricao : sin1, sin2 > ant1, ant2"
+ */
 function parseHouaissLine(line: string): HouaissEntry | null {
   try {
-    // Formato esperado: palavra « pos » acepcao: descricao : sin1, sin2 > ant1, ant2
-    // Exemplo: alegre « adj. » 1 feliz, contente: festivo, jovial > triste, melancólico
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) return null;
     
-    const wordMatch = line.match(/^(\S+)\s+«\s*([^»]+)\s*»/);
-    if (!wordMatch) return null;
+    // Formato 1: palavra = « ou palavra «
+    const wordMatch = trimmed.match(/^(\S+)\s*=?\s*«\s*([^»]+)(?:»|$)/);
+    if (!wordMatch) {
+      console.log(`⚠️ Linha não corresponde ao formato esperado: ${trimmed.substring(0, 100)}`);
+      return null;
+    }
     
-    const palavra = wordMatch[1].toLowerCase();
-    const pos = wordMatch[2].trim();
+    const palavra = wordMatch[1].toLowerCase().trim();
+    const posRaw = wordMatch[2].trim();
     
-    // Extrair número da acepção
-    const acepcaoMatch = line.match(/»\s*(\d+)\s+([^:]+):/);
-    if (!acepcaoMatch) return null;
+    // Extrair POS (remover parênteses e detalhes)
+    // Exemplos: "lj. (s.m1.)" -> "lj.", "s,/." -> "s.f.", "adj." -> "adj."
+    const posClean = posRaw
+      .replace(/\([^)]*\)/g, '') // Remove parênteses
+      .replace(/[,\/]/g, '.') // Normaliza separadores
+      .trim();
     
-    const acepcao_numero = parseInt(acepcaoMatch[1]);
-    const acepcao_descricao = acepcaoMatch[2].trim();
+    const pos = posClean || posRaw.substring(0, 10);
     
-    // Extrair sinônimos (antes do ">")
-    const sinonimosMatch = line.match(/:\s*([^>]+)/);
-    const sinonimos = sinonimosMatch 
-      ? sinonimosMatch[1].split(',').map(s => s.trim()).filter(s => s.length > 0)
-      : [];
+    // Extrair resto da linha (depois do POS)
+    const restMatch = trimmed.match(/»\s*(.+)$/);
+    const restContent = restMatch ? restMatch[1].trim() : '';
     
-    // Extrair antônimos (depois do ">")
-    const antonimosMatch = line.match(/>\s*(.+)$/);
-    const antonimos = antonimosMatch
-      ? antonimosMatch[1].split(',').map(s => s.trim()).filter(s => s.length > 0)
-      : [];
+    // Se não há conteúdo após POS, retornar entrada básica
+    if (!restContent) {
+      return {
+        palavra,
+        pos,
+        acepcao_numero: 1,
+        acepcao_descricao: posRaw,
+        sinonimos: [],
+        antonimos: []
+      };
+    }
     
-    // Detectar contexto de uso (fig., infrm., coloq., etc.)
-    const contextoMatch = acepcao_descricao.match(/\b(fig\.|infrm\.|coloq\.|pop\.|fam\.)\b/);
+    // Extrair número de acepção (opcional)
+    const acepcaoNumMatch = restContent.match(/^(\d+)\s+/);
+    const acepcao_numero = acepcaoNumMatch ? parseInt(acepcaoNumMatch[1]) : 1;
+    
+    // Remover número de acepção do conteúdo
+    const contentWithoutNum = acepcaoNumMatch 
+      ? restContent.substring(acepcaoNumMatch[0].length)
+      : restContent;
+    
+    // Dividir em partes: definição : sinônimos > antônimos
+    const parts = contentWithoutNum.split(/[>:]/);
+    
+    let acepcao_descricao = '';
+    let sinonimos: string[] = [];
+    let antonimos: string[] = [];
+    
+    if (parts.length === 1) {
+      // Apenas definição
+      acepcao_descricao = parts[0].trim();
+    } else if (parts.length === 2) {
+      // Definição + sinônimos OU definição + antônimos
+      acepcao_descricao = parts[0].trim();
+      const secondPart = parts[1].trim();
+      
+      // Se tem ">", é antônimo; se tem ":", é sinônimo
+      if (contentWithoutNum.includes('>')) {
+        antonimos = secondPart.split(',').map(s => s.trim()).filter(s => s.length > 0);
+      } else {
+        sinonimos = secondPart.split(',').map(s => s.trim()).filter(s => s.length > 0);
+      }
+    } else if (parts.length >= 3) {
+      // Definição : sinônimos > antônimos
+      acepcao_descricao = parts[0].trim();
+      sinonimos = parts[1].split(',').map(s => s.trim()).filter(s => s.length > 0);
+      antonimos = parts[2].split(',').map(s => s.trim()).filter(s => s.length > 0);
+    }
+    
+    // Detectar contexto de uso
+    const contextoMatch = acepcao_descricao.match(/\b(fig\.|infrm\.|coloq\.|pop\.|fam\.|ver\s+\w+)\b/i);
     const contexto = contextoMatch ? contextoMatch[1] : undefined;
     
     return {
       palavra,
       pos,
       acepcao_numero,
-      acepcao_descricao,
+      acepcao_descricao: acepcao_descricao || posRaw,
       sinonimos,
       antonimos,
       contexto
     };
   } catch (error) {
-    console.error('Erro ao parsear linha:', line, error);
+    console.error('❌ Erro ao parsear linha Houaiss:', line.substring(0, 150), error);
     return null;
   }
 }
@@ -97,16 +154,15 @@ async function processInBackground(
   supabaseKey: string
 ) {
   const supabaseClient = createClient(supabaseUrl, supabaseKey);
-  const BATCH_SIZE = 1000;
   let processed = 0;
+  let inserted = 0;
   let errors = 0;
   const errorLog: string[] = [];
   
-  // Preparar batches para lexical_synonyms
   const synonymBatches: any[] = [];
   const networkBatches: any[] = [];
 
-  console.log(`[Job ${jobId}] Processando ${lines.length} linhas do Dicionário Houaiss...`);
+  console.log(`📚 [Job ${jobId}] Processando ${lines.length} linhas do Houaiss...`);
 
   try {
     await supabaseClient
@@ -114,7 +170,7 @@ async function processInBackground(
       .update({ status: 'processando' })
       .eq('id', jobId);
 
-    // ✅ OTIMIZAÇÃO #1: Coletar entradas em batches
+    // Processar linhas e coletar em batches
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i].trim();
       if (!line || line.startsWith('#')) continue;
@@ -123,8 +179,13 @@ async function processInBackground(
         const entry = parseHouaissLine(line);
         if (!entry) {
           errors++;
+          if (errors <= 10) {
+            errorLog.push(`Linha ${i}: Falha no parse`);
+          }
           continue;
         }
+
+        processed++;
 
         // Adicionar ao batch de sinônimos
         synonymBatches.push({
@@ -132,107 +193,125 @@ async function processInBackground(
           pos: entry.pos,
           acepcao_numero: entry.acepcao_numero,
           acepcao_descricao: entry.acepcao_descricao,
-          sinonimos: entry.sinonimos,
-          antonimos: entry.antonimos,
-          contexto_uso: entry.contexto,
+          sinonimos: entry.sinonimos.length > 0 ? entry.sinonimos : null,
+          antonimos: entry.antonimos.length > 0 ? entry.antonimos : null,
+          contexto_uso: entry.contexto || null,
           fonte: 'houaiss'
         });
 
-        // Adicionar relações de sinônimos ao batch
+        // Criar redes semânticas (sinônimos)
         for (const sinonimo of entry.sinonimos) {
           networkBatches.push({
             palavra_origem: entry.palavra,
             palavra_destino: sinonimo.toLowerCase(),
             tipo_relacao: 'sinonimo',
-            contexto: entry.acepcao_descricao,
-            fonte: 'houaiss'
+            peso_relacao: 1.0,
+            fonte: 'houaiss',
+            contexto: entry.acepcao_descricao
           });
         }
 
-        // Adicionar relações de antônimos ao batch
+        // Criar redes semânticas (antônimos)
         for (const antonimo of entry.antonimos) {
           networkBatches.push({
             palavra_origem: entry.palavra,
             palavra_destino: antonimo.toLowerCase(),
             tipo_relacao: 'antonimo',
-            contexto: entry.acepcao_descricao,
-            fonte: 'houaiss'
+            peso_relacao: 1.0,
+            fonte: 'houaiss',
+            contexto: entry.acepcao_descricao
           });
         }
 
       } catch (err) {
-        console.error(`[Job ${jobId}] Erro parseando linha ${i}:`, err);
+        console.error(`❌ [Job ${jobId}] Erro processando linha ${i}:`, err);
         errors++;
-        errorLog.push(`Linha ${i}: ${err instanceof Error ? err.message : String(err)}`);
+        if (errorLog.length < 10) {
+          errorLog.push(`Linha ${i}: ${err instanceof Error ? err.message : String(err)}`);
+        }
+      }
+
+      // Inserir batch quando atingir tamanho
+      if (synonymBatches.length >= BATCH_SIZE) {
+        console.log(`💾 Inserindo batch de ${synonymBatches.length} sinônimos...`);
+        
+        const insertResult = await withRetry(async () => {
+          const { error } = await supabaseClient
+            .from('lexical_synonyms')
+            .insert(synonymBatches);
+          
+          if (error) throw error;
+          return { success: true };
+        }, 3, 2000);
+        
+        inserted += synonymBatches.length;
+        synonymBatches.length = 0;
+
+        // Atualizar progresso
+        await supabaseClient
+          .from('dictionary_import_jobs')
+          .update({
+            verbetes_processados: processed,
+            verbetes_inseridos: inserted,
+            erros: errors
+          })
+          .eq('id', jobId);
       }
     }
 
-    // ✅ OTIMIZAÇÃO #1: Inserir em batches de 1000
-    console.log(`[Job ${jobId}] Inserindo ${synonymBatches.length} verbetes em batches...`);
-    
-    for (let i = 0; i < synonymBatches.length; i += BATCH_SIZE) {
-      const batch = synonymBatches.slice(i, Math.min(i + BATCH_SIZE, synonymBatches.length));
+    // Inserir batch final de sinônimos
+    if (synonymBatches.length > 0) {
+      console.log(`💾 Inserindo batch final de ${synonymBatches.length} sinônimos...`);
       
-      const { error: insertError } = await supabaseClient
-        .from('lexical_synonyms')
-        .insert(batch);
-
-      if (insertError) {
-        console.error(`[Job ${jobId}] Erro ao inserir batch:`, insertError);
-        errors += batch.length;
-        errorLog.push(`Batch ${i}-${i + batch.length}: ${insertError.message}`);
-      } else {
-        processed += batch.length;
-      }
-
-      // Atualizar progresso após cada batch
-      const progressPercent = Math.round((processed / synonymBatches.length) * 100);
-      await supabaseClient
-        .from('dictionary_import_jobs')
-        .update({ 
-          verbetes_processados: processed,
-          verbetes_inseridos: processed,
-          erros: errors,
-          progresso: progressPercent
-        })
-        .eq('id', jobId);
-
-      console.log(`[Job ${jobId}] Progresso: ${processed}/${synonymBatches.length} (${progressPercent}%)`);
+      await withRetry(async () => {
+        const { error } = await supabaseClient
+          .from('lexical_synonyms')
+          .insert(synonymBatches);
+        
+        if (error) throw error;
+      }, 3, 2000);
+      
+      inserted += synonymBatches.length;
+      synonymBatches.length = 0;
     }
 
-    // ✅ OTIMIZAÇÃO #1: Inserir redes semânticas em batches
-    console.log(`[Job ${jobId}] Inserindo ${networkBatches.length} relações semânticas...`);
-    
+    // Inserir redes semânticas em batches
+    console.log(`🕸️ Inserindo ${networkBatches.length} relações de rede semântica...`);
     for (let i = 0; i < networkBatches.length; i += BATCH_SIZE) {
-      const batch = networkBatches.slice(i, Math.min(i + BATCH_SIZE, networkBatches.length));
+      const batch = networkBatches.slice(i, i + BATCH_SIZE);
       
-      await supabaseClient
-        .from('semantic_networks')
-        .upsert(batch, {
-          onConflict: 'palavra_origem,palavra_destino,tipo_relacao'
-        });
+      await withRetry(async () => {
+        const { error } = await supabaseClient
+          .from('semantic_networks')
+          .upsert(batch, { 
+            onConflict: 'palavra_origem,palavra_destino,tipo_relacao',
+            ignoreDuplicates: false 
+          });
+        
+        if (error) throw error;
+      }, 3, 2000);
     }
-
-    console.log(`[Job ${jobId}] Processamento concluído: ${processed} entradas, ${errors} erros`);
 
     // Finalizar job
     await supabaseClient
       .from('dictionary_import_jobs')
-      .update({ 
+      .update({
         status: 'concluido',
         verbetes_processados: processed,
-        verbetes_inseridos: processed,
+        verbetes_inseridos: inserted,
         erros: errors,
-        progresso: 100,
-        metadata: { errorLog: errorLog.slice(0, 10) }
+        erro_mensagem: errorLog.length > 0 ? errorLog.join('\n') : null
       })
       .eq('id', jobId);
 
+    console.log(`✅ [Job ${jobId}] Concluído! Processados: ${processed}, Inseridos: ${inserted}, Erros: ${errors}`);
+
   } catch (error) {
-    console.error(`[Job ${jobId}] Erro crítico:`, error);
+    console.error(`❌ [Job ${jobId}] Erro crítico:`, error);
+    
     await supabaseClient
       .from('dictionary_import_jobs')
-      .update({ 
+      .update({
         status: 'erro',
         erro_mensagem: error instanceof Error ? error.message : String(error)
       })
@@ -246,71 +325,67 @@ serve(async (req) => {
   }
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabaseClient = createClient(supabaseUrl, supabaseKey);
 
-    const { fileContent } = await req.json();
-    
-    if (!fileContent) {
-      throw new Error('fileContent is required');
-    }
+    console.log('📥 Recebendo requisição para processar Dicionário Houaiss...');
 
-    const lines = fileContent.split('\n');
-    const totalLines = lines.filter((l: string) => l.trim() && !l.trim().startsWith('#')).length;
+    const json = await req.json();
+    const { fileContent } = validateRequest(json);
 
-    console.log(`Criando job para processar ${totalLines} linhas do Houaiss...`);
+    const lines = fileContent
+      .split('\n')
+      .map(l => l.trim())
+      .filter(l => l.length > 0 && !l.startsWith('#'));
 
-    // ✅ CORREÇÃO CRÍTICA #1: Criar job ANTES de processar
+    console.log(`📊 Total de linhas válidas: ${lines.length}`);
+
+    // Criar job
     const { data: job, error: jobError } = await supabaseClient
       .from('dictionary_import_jobs')
       .insert({
         tipo_dicionario: 'houaiss',
         status: 'iniciado',
-        total_verbetes: totalLines,
+        total_verbetes: lines.length,
         verbetes_processados: 0,
         verbetes_inseridos: 0,
-        erros: 0,
-        metadata: {
-          started_at: new Date().toISOString(),
-          total_lines: lines.length
-        }
+        erros: 0
       })
       .select()
       .single();
 
     if (jobError || !job) {
-      console.error('Erro ao criar job:', jobError);
-      throw new Error('Erro ao criar job de importação');
+      throw new Error(`Erro ao criar job: ${jobError?.message}`);
     }
 
-    console.log(`Job ${job.id} criado. Iniciando processamento em background...`);
+    console.log(`✅ Job criado: ${job.id}`);
 
-    // ✅ CORREÇÃO CRÍTICA #1: Processar em background
-    // @ts-ignore
-    EdgeRuntime.waitUntil(
-      processInBackground(job.id, lines, supabaseUrl, supabaseKey)
-    );
+    // Processar em background (não esperar)
+    processInBackground(job.id, lines, supabaseUrl, supabaseKey)
+      .catch(err => console.error('Erro no processamento em background:', err));
 
-    // ✅ CORREÇÃO CRÍTICA #1: Retornar jobId IMEDIATAMENTE
     return new Response(
       JSON.stringify({
         success: true,
         jobId: job.id,
-        message: `Processamento do Houaiss iniciado em background. Total: ${totalLines} verbetes.`
+        message: `Importação Houaiss iniciada. ${lines.length} linhas serão processadas.`
       }),
-      {
+      { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200,
+        status: 200
       }
     );
+
   } catch (error) {
-    console.error('Erro no processamento do Houaiss:', error);
+    console.error('❌ Erro na requisição:', error);
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : String(error) }),
-      {
+      JSON.stringify({
+        error: error instanceof Error ? error.message : 'Erro desconhecido'
+      }),
+      { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500,
+        status: 500
       }
     );
   }
