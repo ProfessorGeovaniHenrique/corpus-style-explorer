@@ -1,6 +1,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { withRetry } from "../_shared/retry.ts";
+import { validateDialectalFile, logValidationResult } from "../_shared/validation.ts";
+import { logJobStart, logJobProgress, logJobComplete, logJobError } from "../_shared/logging.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -232,12 +234,20 @@ async function processVerbetesInternal(jobId: string, verbetes: string[], volume
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
   );
 
+  const startTime = Date.now();
   let processados = offsetInicial;
   let inseridos = 0;
   let erros = 0;
   let batchCount = 0;
 
-  console.log(`[JOB ${jobId}] Iniciando processamento de ${verbetes.length} verbetes (offset: ${offsetInicial})`);
+  logJobStart({
+    fonte: `Dialectal Vol.${volumeNum}`,
+    jobId,
+    totalEntries: verbetes.length,
+    batchSize: BATCH_SIZE,
+    timeoutMs: TIMEOUT_MS,
+    maxRetries: 3
+  });
 
   for (let i = offsetInicial; i < verbetes.length; i += BATCH_SIZE) {
     const batch = verbetes.slice(i, i + BATCH_SIZE);
@@ -291,22 +301,38 @@ async function processVerbetesInternal(jobId: string, verbetes: string[], volume
     processados += batch.length;
     batchCount++;
 
-    // ✅ OTIMIZADO: Atualizar progresso a cada UPDATE_FREQUENCY batches (reduz 90% dos updates)
-    if (batchCount % UPDATE_FREQUENCY === 0 || processados >= verbetes.length) {
-      await supabase
-        .from('dictionary_import_jobs')
-        .update({
-          verbetes_processados: processados,
-          verbetes_inseridos: inseridos,
-          erros: erros,
-          progresso: Math.round((processados / verbetes.length) * 100 * 100) / 100
-        })
-        .eq('id', jobId);
+    // ✅ OTIMIZADO: Atualizar progresso a cada 5 batches (reduz escritas)
+    if (batchCount % 5 === 0 || processados >= verbetes.length) {
+      const progressPercent = Math.round((processados / verbetes.length) * 100);
+      
+      await withRetry(async () => {
+        const { error } = await supabase
+          .from('dictionary_import_jobs')
+          .update({
+            verbetes_processados: processados,
+            verbetes_inseridos: inseridos,
+            erros: erros,
+            progresso: progressPercent,
+            atualizado_em: new Date().toISOString()
+          })
+          .eq('id', jobId);
+        
+        if (error) throw error;
+      }, 2, 1000, 1);
 
-      console.log(`[JOB ${jobId}] Progresso: ${processados}/${verbetes.length} (${Math.round((processados / verbetes.length) * 100)}%)`);
+      logJobProgress({
+        jobId,
+        processed: processados,
+        totalEntries: verbetes.length,
+        inserted: inseridos,
+        errors: erros,
+        startTime
+      });
     }
   }
 
+  const totalTime = Date.now() - startTime;
+  
   await supabase
     .from('dictionary_import_jobs')
     .update({
@@ -319,7 +345,15 @@ async function processVerbetesInternal(jobId: string, verbetes: string[], volume
     })
     .eq('id', jobId);
 
-  console.log(`[JOB ${jobId}] Concluído: ${inseridos} inseridos, ${erros} erros`);
+  logJobComplete({
+    fonte: `Dialectal Vol.${volumeNum}`,
+    jobId,
+    processed: processados,
+    totalEntries: verbetes.length,
+    inserted: inseridos,
+    errors: erros,
+    totalTime
+  });
 }
 
 serve(async (req) => {
@@ -330,6 +364,25 @@ serve(async (req) => {
   try {
     const rawBody = await req.json();
     const { fileContent, volumeNum, offsetInicial = 0 } = validateRequest(rawBody);
+
+    // ✅ FASE 3 - BLOCO 2: Validação pré-importação
+    const validation = validateDialectalFile(fileContent, volumeNum);
+    logValidationResult(`Dialectal Vol.${volumeNum}`, validation);
+    
+    if (!validation.valid) {
+      return new Response(
+        JSON.stringify({ 
+          error: 'Validação falhou', 
+          details: validation.errors,
+          warnings: validation.warnings,
+          metadata: validation.metadata
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 400,
+        }
+      );
+    }
 
     console.log(`[VOLUME ${volumeNum}] Recebendo ${fileContent.length} caracteres (offset: ${offsetInicial})`);
 

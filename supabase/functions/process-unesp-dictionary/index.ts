@@ -1,6 +1,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { withRetry } from "../_shared/retry.ts";
+import { validateUNESPFile, logValidationResult } from "../_shared/validation.ts";
+import { logJobStart, logJobProgress, logJobComplete, logJobError } from "../_shared/logging.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -302,6 +304,25 @@ serve(async (req) => {
 
     const json = await req.json();
     const { fileContent } = validateRequest(json);
+
+    // ✅ FASE 3 - BLOCO 2: Validação pré-importação
+    const validation = validateUNESPFile(fileContent);
+    logValidationResult('UNESP', validation);
+    
+    if (!validation.valid) {
+      return new Response(
+        JSON.stringify({ 
+          error: 'Validação falhou', 
+          details: validation.errors,
+          warnings: validation.warnings,
+          metadata: validation.metadata
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 400,
+        }
+      );
+    }
 
     console.log(`📊 Tamanho do arquivo: ${fileContent.length} caracteres`);
 

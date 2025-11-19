@@ -1,6 +1,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { withRetry } from "../_shared/retry.ts";
+import { validateGutenbergFile, logValidationResult } from "../_shared/validation.ts";
+import { logJobStart, logJobProgress, logJobComplete, logJobError } from "../_shared/logging.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -145,7 +147,15 @@ async function processInBackground(jobId: string, verbetes: string[]) {
   );
 
   const startTime = Date.now();
-  console.log(`[JOB ${jobId}] Iniciando processamento Gutenberg: ${verbetes.length} verbetes`);
+  
+  logJobStart({
+    fonte: 'Gutenberg',
+    jobId,
+    totalEntries: verbetes.length,
+    batchSize: BATCH_SIZE,
+    timeoutMs: TIMEOUT_MS,
+    maxRetries: 5
+  });
 
   await supabase
     .from('dictionary_import_jobs')
@@ -159,6 +169,7 @@ async function processInBackground(jobId: string, verbetes: string[]) {
   let processados = 0;
   let inseridos = 0;
   let erros = 0;
+  let batchCount = 0;
   const errorLog: string[] = [];
 
   try {
@@ -218,22 +229,41 @@ async function processInBackground(jobId: string, verbetes: string[]) {
       }
 
       processados += batch.length;
+      batchCount++;
 
-      if (processados % 500 === 0) {
-        await supabase
-          .from('dictionary_import_jobs')
-          .update({
-            verbetes_processados: processados,
-            verbetes_inseridos: inseridos,
-            erros: erros
-          })
-          .eq('id', jobId);
+      // Atualizar progresso a cada 5 batches
+      if (batchCount % 5 === 0) {
+        const progressPercent = Math.round((processados / verbetes.length) * 100);
+        
+        await withRetry(async () => {
+          const { error } = await supabase
+            .from('dictionary_import_jobs')
+            .update({
+              verbetes_processados: processados,
+              verbetes_inseridos: inseridos,
+              erros: erros,
+              progresso: progressPercent,
+              atualizado_em: new Date().toISOString()
+            })
+            .eq('id', jobId);
+          
+          if (error) throw error;
+        }, 2, 1000, 1);
 
-        console.log(`[JOB ${jobId}] ${processados}/${verbetes.length}`);
+        logJobProgress({
+          jobId,
+          processed: processados,
+          totalEntries: verbetes.length,
+          inserted: inseridos,
+          errors: erros,
+          startTime
+        });
       }
     }
 
     const finalStatus = erros > processados * 0.5 ? 'erro' : 'concluido';
+    const totalTime = Date.now() - startTime;
+    
     await supabase
       .from('dictionary_import_jobs')
       .update({
@@ -241,15 +271,29 @@ async function processInBackground(jobId: string, verbetes: string[]) {
         verbetes_processados: processados,
         verbetes_inseridos: inseridos,
         erros: erros,
+        progresso: 100,
         tempo_fim: new Date().toISOString(),
         metadata: { errorLog: errorLog.slice(0, 50) }
       })
       .eq('id', jobId);
 
-    console.log(`[JOB ${jobId}] Concluído: ${inseridos}/${processados}`);
+    logJobComplete({
+      fonte: 'Gutenberg',
+      jobId,
+      processed: processados,
+      totalEntries: verbetes.length,
+      inserted: inseridos,
+      errors: erros,
+      totalTime
+    });
 
   } catch (error) {
     console.error(`[JOB ${jobId}] Erro fatal:`, error);
+    
+    if (error instanceof Error) {
+      logJobError({ fonte: 'Gutenberg', jobId, error });
+    }
+    
     await supabase
       .from('dictionary_import_jobs')
       .update({
@@ -274,6 +318,25 @@ serve(async (req) => {
 
     const rawBody = await req.json();
     const { fileContent } = validateRequest(rawBody);
+    
+    // ✅ FASE 3 - BLOCO 2: Validação pré-importação
+    const validation = validateGutenbergFile(fileContent);
+    logValidationResult('Gutenberg', validation);
+    
+    if (!validation.valid) {
+      return new Response(
+        JSON.stringify({ 
+          error: 'Validação falhou', 
+          details: validation.errors,
+          warnings: validation.warnings,
+          metadata: validation.metadata
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 400,
+        }
+      );
+    }
     
     const verbetes = fileContent.split(/(?=\n\*[A-Za-záàãâéêíóôõúçÁÀÃÂÉÊÍÓÔÕÚÇ\-]+\*,)/);
     
