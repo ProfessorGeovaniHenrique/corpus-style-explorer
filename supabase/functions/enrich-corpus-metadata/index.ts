@@ -11,6 +11,7 @@ interface EnrichmentRequest {
   musica: string;
   album?: string;
   ano?: string;
+  corpusType?: 'gaucho' | 'nordestino';
 }
 
 interface EnrichmentResult {
@@ -28,7 +29,7 @@ serve(async (req) => {
   }
 
   try {
-    const { artista, musica, album, ano }: EnrichmentRequest = await req.json();
+    const { artista, musica, album, ano, corpusType }: EnrichmentRequest = await req.json();
     
     console.log(`🔍 Enriquecendo: ${artista} - ${musica}`);
 
@@ -37,7 +38,7 @@ serve(async (req) => {
     
     // STEP 2: If MusicBrainz fails, use Lovable AI
     if (result.fonte === 'not-found') {
-      result = await queryLovableAI(artista, musica, album, ano);
+      result = await queryLovableAI(artista, musica, album, ano, corpusType);
     }
 
     console.log(`✅ Resultado: ${result.fonte} (${result.confianca}% confiança)`);
@@ -146,7 +147,8 @@ async function queryLovableAI(
   artista: string,
   musica: string,
   album?: string,
-  ano?: string
+  ano?: string,
+  corpusType?: string
 ): Promise<EnrichmentResult> {
   try {
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
@@ -156,18 +158,33 @@ async function queryLovableAI(
       return { fonte: 'not-found', confianca: 0 };
     }
 
-    const prompt = `Você é um especialista em música brasileira. Identifique o COMPOSITOR da seguinte música:
+    const contextoCultural = corpusType === 'gaucho' 
+      ? 'música gaúcha/regionalista do Rio Grande do Sul'
+      : corpusType === 'nordestino'
+      ? 'música nordestina/forró/baião do Nordeste brasileiro'
+      : 'música popular brasileira';
 
-Artista: ${artista}
-Música: ${musica}
-${album ? `Álbum: ${album}` : ''}
-${ano ? `Ano: ${ano}` : ''}
+    const prompt = `Você é um especialista em música popular brasileira, com profundo conhecimento sobre compositores, parcerias e histórico de gravações.
 
-Responda APENAS com o nome do compositor principal. Se não souber com certeza, responda "Desconhecido".
-Se o artista for o próprio compositor, repita o nome do artista.
+**TAREFA:** Identifique o compositor da seguinte ${contextoCultural}:
 
-Exemplo de resposta válida: "Luiz Marenco"
-Exemplo de resposta para desconhecido: "Desconhecido"`;
+📌 **Artista/Intérprete:** ${artista}
+🎵 **Música:** ${musica}
+${album ? `💿 **Álbum:** ${album}` : ''}
+${ano ? `📅 **Ano:** ${ano}` : ''}
+
+**INSTRUÇÕES:**
+1. Se você conhece o compositor com certeza, retorne APENAS o nome completo (ex: "Raul Torres e João Pacífico")
+2. Se o artista é o próprio compositor (autoral), repita o nome do artista
+3. Se for uma música tradicional/domínio público, responda "Tradicional"
+4. Se você NÃO tiver certeza, responda "Desconhecido"
+
+**IMPORTANTE:** 
+- Para parcerias, liste ambos os nomes separados por "e" (ex: "Tonico e Tinoco")
+- Não invente informações - apenas responda se tiver conhecimento confiável
+- Priorize compositores brasileiros e regionais conhecidos
+
+**RESPOSTA (apenas o nome):**`;
 
     console.log(`🤖 Consultando Lovable AI...`);
 
@@ -186,8 +203,8 @@ Exemplo de resposta para desconhecido: "Desconhecido"`;
           },
           { role: 'user', content: prompt }
         ],
-        temperature: 0.3,
-        max_tokens: 100
+        temperature: 0.5,
+        max_tokens: 200
       }),
     });
 
@@ -205,13 +222,61 @@ Exemplo de resposta para desconhecido: "Desconhecido"`;
       return { fonte: 'not-found', confianca: 0 };
     }
 
-    console.log(`✅ AI inferiu: ${compositor}`);
+    // Parse response to extract composer name from complex responses
+    let compositorExtraido = compositor;
+
+    // Se a resposta contiver explicações, extrair apenas o nome
+    if (compositor.includes('compost') || compositor.includes('autor')) {
+      const nomeMatch = compositor.match(/(?:compositor(?:es)?|autor(?:es)?|parceria|por)\s*:?\s*([A-ZÇÁÉÍÓÚÂÊÔÃÕ][a-zçáéíóúâêôãõ]+(?:\s+[A-ZÇÁÉÍÓÚÂÊÔÃÕ][a-zçáéíóúâêôãõ]+)*(?:\s+e\s+[A-ZÇÁÉÍÓÚÂÊÔÃÕ][a-zçáéíóúâêôãõ]+(?:\s+[A-ZÇÁÉÍÓÚÂÊÔÃÕ][a-zçáéíóúâêôãõ]+)*)?)/i);
+      
+      if (nomeMatch) {
+        compositorExtraido = nomeMatch[1].trim();
+        console.log(`🎯 Nome extraído de contexto: ${compositorExtraido}`);
+      }
+    }
+
+    // Validar que não é uma resposta genérica
+    if (compositorExtraido.toLowerCase().includes('desconhecido') || 
+        compositorExtraido.toLowerCase().includes('não encontr')) {
+      return { fonte: 'not-found', confianca: 0 };
+    }
+
+    // Calcular confiança baseada em indicadores
+    let confianca = 70; // Base
+
+    // Aumentar confiança se:
+    if (compositorExtraido.length > 5 && compositorExtraido.includes(' ')) {
+      confianca += 10; // Nome completo provavelmente correto
+    }
+
+    if (artista.toLowerCase() === compositorExtraido.toLowerCase()) {
+      confianca += 15; // Música autoral (alta confiança)
+    }
+
+    if (compositorExtraido.includes(' e ')) {
+      confianca += 5; // Parceria identificada
+    }
+
+    // Diminuir confiança se:
+    if (compositorExtraido.length < 5) {
+      confianca -= 20; // Nome muito curto (suspeito)
+    }
+
+    if (!compositorExtraido.match(/^[A-ZÇÁÉÍÓÚÂÊÔÃÕ]/)) {
+      confianca -= 15; // Não começa com maiúscula
+    }
+
+    confianca = Math.min(Math.max(confianca, 30), 95); // Limitar entre 30-95%
+
+    console.log(`✅ AI inferiu: ${compositorExtraido} (${confianca}% confiança)`);
 
     return {
-      compositor,
+      compositor: compositorExtraido,
       fonte: 'ai-inferred',
-      confianca: 70, // AI inference has moderate confidence
-      detalhes: 'Inferido por Gemini 2.5 Flash'
+      confianca,
+      detalhes: `Gemini 2.5 Flash | Contexto: ${contextoCultural} | Confiança: ${confianca}%${
+        compositorExtraido !== compositor ? ` | Original: "${compositor.slice(0, 100)}..."` : ''
+      }`
     };
 
   } catch (error) {
