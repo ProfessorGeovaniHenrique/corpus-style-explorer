@@ -28,9 +28,15 @@ function sanitizeText(text: string | null | undefined): string | null {
     .replace(/[\u200B-\u200D\uFEFF]/g, '')
     .trim();
   
-  // Log se null bytes foram encontrados
-  if (original.includes('\u0000')) {
-    console.warn(`⚠️ Null bytes removidos: ${original.substring(0, 50)}...`);
+  // ✅ Log DETALHADO com índice do caractere problemático
+  if (original !== sanitized) {
+    const nullByteIndex = original.indexOf('\u0000');
+    console.warn(`⚠️ Caracteres removidos no índice ${nullByteIndex}:`, {
+      before: original.substring(0, 100),
+      after: sanitized.substring(0, 100),
+      length_before: original.length,
+      length_after: sanitized.length
+    });
   }
   
   return sanitized;
@@ -166,10 +172,10 @@ function parseVerbete(verbeteRaw: string, volumeNum: string): any | null {
       }
       
       // ✅ FASE 2: Fallback 2 - Formato ainda mais simples (última tentativa)
-      console.log(`⚠️ Tentando último fallback para: ${verbeteRaw.substring(0, 80)}...`);
+      console.log(`⚠️ Tentando último fallback para: ${normalizedText.substring(0, 80)}...`);
       
       const lastResortRegex = /^([A-ZÁÀÃÉÊÍÓÔÚÇ][A-ZÁÀÃÉÊÍÓÔÚÇ\-\(\)\s]+?)\s+(.+)$/s;
-      const lastMatch = cleanText.match(lastResortRegex);
+      const lastMatch = normalizedText.match(lastResortRegex);
       
       if (lastMatch) {
         const [_, verbete, conteudo] = lastMatch;
@@ -367,11 +373,21 @@ async function processVerbetesInternal(jobId: string, verbetes: string[], volume
     }
 
     if (parsedBatch.length > 0) {
+      // ✅ VALIDAÇÃO: Detectar null bytes antes do upsert
+      const batchJSON = JSON.stringify(parsedBatch);
+      if (batchJSON.includes('\\u0000')) {
+        console.error('🚨 CRITICAL: Null bytes ainda presentes no batch!');
+        console.error('Primeiro item com problema:', 
+          parsedBatch.find(item => JSON.stringify(item).includes('\\u0000'))
+        );
+        throw new Error('Null bytes detectados no batch sanitizado');
+      }
+      
       await withRetry(async () => {
         const { error: insertError } = await supabase
           .from('dialectal_lexicon')
           .upsert(parsedBatch, { onConflict: 'verbete_normalizado,origem_primaria', ignoreDuplicates: true });
-
+        
         if (insertError) {
           console.error(`[JOB ${jobId}] ❌ Erro ao inserir batch:`, insertError);
           throw insertError;
