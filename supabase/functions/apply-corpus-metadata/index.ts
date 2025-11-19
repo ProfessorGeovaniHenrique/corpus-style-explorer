@@ -63,24 +63,41 @@ Deno.serve(async (req) => {
     console.log(`🎯 Aplicando metadados ao corpus ${corpusType}: ${validatedSongs.length} músicas`);
 
     // 1. Carregar corpus original
-    const corpusPath = `corpus/full-text/${corpusType}-completo.txt`;
-    const corpusResponse = await fetch(`${Deno.env.get('SUPABASE_URL')}/storage/v1/object/public/${corpusPath}`);
+    console.log(`📂 Tentando carregar corpus: ${corpusType}`);
+    
+    // Tentar Storage primeiro
+    const storagePath = `corpus/full-text/${corpusType}-completo.txt`;
+    const storageUrl = `${Deno.env.get('SUPABASE_URL')}/storage/v1/object/public/${storagePath}`;
+    let storageResponse = await fetch(storageUrl);
     
     let originalContent: string;
-    if (!corpusResponse.ok) {
-      // Fallback para arquivo local se não estiver no storage
-      const localPath = `../../public/corpus/full-text/${corpusType}-completo.txt`;
-      try {
-        originalContent = await Deno.readTextFile(localPath);
-        console.log(`✅ Corpus carregado do path local: ${localPath}`);
-      } catch (e) {
-        const errorMessage = e instanceof Error ? e.message : String(e);
-        console.error(`❌ Erro ao carregar corpus local: ${localPath}`, e);
-        throw new Error(`Corpus file not found. Tried Storage: ${corpusPath} and Local: ${localPath}. Error: ${errorMessage}`);
-      }
+    
+    if (storageResponse.ok) {
+      originalContent = await storageResponse.text();
+      console.log(`✅ Corpus carregado do Supabase Storage: ${storagePath}`);
     } else {
-      originalContent = await corpusResponse.text();
-      console.log(`✅ Corpus carregado do Supabase Storage: ${corpusPath}`);
+      // Fallback: buscar do URL público do projeto (arquivos em public/)
+      const publicPath = `/corpus/full-text/${corpusType}-completo.txt`;
+      console.log(`⚠️ Storage não disponível, tentando URL pública: ${publicPath}`);
+      
+      // Obter a URL base do referer (origem da requisição)
+      const referer = req.headers.get('referer');
+      if (!referer) {
+        throw new Error(`Corpus não encontrado no Storage e não foi possível determinar URL pública. Storage URL: ${storageUrl}`);
+      }
+      
+      const baseUrl = new URL(referer).origin;
+      const publicUrl = `${baseUrl}${publicPath}`;
+      console.log(`🔍 Buscando de: ${publicUrl}`);
+      
+      const publicResponse = await fetch(publicUrl);
+      
+      if (!publicResponse.ok) {
+        throw new Error(`Corpus file not found. Tried Storage: ${storageUrl} (${storageResponse.status}) and Public URL: ${publicUrl} (${publicResponse.status})`);
+      }
+      
+      originalContent = await publicResponse.text();
+      console.log(`✅ Corpus carregado da URL pública: ${publicUrl}`);
     }
 
     // 2. Criar backup se solicitado
