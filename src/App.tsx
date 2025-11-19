@@ -5,6 +5,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { CorpusProvider } from "@/contexts/CorpusContext";
+import { useCorpusPreload } from "@/hooks/useCorpusPreload";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import ForgotPassword from "./pages/ForgotPassword";
@@ -48,30 +50,31 @@ const ArchivedDashboard8 = lazy(() => import("./pages/_archived/Dashboard8"));
 
 const queryClient = new QueryClient();
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <ThemeProvider>
-      <AuthProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/auth" element={<Auth />} />
-            <Route path="/forgot-password" element={<ForgotPassword />} />
-            <Route path="/reset-password" element={<ResetPassword />} />
-        <Route element={<AppLayout />}>
-          {/* Archived dashboards - removed from public access */}
-          <Route 
-            path="/advanced-mode" 
-            element={
-              <ProtectedRoute>
-                <AdvancedMode />
-              </ProtectedRoute>
-            } 
-          />
-        </Route>
+const AppContent = () => {
+  // Ativa pré-carregamento inteligente de corpus
+  useCorpusPreload();
+  
+  return (
+    <>
+      <Toaster />
+      <Sonner />
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<Index />} />
+          <Route path="/auth" element={<Auth />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
+          <Route element={<AppLayout />}>
+            {/* Archived dashboards - removed from public access */}
+            <Route 
+              path="/advanced-mode" 
+              element={
+                <ProtectedRoute>
+                  <AdvancedMode />
+                </ProtectedRoute>
+              } 
+            />
+          </Route>
 
         {/* Rota independente para DashboardMVP (sem AppLayout para evitar duplo header) */}
         <Route path="/dashboard-mvp" element={<DashboardMVP />} />
@@ -283,7 +286,19 @@ const App = () => (
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
-        </TooltipProvider>
+      </>
+  );
+};
+
+const App = () => (
+  <QueryClientProvider client={queryClient}>
+    <ThemeProvider>
+      <AuthProvider>
+        <CorpusProvider>
+          <TooltipProvider>
+            <AppContent />
+          </TooltipProvider>
+        </CorpusProvider>
       </AuthProvider>
     </ThemeProvider>
   </QueryClientProvider>

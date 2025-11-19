@@ -13,6 +13,7 @@ import {
 } from '@/lib/corpusIndexedDBCache';
 import { listenToCacheUpdates } from '@/lib/cacheSync';
 import { cacheMetrics } from '@/lib/cacheMetrics';
+import { trackCorpusUsage } from '@/lib/corpusUsageTracker';
 
 /**
  * Carrega corpus específico para busca contextual isolada (sem alterar estado global)
@@ -213,6 +214,10 @@ export function CorpusProvider({ children }: { children: ReactNode }) {
         setIsLoading(true);
         
         const corpus = await loadFullTextCorpus(tipo, filters);
+        
+        // 🔥 TRACKING: Registrar uso do corpus
+        const loadTime = performance.now() - startTime;
+        trackCorpusUsage(tipo, loadTime);
         
         // 5️⃣ Salvar em AMBOS os caches
         const cache: FullTextCache = {
