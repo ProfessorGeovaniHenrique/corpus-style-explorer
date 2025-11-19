@@ -71,8 +71,9 @@ export function MetadataEnrichmentInterface() {
   const [estimatedTimeRemaining, setEstimatedTimeRemaining] = useState<number>(0);
   const [avgTimePerSong, setAvgTimePerSong] = useState<number>(0);
   const [avgProcessingTime, setAvgProcessingTime] = useState(0);
+  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'enriched' | 'validated' | 'applied' | 'rejected'>('all');
   const [confidenceFilter, setConfidenceFilter] = useState<'all' | 'high' | 'medium' | 'low'>('all');
-  const [viewMode, setViewMode] = useState<'validation-queue' | 'all'>('validation-queue');
+  const [showApplyDialog, setShowApplyDialog] = useState(false);
   
   // Estados de persistência
   const [cloudSessionId, setCloudSessionId] = useState<string | null>(null);
@@ -92,10 +93,6 @@ export function MetadataEnrichmentInterface() {
   
   // Fase 3: Aplicação ao corpus
   const [isApplying, setIsApplying] = useState(false);
-  const [showApplyDialog, setShowApplyDialog] = useState(false);
-  
-  // Fase 4: Gestão de fila inteligente
-  const [queueFilter, setQueueFilter] = useState<'all' | 'pending' | 'enriched' | 'validated' | 'applied' | 'rejected'>('all');
   
   // FASE 2.1: Mutex para saveCurrentSession (prevenir race conditions)
   const saveMutexRef = useRef<boolean>(false);
@@ -118,22 +115,46 @@ export function MetadataEnrichmentInterface() {
     averageTimePerSong: avgProcessingTime,
   }), [songs, avgProcessingTime]);
 
-  // Filtro inteligente de visualização (FASE 1.1: Validation Queue)
-  const getDisplaySongs = useCallback(() => {
-    if (viewMode === 'validation-queue') {
-      // Mostrar apenas músicas que precisam de validação humana
-      return songs.filter(s => 
-        s.sugestao && 
-        s.status !== 'validated' && 
-        s.status !== 'rejected' &&
-        s.status !== 'pending' &&
-        s.status !== 'enriching'
-      );
-    }
-    return songs; // Modo 'all'
-  }, [songs, viewMode]);
+  // Calculate status counts
+  const statusCounts = useMemo(() => ({
+    all: songs.length,
+    pending: songs.filter(s => s.status === 'pending').length,
+    enriched: songs.filter(s => s.sugestao && s.status !== 'validated' && s.status !== 'rejected' && s.status !== 'pending' && s.status !== 'applied').length,
+    validated: songs.filter(s => s.status === 'validated').length,
+    applied: songs.filter(s => s.status === 'applied').length,
+    rejected: songs.filter(s => s.status === 'rejected').length,
+  }), [songs]);
 
-  const displaySongs = useMemo(() => getDisplaySongs(), [getDisplaySongs]);
+  // Filter songs based on status and confidence
+  const displaySongs = useMemo(() => {
+    let filtered = songs;
+    
+    // Filter by status
+    if (statusFilter === 'pending') {
+      filtered = filtered.filter(s => s.status === 'pending');
+    } else if (statusFilter === 'enriched') {
+      filtered = filtered.filter(s => s.sugestao && s.status !== 'validated' && s.status !== 'rejected' && s.status !== 'pending' && s.status !== 'applied');
+    } else if (statusFilter === 'validated') {
+      filtered = filtered.filter(s => s.status === 'validated');
+    } else if (statusFilter === 'applied') {
+      filtered = filtered.filter(s => s.status === 'applied');
+    } else if (statusFilter === 'rejected') {
+      filtered = filtered.filter(s => s.status === 'rejected');
+    }
+    
+    // Apply confidence filter (not applicable for pending)
+    if (confidenceFilter !== 'all' && statusFilter !== 'pending') {
+      filtered = filtered.filter(song => {
+        const confidence = song.sugestao?.confianca || 0;
+        if (confidenceFilter === 'high') return confidence >= 0.85;
+        if (confidenceFilter === 'medium') return confidence >= 0.70 && confidence < 0.85;
+        if (confidenceFilter === 'low') return confidence < 0.70;
+        return true;
+      });
+    }
+    
+    return filtered;
+  }, [songs, statusFilter, confidenceFilter]);
 
   // Multi-tab sync
   const handleSessionUpdate = useCallback((session: EnrichmentSession) => {
@@ -708,6 +729,31 @@ export function MetadataEnrichmentInterface() {
         onDiscard={handleDiscardSession}
       />
 
+      <AlertDialog open={showApplyDialog} onOpenChange={setShowApplyDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Aplicar Metadados ao Corpus?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Você está prestes a atualizar <strong>{songs.filter(s => s.status === 'validated').length} músicas</strong> no corpus <strong>{corpusType}</strong>.
+              <br /><br />
+              <strong>✅ Um backup automático será criado antes da aplicação.</strong>
+              <br />
+              • Músicas validadas serão marcadas como "aplicadas"
+              <br />
+              • O arquivo atualizado será baixado automaticamente
+              <br />
+              • Esta ação não pode ser desfeita (mas pode ser revertida via backup)
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmApplyToCorpus}>
+              Aplicar Metadados
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <Tabs defaultValue="enrich" className="space-y-6">
         <TabsList>
           <TabsTrigger value="enrich">
@@ -919,89 +965,112 @@ export function MetadataEnrichmentInterface() {
       {songs.length > 0 && (
         <Card>
           <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>
-                {viewMode === 'validation-queue' 
-                  ? `Fila de Validação (${displaySongs.length})` 
-                  : `Todas as Músicas (${songs.length})`}
-              </CardTitle>
-              <div className="flex gap-2 flex-wrap">
+            <div className="flex items-center justify-between mb-4">
+              <Tabs value={statusFilter} onValueChange={(v: any) => setStatusFilter(v)} className="w-full">
+                <TabsList className="grid w-full grid-cols-6">
+                  <TabsTrigger value="all" className="flex items-center gap-2">
+                    Todas
+                    <Badge variant="secondary" className="ml-1">{statusCounts.all}</Badge>
+                  </TabsTrigger>
+                  <TabsTrigger value="pending" className="flex items-center gap-2">
+                    Pendentes
+                    <Badge variant="destructive" className="ml-1">{statusCounts.pending}</Badge>
+                  </TabsTrigger>
+                  <TabsTrigger value="enriched" className="flex items-center gap-2">
+                    Aguardando
+                    <Badge variant="outline" className="ml-1 bg-yellow-500/20 text-yellow-700 dark:text-yellow-300">{statusCounts.enriched}</Badge>
+                  </TabsTrigger>
+                  <TabsTrigger value="validated" className="flex items-center gap-2">
+                    Validadas
+                    <Badge variant="outline" className="ml-1 bg-green-500/20 text-green-700 dark:text-green-300">{statusCounts.validated}</Badge>
+                  </TabsTrigger>
+                  <TabsTrigger value="applied" className="flex items-center gap-2">
+                    Aplicadas
+                    <Badge variant="secondary" className="ml-1">{statusCounts.applied}</Badge>
+                  </TabsTrigger>
+                  <TabsTrigger value="rejected" className="flex items-center gap-2">
+                    Rejeitadas
+                    <Badge variant="outline" className="ml-1">{statusCounts.rejected}</Badge>
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </div>
+
+            {statusFilter !== 'pending' && (
+              <div className="flex gap-2 mb-4">
                 <Button
+                  variant="outline"
                   size="sm"
-                  variant={viewMode === 'validation-queue' ? 'default' : 'outline'}
-                  onClick={() => setViewMode('validation-queue')}
-                >
-                  <Check className="h-4 w-4 mr-2" />
-                  Fila de Validação ({songs.filter(s => s.sugestao && s.status !== 'validated' && s.status !== 'rejected' && s.status !== 'pending' && s.status !== 'enriching').length})
-                </Button>
-                <Button
-                  size="sm"
-                  variant={viewMode === 'all' ? 'default' : 'outline'}
-                  onClick={() => setViewMode('all')}
-                >
-                  Ver Todas ({songs.length})
-                </Button>
-                <Button
-                  size="sm"
-                  variant={confidenceFilter === 'all' ? 'default' : 'outline'}
                   onClick={() => setConfidenceFilter('all')}
+                  className={confidenceFilter === 'all' ? 'bg-accent' : ''}
                 >
                   Todas
                 </Button>
                 <Button
+                  variant="outline"
                   size="sm"
-                  variant={confidenceFilter === 'high' ? 'default' : 'outline'}
                   onClick={() => setConfidenceFilter('high')}
-                  className="bg-green-600 hover:bg-green-700"
+                  className={confidenceFilter === 'high' ? 'bg-green-500/20' : ''}
                 >
                   Alta (≥85%)
                 </Button>
                 <Button
+                  variant="outline"
                   size="sm"
-                  variant={confidenceFilter === 'medium' ? 'default' : 'outline'}
                   onClick={() => setConfidenceFilter('medium')}
-                  className="bg-yellow-600 hover:bg-yellow-700"
+                  className={confidenceFilter === 'medium' ? 'bg-yellow-500/20' : ''}
                 >
-                  Média (70-85%)
+                  Média (70-84%)
                 </Button>
                 <Button
+                  variant="outline"
                   size="sm"
-                  variant={confidenceFilter === 'low' ? 'default' : 'outline'}
                   onClick={() => setConfidenceFilter('low')}
-                  className="bg-red-600 hover:bg-red-700"
+                  className={confidenceFilter === 'low' ? 'bg-red-500/20' : ''}
                 >
                   Baixa (&lt;70%)
                 </Button>
               </div>
-            </div>
+            )}
           </CardHeader>
           <CardContent>
             <ScrollArea className="h-[500px]">
               <div className="space-y-2">
-                {displaySongs.length === 0 && viewMode === 'validation-queue' ? (
-                  <div className="text-center py-12 space-y-4">
-                    <div className="flex justify-center">
-                      <div className="w-16 h-16 rounded-full bg-green-100 dark:bg-green-950/20 flex items-center justify-center">
-                        <Check className="h-8 w-8 text-green-600" />
-                      </div>
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-semibold mb-2">Fila de Validação Vazia</h3>
-                      <p className="text-sm text-muted-foreground max-w-md mx-auto">
-                        Todas as músicas enriquecidas foram validadas ou rejeitadas.
-                        {stats.pending > 0 && (
-                          <span className="block mt-2">
-                            Ainda há {stats.pending} música(s) aguardando enriquecimento.
-                          </span>
-                        )}
-                      </p>
-                    </div>
-                    <Button
-                      variant="outline"
-                      onClick={() => setViewMode('all')}
-                    >
-                      Ver Todas as Músicas
-                    </Button>
+                {displaySongs.length === 0 ? (
+                  <div className="text-center py-12">
+                    {statusFilter === 'pending' && (
+                      <>
+                        <p className="text-muted-foreground">Nenhuma música pendente</p>
+                        <p className="text-sm text-muted-foreground/70">Todas já foram enriquecidas!</p>
+                      </>
+                    )}
+                    {statusFilter === 'enriched' && (
+                      <>
+                        <p className="text-muted-foreground">Nenhuma música aguardando validação</p>
+                        <p className="text-sm text-muted-foreground/70">Valide as sugestões para liberar aplicação</p>
+                      </>
+                    )}
+                    {statusFilter === 'validated' && (
+                      <>
+                        <p className="text-muted-foreground">Nenhuma música validada</p>
+                        <p className="text-sm text-muted-foreground/70">Valide algumas sugestões primeiro</p>
+                      </>
+                    )}
+                    {statusFilter === 'applied' && (
+                      <>
+                        <p className="text-muted-foreground">Nenhuma música aplicada ainda</p>
+                        <p className="text-sm text-muted-foreground/70">Use o botão "Aplicar ao Corpus" após validar</p>
+                      </>
+                    )}
+                    {statusFilter === 'rejected' && (
+                      <>
+                        <p className="text-muted-foreground">Nenhuma música rejeitada</p>
+                        <p className="text-sm text-muted-foreground/70">Sugestões ruins serão exibidas aqui</p>
+                      </>
+                    )}
+                    {statusFilter === 'all' && (
+                      <p className="text-muted-foreground">Nenhuma música encontrada</p>
+                    )}
                   </div>
                 ) : (
                   displaySongs
