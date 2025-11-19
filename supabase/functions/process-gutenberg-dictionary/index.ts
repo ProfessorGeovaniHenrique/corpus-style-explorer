@@ -54,8 +54,9 @@ function validateRequest(data: any): ProcessRequest {
     throw new Error('fileContent deve ser uma string válida');
   }
   
-  if (fileContent.length > 10000000) {
-    throw new Error('fileContent excede tamanho máximo de 10MB');
+  // ✅ Aumentado de 10MB para 20MB para acomodar overhead de serialização
+  if (fileContent.length > 20_000_000) {
+    throw new Error('fileContent excede tamanho máximo de 20MB');
   }
   
   if (batchSize !== undefined && (typeof batchSize !== 'number' || batchSize < 100 || batchSize > 5000)) {
