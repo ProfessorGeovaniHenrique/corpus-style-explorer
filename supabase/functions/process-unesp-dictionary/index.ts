@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { withRetry } from "../_shared/retry.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -7,7 +8,7 @@ const corsHeaders = {
 };
 
 const BATCH_SIZE = 1000;
-const TIMEOUT_MS = 50000;
+const TIMEOUT_MS = 90000; // 90 segundos
 
 interface ProcessRequest {
   fileContent: string;
@@ -39,36 +40,103 @@ interface UNESPEntry {
   registro: string;
 }
 
+/**
+ * Pré-processador para limpar metadados de OCR/scan do arquivo UNESP
+ * Remove: Notice, Page X, linhas vazias, marcadores de início de livro
+ */
+function cleanUNESPContent(rawContent: string): string {
+  const lines = rawContent.split('\n');
+  const cleanedLines: string[] = [];
+  let skipUntilContent = true;
+  
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    
+    // Pular linhas de metadados e estrutura do eBook
+    if (
+      line === '' ||
+      line.startsWith('Notice') ||
+      line.startsWith('Page ') ||
+      line.startsWith('====') ||
+      line.startsWith('***') ||
+      line.includes('This eBook') ||
+      line.includes('Project Gutenberg') ||
+      line.includes('END OF THIS PROJECT') ||
+      line.includes('START OF THIS PROJECT') ||
+      line.includes('www.gutenberg') ||
+      line.match(/^\d+$/) // Números de página isolados
+    ) {
+      continue;
+    }
+    
+    // Detectar início de conteúdo real (primeira letra maiúscula seguida de POS)
+    if (skipUntilContent && /^[A-ZÁÀÃÉÊÍÓÔÚÇ][a-záàãéêíóôúç]+\s+(s\.m\.|s\.f\.|adj\.|v\.|adv\.)/i.test(line)) {
+      skipUntilContent = false;
+    }
+    
+    if (!skipUntilContent) {
+      cleanedLines.push(line);
+    }
+  }
+  
+  return cleanedLines.join('\n');
+}
+
+/**
+ * Parser para formato real do Dicionário UNESP
+ * 
+ * Formatos suportados:
+ * 1. "Açafrão s.m. planta da família das iridáceas"
+ * 2. "Palavra s.f. definição [exemplo; exemplo2] (Pop.)"
+ * 3. "Termo adj. descrição (Fig.)"
+ * 4. Entradas multi-linha com definições estendidas
+ */
 function parseUNESPEntry(text: string): UNESPEntry | null {
   try {
-    // Formato esperado (simplificado):
-    // palavra s.m./s.f./adj./v. definição [exemplo1; exemplo2] (Registro)
+    const trimmed = text.trim();
+    if (!trimmed) return null;
     
-    const lines = text.trim().split('\n').filter(l => l.trim());
-    if (lines.length === 0) return null;
+    // Regex principal: palavra POS definição [exemplos] (registro)
+    const mainMatch = trimmed.match(/^([A-ZÁÀÃÉÊÍÓÔÚÇ][a-záàãéêíóôúç\-]+)\s+(s\.m\.|s\.f\.|adj\.|v\.|adv\.|prep\.|conj\.|interj\.)\s+(.+)$/i);
     
-    const firstLine = lines[0];
+    if (!mainMatch) {
+      // Fallback: formato simplificado sem marcadores
+      const simpleMatch = trimmed.match(/^([A-ZÁÀÃÉÊÍÓÔÚÇ][a-záàãéêíóôúç\-]+)\s+(.{3,})$/);
+      if (!simpleMatch) return null;
+      
+      return {
+        palavra: simpleMatch[1].toLowerCase().trim(),
+        pos: 'indefinido',
+        definicao: simpleMatch[2].trim(),
+        exemplos: [],
+        registro: ''
+      };
+    }
     
-    // Extrair palavra e POS
-    const wordPosMatch = firstLine.match(/^(\S+)\s+(s\.m\.|s\.f\.|adj\.|v\.|adv\.|prep\.|conj\.)/i);
-    if (!wordPosMatch) return null;
-    
-    const palavra = wordPosMatch[1].toLowerCase();
-    const pos = wordPosMatch[2];
-    
-    // Extrair definição (depois do POS até exemplos ou fim)
-    const definicaoMatch = firstLine.match(/(?:s\.m\.|s\.f\.|adj\.|v\.|adv\.|prep\.|conj\.)\s+(.+?)(?:\[|$)/i);
-    const definicao = definicaoMatch ? definicaoMatch[1].trim() : '';
+    const palavra = mainMatch[1].toLowerCase().trim();
+    const pos = mainMatch[2].trim();
+    const restContent = mainMatch[3].trim();
     
     // Extrair exemplos (entre colchetes)
-    const exemplosMatch = firstLine.match(/\[([^\]]+)\]/);
+    const exemplosMatch = restContent.match(/\[([^\]]+)\]/);
     const exemplos = exemplosMatch
       ? exemplosMatch[1].split(';').map(e => e.trim()).filter(e => e.length > 0)
       : [];
     
     // Extrair registro de uso (entre parênteses)
-    const registroMatch = firstLine.match(/\(([^)]+)\)/);
+    const registroMatch = restContent.match(/\(([^)]+)\)/);
     const registro = registroMatch ? registroMatch[1].trim() : '';
+    
+    // Extrair definição (remover exemplos e registro)
+    let definicao = restContent
+      .replace(/\[([^\]]+)\]/g, '') // Remove exemplos
+      .replace(/\(([^)]+)\)/g, '') // Remove registro
+      .trim();
+    
+    // Se definição ficou vazia, usar o conteúdo completo
+    if (!definicao) {
+      definicao = restContent;
+    }
     
     return {
       palavra,
@@ -78,33 +146,47 @@ function parseUNESPEntry(text: string): UNESPEntry | null {
       registro
     };
   } catch (error) {
-    console.error('Erro ao parsear entrada UNESP:', error);
+    console.error('❌ Erro ao parsear entrada UNESP:', error);
     return null;
   }
 }
 
 async function processInBackground(
   jobId: string,
-  entries: string[],
+  rawContent: string,
   supabaseUrl: string,
   supabaseKey: string
 ) {
   const supabaseClient = createClient(supabaseUrl, supabaseKey);
-  const BATCH_SIZE = 1000;
   let processed = 0;
+  let inserted = 0;
   let errors = 0;
   const errorLog: string[] = [];
   const definitionBatches: any[] = [];
 
-  console.log(`[Job ${jobId}] Processando ${entries.length} entradas do Dicionário UNESP...`);
+  console.log(`📚 [Job ${jobId}] Iniciando pré-processamento do UNESP...`);
 
   try {
+    // PRÉ-PROCESSAMENTO: Limpar metadados
+    const cleanedContent = cleanUNESPContent(rawContent);
+    console.log(`🧹 Conteúdo limpo. Tamanho original: ${rawContent.length}, limpo: ${cleanedContent.length}`);
+    
+    // Dividir em entradas (cada linha que começa com maiúscula + POS)
+    const entries = cleanedContent
+      .split(/(?=^[A-ZÁÀÃÉÊÍÓÔÚÇ][a-záàãéêíóôúç\-]+\s+(?:s\.m\.|s\.f\.|adj\.|v\.|adv\.))/gm)
+      .filter(e => e.trim().length > 0);
+
+    console.log(`📊 [Job ${jobId}] Total de entradas detectadas: ${entries.length}`);
+
     await supabaseClient
       .from('dictionary_import_jobs')
-      .update({ status: 'processando' })
+      .update({ 
+        status: 'processando',
+        total_verbetes: entries.length
+      })
       .eq('id', jobId);
 
-    // ✅ OTIMIZAÇÃO #2: Coletar entradas em batches
+    // Processar entradas
     for (let i = 0; i < entries.length; i++) {
       const entryText = entries[i];
       
@@ -112,78 +194,93 @@ async function processInBackground(
         const entry = parseUNESPEntry(entryText);
         if (!entry) {
           errors++;
+          if (errors <= 10) {
+            errorLog.push(`Entrada ${i}: Falha no parse`);
+          }
           continue;
         }
+
+        processed++;
 
         definitionBatches.push({
           palavra: entry.palavra,
           pos: entry.pos,
           definicao: entry.definicao,
-          exemplos: entry.exemplos,
+          exemplos: entry.exemplos.length > 0 ? entry.exemplos : null,
           registro_uso: entry.registro || null,
           fonte: 'unesp'
         });
 
       } catch (err) {
-        console.error(`[Job ${jobId}] Erro processando entrada ${i}:`, err);
+        console.error(`❌ [Job ${jobId}] Erro processando entrada ${i}:`, err);
         errors++;
-        errorLog.push(`Entrada ${i}: ${err instanceof Error ? err.message : String(err)}`);
+        if (errorLog.length < 10) {
+          errorLog.push(`Entrada ${i}: ${err instanceof Error ? err.message : String(err)}`);
+        }
+      }
+
+      // Inserir batch quando atingir tamanho
+      if (definitionBatches.length >= BATCH_SIZE) {
+        console.log(`💾 Inserindo batch de ${definitionBatches.length} definições...`);
+        
+        await withRetry(async () => {
+          const { error } = await supabaseClient
+            .from('lexical_definitions')
+            .insert(definitionBatches);
+          
+          if (error) throw error;
+        }, 3, 2000);
+        
+        inserted += definitionBatches.length;
+        definitionBatches.length = 0;
+
+        // Atualizar progresso
+        await supabaseClient
+          .from('dictionary_import_jobs')
+          .update({
+            verbetes_processados: processed,
+            verbetes_inseridos: inserted,
+            erros: errors
+          })
+          .eq('id', jobId);
       }
     }
 
-    // ✅ OTIMIZAÇÃO #2: Inserir em batches de 1000
-    console.log(`[Job ${jobId}] Inserindo ${definitionBatches.length} definições em batches...`);
-    
-    for (let i = 0; i < definitionBatches.length; i += BATCH_SIZE) {
-      const batch = definitionBatches.slice(i, Math.min(i + BATCH_SIZE, definitionBatches.length));
+    // Inserir batch final
+    if (definitionBatches.length > 0) {
+      console.log(`💾 Inserindo batch final de ${definitionBatches.length} definições...`);
       
-      const { error: insertError } = await supabaseClient
-        .from('lexical_definitions')
-        .insert(batch);
-
-      if (insertError) {
-        console.error(`[Job ${jobId}] Erro ao inserir batch:`, insertError);
-        errors += batch.length;
-        errorLog.push(`Batch ${i}-${i + batch.length}: ${insertError.message}`);
-      } else {
-        processed += batch.length;
-      }
-
-      // Atualizar progresso após cada batch
-      const progressPercent = Math.round((processed / definitionBatches.length) * 100);
-      await supabaseClient
-        .from('dictionary_import_jobs')
-        .update({ 
-          verbetes_processados: processed,
-          verbetes_inseridos: processed,
-          erros: errors,
-          progresso: progressPercent
-        })
-        .eq('id', jobId);
-
-      console.log(`[Job ${jobId}] Progresso: ${processed}/${definitionBatches.length} (${progressPercent}%)`);
+      await withRetry(async () => {
+        const { error } = await supabaseClient
+          .from('lexical_definitions')
+          .insert(definitionBatches);
+        
+        if (error) throw error;
+      }, 3, 2000);
+      
+      inserted += definitionBatches.length;
     }
-
-    console.log(`[Job ${jobId}] Processamento concluído: ${processed} definições, ${errors} erros`);
 
     // Finalizar job
     await supabaseClient
       .from('dictionary_import_jobs')
-      .update({ 
+      .update({
         status: 'concluido',
         verbetes_processados: processed,
-        verbetes_inseridos: processed,
+        verbetes_inseridos: inserted,
         erros: errors,
-        progresso: 100,
-        metadata: { errorLog: errorLog.slice(0, 10) }
+        erro_mensagem: errorLog.length > 0 ? errorLog.join('\n') : null
       })
       .eq('id', jobId);
 
+    console.log(`✅ [Job ${jobId}] Concluído! Processados: ${processed}, Inseridos: ${inserted}, Erros: ${errors}`);
+
   } catch (error) {
-    console.error(`[Job ${jobId}] Erro crítico:`, error);
+    console.error(`❌ [Job ${jobId}] Erro crítico:`, error);
+    
     await supabaseClient
       .from('dictionary_import_jobs')
-      .update({ 
+      .update({
         status: 'erro',
         erro_mensagem: error instanceof Error ? error.message : String(error)
       })
@@ -197,70 +294,62 @@ serve(async (req) => {
   }
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabaseClient = createClient(supabaseUrl, supabaseKey);
 
-    const { fileContent } = await req.json();
-    
-    if (!fileContent) {
-      throw new Error('fileContent is required');
-    }
+    console.log('📥 Recebendo requisição para processar Dicionário UNESP...');
 
-    // Dividir por entradas (assumindo linha dupla como separador)
-    const entries = fileContent.split('\n\n').filter((e: string) => e.trim());
+    const json = await req.json();
+    const { fileContent } = validateRequest(json);
 
-    console.log(`Criando job para processar ${entries.length} entradas do UNESP...`);
+    console.log(`📊 Tamanho do arquivo: ${fileContent.length} caracteres`);
 
-    // ✅ CORREÇÃO CRÍTICA #1: Criar job ANTES de processar
+    // Criar job
     const { data: job, error: jobError } = await supabaseClient
       .from('dictionary_import_jobs')
       .insert({
         tipo_dicionario: 'unesp',
         status: 'iniciado',
-        total_verbetes: entries.length,
+        total_verbetes: 0, // Será atualizado após pré-processamento
         verbetes_processados: 0,
         verbetes_inseridos: 0,
-        erros: 0,
-        metadata: {
-          started_at: new Date().toISOString()
-        }
+        erros: 0
       })
       .select()
       .single();
 
     if (jobError || !job) {
-      console.error('Erro ao criar job:', jobError);
-      throw new Error('Erro ao criar job de importação');
+      throw new Error(`Erro ao criar job: ${jobError?.message}`);
     }
 
-    console.log(`Job ${job.id} criado. Iniciando processamento em background...`);
+    console.log(`✅ Job criado: ${job.id}`);
 
-    // ✅ CORREÇÃO CRÍTICA #1: Processar em background
-    // @ts-ignore
-    EdgeRuntime.waitUntil(
-      processInBackground(job.id, entries, supabaseUrl, supabaseKey)
-    );
+    // Processar em background (não esperar)
+    processInBackground(job.id, fileContent, supabaseUrl, supabaseKey)
+      .catch(err => console.error('Erro no processamento em background:', err));
 
-    // ✅ CORREÇÃO CRÍTICA #1: Retornar jobId IMEDIATAMENTE
     return new Response(
       JSON.stringify({
         success: true,
         jobId: job.id,
-        message: `Processamento do UNESP iniciado em background. Total: ${entries.length} verbetes.`
+        message: `Importação UNESP iniciada. O arquivo será pré-processado e as entradas válidas serão inseridas.`
       }),
-      {
+      { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200,
+        status: 200
       }
     );
+
   } catch (error) {
-    console.error('Erro no processamento do UNESP:', error);
+    console.error('❌ Erro na requisição:', error);
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : String(error) }),
-      {
+      JSON.stringify({
+        error: error instanceof Error ? error.message : 'Erro desconhecido'
+      }),
+      { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500,
+        status: 500
       }
     );
   }
