@@ -67,7 +67,8 @@ export function MetadataEnrichmentInterface() {
           artista: song.artista,
           musica: song.musica,
           album: song.album,
-          ano: song.ano
+          ano: song.ano,
+          corpusType: corpusType
         }
       });
 
