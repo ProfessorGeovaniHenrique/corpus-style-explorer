@@ -11,6 +11,55 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+/**
+ * Remove null bytes e outros caracteres de controle problemáticos
+ * que o PostgreSQL não consegue armazenar em campos TEXT
+ */
+function sanitizeText(text: string | null | undefined): string | null {
+  if (!text) return null;
+  
+  const original = text;
+  const sanitized = text
+    // Remove null bytes (\u0000)
+    .replace(/\u0000/g, '')
+    // Remove outros caracteres de controle problemáticos (0x00-0x1F exceto \t, \n, \r)
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '')
+    // Remove caracteres de controle Unicode adicionais
+    .replace(/[\u200B-\u200D\uFEFF]/g, '')
+    .trim();
+  
+  // Log se null bytes foram encontrados
+  if (original.includes('\u0000')) {
+    console.warn(`⚠️ Null bytes removidos: ${original.substring(0, 50)}...`);
+  }
+  
+  return sanitized;
+}
+
+/**
+ * Sanitiza recursivamente todos os campos de texto de um objeto
+ */
+function sanitizeObject(obj: any): any {
+  if (!obj || typeof obj !== 'object') return obj;
+  
+  if (Array.isArray(obj)) {
+    return obj.map(item => sanitizeObject(item));
+  }
+  
+  const sanitized: any = {};
+  for (const [key, value] of Object.entries(obj)) {
+    if (typeof value === 'string') {
+      sanitized[key] = sanitizeText(value);
+    } else if (typeof value === 'object' && value !== null) {
+      sanitized[key] = sanitizeObject(value);
+    } else {
+      sanitized[key] = value;
+    }
+  }
+  
+  return sanitized;
+}
+
 const BATCH_SIZE = 500; // ✅ FASE 3: Otimizado de 200 para 500 (priorizar velocidade)
 const UPDATE_FREQUENCY = 10; // Atualizar progresso a cada 10 batches
 const TIMEOUT_MS = 90000; // ✅ FASE 3: Padronizado para 90s
@@ -69,18 +118,19 @@ function inferCategorias(verbete: string, definicoes: any[], contextos: any): st
  */
 function parseVerbete(verbeteRaw: string, volumeNum: string): any | null {
   try {
-    // Limpar espaços extras e normalizar separadores
-    const cleanText = verbeteRaw.trim().replace(/\s+/g, ' ').replace(/[-–—]/g, '-');
+    // ✅ Sanitizar texto de entrada removendo null bytes
+    const cleanText = sanitizeText(verbeteRaw) || '';
+    const normalizedText = cleanText.replace(/\s+/g, ' ').replace(/[-–—]/g, '-');
     
     // ✅ FASE 2: Regex principal melhorado para aceitar mais variações
     // Formato: PALAVRA (ORIGEM) POS MARCADORES - Definição
     const headerRegex = /^([A-ZÁÀÃÉÊÍÓÔÚÇ\-\(\)\s]+?)\s+\((BRAS|PLAT|CAST|QUER|BRAS\/PLAT|PORT)\s?\)\s+([^-]+?)(?:\s+-\s+|\n)(.+)$/s;
-    const match = cleanText.match(headerRegex);
+    const match = normalizedText.match(headerRegex);
     
     if (!match) {
       // ✅ FASE 2: Fallback 1 - Formato mais simples sem marcadores
       const simpleRegex = /^([A-ZÁÀÃÉÊÍÓÔÚÇ\-\(\)\s]+?)\s+\((BRAS|PLAT|CAST|QUER|PORT)\s?\)\s+(.+)$/s;
-      const simpleMatch = cleanText.match(simpleRegex);
+      const simpleMatch = normalizedText.match(simpleRegex);
       
       if (simpleMatch) {
         const [_, verbete, origem, restoConteudo] = simpleMatch;
@@ -90,7 +140,7 @@ function parseVerbete(verbeteRaw: string, volumeNum: string): any | null {
         const pos = posMatch ? posMatch[1] : null;
         const definicao = posMatch ? posMatch[2] : restoConteudo;
         
-        return {
+        const result = {
           verbete: verbete.trim(),
           verbete_normalizado: normalizeWord(verbete),
           origem_primaria: origem.replace(/\s/g, ''),
@@ -111,6 +161,8 @@ function parseVerbete(verbeteRaw: string, volumeNum: string): any | null {
           influencia_platina: origem === 'PLAT',
           origem_regionalista: [origem]
         };
+        
+        return sanitizeObject(result);
       }
       
       // ✅ FASE 2: Fallback 2 - Formato ainda mais simples (última tentativa)
@@ -122,7 +174,7 @@ function parseVerbete(verbeteRaw: string, volumeNum: string): any | null {
       if (lastMatch) {
         const [_, verbete, conteudo] = lastMatch;
         
-        return {
+        const result = {
           verbete: verbete.trim(),
           verbete_normalizado: normalizeWord(verbete),
           origem_primaria: 'BRAS',
@@ -143,6 +195,8 @@ function parseVerbete(verbeteRaw: string, volumeNum: string): any | null {
           influencia_platina: false,
           origem_regionalista: ['BRAS']
         };
+        
+        return sanitizeObject(result);
       }
       
       console.error(`❌ Parse falhou completamente para: ${verbeteRaw.substring(0, 100)}`);
@@ -193,7 +247,7 @@ function parseVerbete(verbeteRaw: string, volumeNum: string): any | null {
     };
     
     console.log(`✅ Verbete parseado: ${result.verbete} (Volume ${volumeNum})`);
-    return result;
+    return sanitizeObject(result);
     
   } catch (error: any) {
     console.error(`❌ Erro crítico ao parsear verbete: ${error.message}`);
@@ -308,7 +362,8 @@ async function processVerbetesInternal(jobId: string, verbetes: string[], volume
         parsed.volume_fonte = volumeNum;
       }
       
-      parsedBatch.push(parsed);
+      // ✅ Sanitização adicional como double-check de segurança
+      parsedBatch.push(sanitizeObject(parsed));
     }
 
     if (parsedBatch.length > 0) {
