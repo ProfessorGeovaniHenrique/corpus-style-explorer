@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,7 +8,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Download, Play, Pause, Check, X, Edit2, Sparkles, Database, History, HardDrive } from 'lucide-react';
+import { Download, Play, Pause, Check, X, Edit2, Sparkles, Database, History, HardDrive, Wifi, WifiOff } from 'lucide-react';
 import { loadFullTextCorpus } from '@/lib/fullTextParser';
 import type { CorpusType } from '@/data/types/corpus-tools.types';
 import type { SongMetadata } from '@/data/types/full-text-corpus.types';
@@ -19,9 +19,11 @@ import { SessionHistoryTab } from './SessionHistoryTab';
 import { useEnrichmentPersistence } from '@/hooks/useEnrichmentPersistence';
 import { useMultiTabSync } from '@/hooks/useMultiTabSync';
 import { useSaveIndicator } from '@/hooks/useSaveIndicator';
+import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { EnrichmentSession, validateEnrichmentSession } from '@/lib/enrichmentSchemas';
 import { saveSessionToCloud, loadSessionFromCloud, resolveConflict } from '@/services/enrichmentPersistence';
 import { useAuth } from '@/hooks/useAuth';
+import { logger } from '@/lib/logger';
 
 interface EnrichedSongData extends SongMetadata {
   status: 'pending' | 'enriching' | 'validated' | 'rejected' | 'error';
@@ -41,6 +43,7 @@ interface EnrichedSongData extends SongMetadata {
 
 export function MetadataEnrichmentInterface() {
   const { user } = useAuth();
+  const { isOnline } = useNetworkStatus(); // FASE 4.1: Network Status Detection
   
   // Estados existentes
   const [corpusType, setCorpusType] = useState<CorpusType>('gaucho');
@@ -61,6 +64,10 @@ export function MetadataEnrichmentInterface() {
   const [showRestoreDialog, setShowRestoreDialog] = useState(false);
   const [localSessionToRestore, setLocalSessionToRestore] = useState<EnrichmentSession | null>(null);
   const [cloudSessionToRestore, setCloudSessionToRestore] = useState<EnrichmentSession | null>(null);
+  
+  // FASE 2.1: Mutex para saveCurrentSession (prevenir race conditions)
+  const saveMutexRef = useRef<boolean>(false);
+  const saveQueueRef = useRef<EnrichmentSession[]>([]);
   
   // Hooks de persistência
   const persistence = useEnrichmentPersistence();
@@ -95,11 +102,12 @@ export function MetadataEnrichmentInterface() {
 
   const { broadcastSessionUpdate, broadcastSessionClear } = useMultiTabSync(handleSessionUpdate, handleSessionClear);
 
-  // Salvar sessão automaticamente após cada música
+  /**
+   * Salvar sessão com MUTEX (FASE 2.1)
+   * Previne race conditions de múltiplas chamadas simultâneas
+   */
   const saveCurrentSession = useCallback(async () => {
     if (songs.length === 0) return;
-    
-    startSaving();
     
     const session: EnrichmentSession = {
       corpusType,
@@ -113,25 +121,73 @@ export function MetadataEnrichmentInterface() {
       schemaVersion: 1,
     };
 
+    // Se mutex travado, enfileirar para processar depois
+    if (saveMutexRef.current) {
+      logger.debug('🔒 Save mutex travado, enfileirando...');
+      saveQueueRef.current.push(session);
+      return;
+    }
+
+    // Acquire lock
+    saveMutexRef.current = true;
+    logger.debug('🔓 Save mutex adquirido');
+
     try {
-      // Salvar local
-      persistence.saveSession(session);
+      startSaving();
       
-      // Salvar cloud (se autenticado)
-      if (user) {
+      logger.info('💾 Iniciando salvamento de sessão...');
+      
+      // Salvar local
+      logger.info('📁 Salvando localStorage...');
+      persistence.saveSession(session);
+      logger.success('✅ localStorage salvo');
+      
+      // Salvar cloud (se autenticado e online)
+      if (user && isOnline) {
+        logger.info('☁️ Salvando Supabase...', { user: user.id, cloudSessionId });
         const sessionId = await saveSessionToCloud(session, cloudSessionId || undefined);
-        if (sessionId && !cloudSessionId) {
-          setCloudSessionId(sessionId);
+        
+        if (sessionId) {
+          logger.success(`✅ Supabase salvo: ${sessionId}`);
+          if (!cloudSessionId) {
+            setCloudSessionId(sessionId);
+          }
+        } else {
+          logger.warn('⚠️ Supabase save retornou null');
         }
+      } else if (!user) {
+        logger.warn('⚠️ User não autenticado, pulando cloud save');
+      } else if (!isOnline) {
+        logger.warn('⚠️ Offline, pulando cloud save');
       }
       
       completeSaving();
       broadcastSessionUpdate(session);
+      logger.success('✅ Salvamento completo');
     } catch (error) {
-      console.error('Erro ao salvar sessão:', error);
+      logger.error('❌ Erro ao salvar sessão:', error);
       setSaveError('Erro ao salvar');
+      toast.error('Erro ao salvar sessão', { 
+        description: error instanceof Error ? error.message : 'Erro desconhecido' 
+      });
+    } finally {
+      // Release lock
+      saveMutexRef.current = false;
+      logger.debug('🔓 Save mutex liberado');
+
+      // Processar fila (se houver pendências)
+      if (saveQueueRef.current.length > 0) {
+        logger.info(`📋 Processando ${saveQueueRef.current.length} save(s) enfileirado(s)`);
+        const queuedSession = saveQueueRef.current.shift();
+        if (queuedSession) {
+          // Processar próximo da fila (não-bloqueante)
+          setTimeout(() => {
+            saveCurrentSession();
+          }, 100);
+        }
+      }
     }
-  }, [songs, corpusType, currentIndex, isEnriching, isPaused, metrics, sessionStartTime, user, cloudSessionId, persistence, startSaving, completeSaving, setSaveError, broadcastSessionUpdate]);
+  }, [songs, corpusType, currentIndex, isEnriching, isPaused, metrics, sessionStartTime, user, isOnline, cloudSessionId, persistence, startSaving, completeSaving, setSaveError, broadcastSessionUpdate]);
 
   // Carregar sessão ao montar
   useEffect(() => {
@@ -221,7 +277,7 @@ export function MetadataEnrichmentInterface() {
           } : s
         );
         
-        setTimeout(() => saveCurrentSession(), 100);
+        // FASE 3.1: Removido setTimeout bloqueante
         
         return newSongs;
       });
@@ -268,7 +324,7 @@ export function MetadataEnrichmentInterface() {
     throw lastError; // All retries failed
   };
 
-  // Batch enrichment
+  // Batch enrichment com salvamento periódico inteligente (FASE 3.1)
   const startEnrichment = async () => {
     setIsEnriching(true);
     setIsPaused(false);
@@ -276,6 +332,8 @@ export function MetadataEnrichmentInterface() {
     const startIdx = currentIndex;
     const startTime = Date.now();
     const processedTimes: number[] = [];
+    let songsSinceLastSave = 0;
+    const SAVE_INTERVAL = 5; // Salvar a cada 5 músicas
     
     for (let i = startIdx; i < songs.length && !isPaused; i++) {
       if (songs[i].status === 'pending' && !songs[i].sugestao) {
@@ -285,6 +343,15 @@ export function MetadataEnrichmentInterface() {
         await enrichSongWithRetry(songs[i], i);
         const songTime = Date.now() - songStartTime;
         processedTimes.push(songTime);
+        
+        songsSinceLastSave++;
+        
+        // Salvamento periódico (não-bloqueante)
+        if (songsSinceLastSave >= SAVE_INTERVAL) {
+          saveCurrentSession(); // Sem await!
+          songsSinceLastSave = 0;
+          logger.info(`💾 Checkpoint: salvamento periódico (a cada ${SAVE_INTERVAL} músicas)`);
+        }
         
         // Calculate metrics
         const elapsed = Date.now() - startTime;
@@ -297,7 +364,6 @@ export function MetadataEnrichmentInterface() {
         setEstimatedTimeRemaining(eta);
         setProgress(((i + 1) / songs.length) * 100);
         
-        // Calculate overall avg processing time
         const totalTime = processedTimes.reduce((sum, t) => sum + t, 0);
         setAvgProcessingTime(totalTime / processedTimes.length);
         
@@ -306,40 +372,41 @@ export function MetadataEnrichmentInterface() {
       }
     }
     
+    // Salvamento final (bloqueante)
+    await saveCurrentSession();
+    logger.success('💾 Salvamento final concluído');
+    
     setIsEnriching(false);
     toast.success('Enriquecimento concluído!');
   };
 
-  const pauseEnrichment = () => {
+  const pauseEnrichment = async () => {
     setIsPaused(true);
     setIsEnriching(false);
+    // FASE 3.1: Salvar ao pausar (bloqueante)
+    await saveCurrentSession();
+    logger.success('💾 Sessão salva ao pausar');
   };
 
-  // Validate/reject suggestions
   const validateSong = (index: number, accept: boolean) => {
-    setSongs(prev => {
-      const newSongs = prev.map((s, i) => {
-        if (i !== index) return s;
-        
-        if (accept && s.sugestao && s.sugestao.fonte !== 'not-found') {
-          return {
-            ...s,
-            compositor: s.compositorEditado || s.sugestao.compositor,
-            album: s.sugestao.album || s.album,
-            ano: s.sugestao.ano || s.ano,
-            fonte: s.compositorEditado ? 'manual' as const : s.sugestao.fonte as ('musicbrainz' | 'ai-inferred'),
-            fonteValidada: s.sugestao.fonte,
-            status: 'validated' as const
-          };
-        }
-        
-        return { ...s, status: 'rejected' as const };
-      });
+    setSongs(prev => prev.map((s, i) => {
+      if (i !== index) return s;
       
-      setTimeout(() => saveCurrentSession(), 100);
+      if (accept && s.sugestao && s.sugestao.fonte !== 'not-found') {
+        return {
+          ...s,
+          compositor: s.compositorEditado || s.sugestao.compositor,
+          album: s.sugestao.album || s.album,
+          ano: s.sugestao.ano || s.ano,
+          fonte: s.compositorEditado ? 'manual' as const : s.sugestao.fonte as ('musicbrainz' | 'ai-inferred'),
+          fonteValidada: s.sugestao.fonte,
+          status: 'validated' as const
+        };
+      }
       
-      return newSongs;
-    });
+      return { ...s, status: 'rejected' as const };
+    }));
+    // FASE 3.1: Removido setTimeout bloqueante
   };
 
   const editComposer = (index: number, value: string) => {
