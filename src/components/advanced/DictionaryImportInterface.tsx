@@ -121,7 +121,7 @@ export function DictionaryImportInterface() {
   const importGutenberg = async () => {
     setIsImportingGutenberg(true);
     try {
-      toast.info('Gutenberg: ~700k verbetes. Processamento em lotes de 5.000...');
+      toast.info('Gutenberg: Carregando arquivo grande (~700k verbetes)...');
       
       const response = await fetch('/src/data/dictionaries/gutenberg-completo.txt');
       if (!response.ok) {
@@ -129,23 +129,62 @@ export function DictionaryImportInterface() {
         return;
       }
       
-      const fileContent = await response.text();
-      if (!fileContent || fileContent.trim().length === 0) {
+      const fullContent = await response.text();
+      if (!fullContent || fullContent.trim().length === 0) {
         toast.error('Arquivo Gutenberg vazio');
         return;
       }
 
-      const { data, error } = await supabase.functions.invoke('process-gutenberg-dictionary', {
-        body: { 
-          fileContent, 
-          batchSize: 5000,
-          startIndex: 0
-        }
-      });
+      // ✅ Dividir em verbetes (separados por \n\n)
+      const verbetes = fullContent.split('\n\n').filter(v => v.trim());
+      toast.info(`${verbetes.length.toLocaleString()} verbetes encontrados. Dividindo em chunks...`);
 
-      if (error) throw error;
-      toast.success(`Importação Gutenberg iniciada! Job ID: ${data.jobId}`);
-      setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: 'smooth' }), 500);
+      // ✅ Criar chunks de até 8MB (margem de segurança para 10MB)
+      const MAX_CHUNK_SIZE = 8_000_000; // 8MB
+      const chunks: string[] = [];
+      let currentChunk = '';
+      
+      for (const verbete of verbetes) {
+        const verbeteWithSeparator = verbete + '\n\n';
+        if ((currentChunk + verbeteWithSeparator).length > MAX_CHUNK_SIZE && currentChunk) {
+          chunks.push(currentChunk);
+          currentChunk = verbeteWithSeparator;
+        } else {
+          currentChunk += verbeteWithSeparator;
+        }
+      }
+      if (currentChunk) chunks.push(currentChunk);
+
+      toast.info(`Arquivo dividido em ${chunks.length} chunks. Iniciando importação...`);
+
+      // ✅ Enviar chunks sequencialmente
+      let jobId: string | null = null;
+      for (let i = 0; i < chunks.length; i++) {
+        toast.info(`Enviando chunk ${i + 1}/${chunks.length}...`);
+        
+        const { data, error } = await supabase.functions.invoke('process-gutenberg-dictionary', {
+          body: { 
+            fileContent: chunks[i], 
+            batchSize: 5000,
+            startIndex: 0 // Edge function cria jobs separados ou continua o mesmo
+          }
+        });
+
+        if (error) {
+          toast.error(`Erro no chunk ${i + 1}: ${error.message}`);
+          break;
+        }
+        
+        if (i === 0) {
+          jobId = data.jobId;
+          toast.success(`Importação iniciada! Job ID: ${jobId}`);
+        }
+      }
+
+      if (jobId) {
+        toast.success(`Todos os chunks enviados! Processamento em andamento.`);
+        setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: 'smooth' }), 500);
+      }
     } catch (error: any) {
       toast.error(`Erro ao iniciar importação do Gutenberg: ${error.message}`);
     } finally {
