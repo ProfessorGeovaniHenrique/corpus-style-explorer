@@ -15,7 +15,7 @@ import { CancellationHistory } from './CancellationHistory';
 import { useDictionaryJobNotifications } from '@/hooks/useDictionaryJobNotifications';
 import { useQueryClient } from '@tanstack/react-query';
 
-const MAX_FILE_SIZE = 10_000_000; // 10MB
+const MAX_FILE_SIZE = 20_000_000; // 20MB (chunks de 5MB com overhead)
 
 export function DictionaryImportInterface() {
   const [isImportingVolI, setIsImportingVolI] = useState(false);
@@ -139,8 +139,8 @@ export function DictionaryImportInterface() {
       const verbetes = fullContent.split('\n\n').filter(v => v.trim());
       toast.info(`${verbetes.length.toLocaleString()} verbetes encontrados. Dividindo em chunks...`);
 
-      // ✅ Criar chunks de até 8MB (margem de segurança para 10MB)
-      const MAX_CHUNK_SIZE = 8_000_000; // 8MB
+      // ✅ Criar chunks de até 5MB (margem de segurança ampla para 20MB com overhead)
+      const MAX_CHUNK_SIZE = 5_000_000; // 5MB
       const chunks: string[] = [];
       let currentChunk = '';
       

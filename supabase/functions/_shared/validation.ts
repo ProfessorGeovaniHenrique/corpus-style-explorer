@@ -302,7 +302,7 @@ export const cancelJobSchema = z.object({
 export const dictionaryImportSchema = z.object({
   fileContent: z.string()
     .min(1, { message: "Conteúdo do arquivo não pode estar vazio" })
-    .max(10_000_000, { message: "Arquivo muito grande (máx: 10MB)" }),
+    .max(20_000_000, { message: "Arquivo muito grande (máx: 20MB)" }),
   tipoDicionario: z.enum(
     ["Nunes e Nunes", "Gutenberg", "Houaiss", "UNESP"],
     { errorMap: () => ({ message: "Tipo de dicionário inválido" }) }
