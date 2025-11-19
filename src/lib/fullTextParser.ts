@@ -133,6 +133,7 @@ export function parseFullTextCorpus(
 
 /**
  * Load and parse multiple corpus files with optional filters
+ * PRODUCTION-READY with defensive validations
  */
 export async function loadFullTextCorpus(
   tipo: CorpusType,
@@ -143,49 +144,141 @@ export async function loadFullTextCorpus(
     anoFim?: number;
   }
 ): Promise<CorpusCompleto> {
+  // ✅ PATHS ATUALIZADOS PARA PRODUÇÃO
   const paths = tipo === 'gaucho' 
-    ? ['/src/data/corpus/full-text/gaucho-completo.txt']
+    ? ['/corpus/full-text/gaucho-completo.txt']
     : tipo === 'nordestino'
     ? [
-        '/src/data/corpus/full-text/nordestino-parte-01.txt',
-        '/src/data/corpus/full-text/nordestino-parte-02.txt',
-        '/src/data/corpus/full-text/nordestino-parte-03.txt'
+        '/corpus/full-text/nordestino-parte-01.txt',
+        '/corpus/full-text/nordestino-parte-02.txt',
+        '/corpus/full-text/nordestino-parte-03.txt'
       ]
-    : ['/src/data/corpus/corpus-luiz-marenco-verso.txt']; // marenco-verso
+    : ['/corpus/full-text/corpus-luiz-marenco-verso.txt']; // marenco-verso
   
   console.log(`📂 Carregando corpus ${tipo}...`);
+  console.log(`📍 Paths: ${paths.join(', ')}`);
   
-  const responses = await Promise.all(paths.map(p => fetch(p)));
-  const texts = await Promise.all(responses.map(r => r.text()));
-  const fullText = texts.join('\n---------------\n');
+  // ✅ TIMEOUT DEFENSIVO (30s)
+  const abortController = new AbortController();
+  const timeoutId = setTimeout(() => abortController.abort(), 30000);
   
-  const corpus = parseFullTextCorpus(fullText, tipo);
-  
-  // Apply filters if provided
-  if (filters) {
-    const filteredMusicas = corpus.musicas.filter(musica => {
-      if (filters.artistas && filters.artistas.length > 0 && !filters.artistas.includes(musica.metadata.artista)) {
-        return false;
-      }
-      if (filters.albuns && filters.albuns.length > 0 && !filters.albuns.includes(musica.metadata.album)) {
-        return false;
-      }
-      if (filters.anoInicio && musica.metadata.ano && parseInt(musica.metadata.ano) < filters.anoInicio) {
-        return false;
-      }
-      if (filters.anoFim && musica.metadata.ano && parseInt(musica.metadata.ano) > filters.anoFim) {
-        return false;
-      }
-      return true;
-    });
+  try {
+    // ✅ FETCH COM VALIDAÇÕES
+    const responses = await Promise.all(
+      paths.map(async (path) => {
+        try {
+          const response = await fetch(path, {
+            signal: abortController.signal,
+            headers: {
+              'Accept': 'text/plain; charset=utf-8'
+            }
+          });
+          
+          if (!response.ok) {
+            throw new Error(
+              `HTTP ${response.status} para ${path}. ` +
+              `Verifique se o arquivo existe em public/corpus/full-text/`
+            );
+          }
+          
+          const contentLength = response.headers.get('content-length');
+          console.log(`📦 ${path}: ${contentLength ? `${(parseInt(contentLength) / 1024).toFixed(1)}KB` : 'tamanho desconhecido'}`);
+          
+          return response;
+        } catch (err: any) {
+          if (err.name === 'AbortError') {
+            throw new Error(`⏱️ Timeout ao carregar ${path} (>30s)`);
+          }
+          throw new Error(`❌ Erro ao carregar ${path}: ${err.message}`);
+        }
+      })
+    );
     
-    return {
-      ...corpus,
-      musicas: filteredMusicas,
-      totalMusicas: filteredMusicas.length,
-      totalPalavras: filteredMusicas.reduce((sum, m) => sum + m.palavras.length, 0)
-    };
+    clearTimeout(timeoutId);
+    
+    // ✅ PARSE TEXT COM ENCODING CHECK
+    const texts = await Promise.all(
+      responses.map(async (response, idx) => {
+        const text = await response.text();
+        
+        // Check minimum size
+        if (text.length < 100) {
+          console.warn(`⚠️ Arquivo ${paths[idx]} muito pequeno (${text.length} chars)`);
+        }
+        
+        // Check encoding markers (UTF-8 BOM or special chars)
+        if (text.includes('�')) {
+          console.warn(`⚠️ Possível problema de encoding em ${paths[idx]} - caracteres corrompidos detectados`);
+        }
+        
+        console.log(`✅ ${paths[idx]}: ${text.length} caracteres, ${text.split('\n').length} linhas`);
+        return text;
+      })
+    );
+    
+    const fullText = texts.join('\n---------------\n');
+    
+    // ✅ VALIDAÇÃO FINAL
+    if (fullText.length < 500) {
+      throw new Error(
+        `⚠️ Corpus muito pequeno (${fullText.length} chars). ` +
+        `Possível problema no carregamento dos arquivos.`
+      );
+    }
+    
+    console.log(`✅ Corpus completo carregado: ${fullText.length} caracteres totais`);
+    
+    const corpus = parseFullTextCorpus(fullText, tipo);
+    
+    // Apply filters if provided
+    if (filters) {
+      const filteredMusicas = corpus.musicas.filter(musica => {
+        if (filters.artistas && filters.artistas.length > 0 && !filters.artistas.includes(musica.metadata.artista)) {
+          return false;
+        }
+        if (filters.albuns && filters.albuns.length > 0 && !filters.albuns.includes(musica.metadata.album)) {
+          return false;
+        }
+        if (filters.anoInicio && musica.metadata.ano && parseInt(musica.metadata.ano) < filters.anoInicio) {
+          return false;
+        }
+        if (filters.anoFim && musica.metadata.ano && parseInt(musica.metadata.ano) > filters.anoFim) {
+          return false;
+        }
+        return true;
+      });
+      
+      return {
+        ...corpus,
+        musicas: filteredMusicas,
+        totalMusicas: filteredMusicas.length,
+        totalPalavras: filteredMusicas.reduce((sum, m) => sum + m.palavras.length, 0)
+      };
+    }
+    
+    return corpus;
+    
+  } catch (error: any) {
+    clearTimeout(timeoutId);
+    
+    // ✅ ERROR HANDLING ROBUSTO
+    console.error('❌ Erro crítico ao carregar corpus:', error);
+    
+    if (error.message.includes('HTTP 404')) {
+      throw new Error(
+        `Arquivos de corpus não encontrados. ` +
+        `Certifique-se de que os arquivos estão em public/corpus/full-text/ ` +
+        `e que a build foi refeita.`
+      );
+    }
+    
+    if (error.message.includes('Timeout')) {
+      throw new Error(
+        `Timeout ao carregar corpus ${tipo}. ` +
+        `Arquivos muito grandes ou conexão lenta. Tente novamente.`
+      );
+    }
+    
+    throw new Error(`Falha ao carregar corpus ${tipo}: ${error.message}`);
   }
-  
-  return corpus;
 }
