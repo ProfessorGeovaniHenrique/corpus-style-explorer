@@ -70,7 +70,35 @@ export function LexiconStatusDashboard() {
         confianca_media: gutenbergData?.reduce((acc, g) => acc + (g.confianca_extracao || 0), 0) / (gutenbergData?.length || 1),
       };
 
-      const allMetrics = [dialectalMetrics, gutenbergMetrics];
+      // Houaiss (Sinônimos) metrics
+      const { data: houaissData, error: houaissError } = await supabase
+        .from('lexical_synonyms')
+        .select('*');
+
+      if (houaissError) throw houaissError;
+
+      const houaissMetrics: LexiconMetrics = {
+        fonte: 'houaiss',
+        total: houaissData?.length || 0,
+        validados: houaissData?.length || 0, // Assumir todos validados
+        confianca_media: 1.0,
+      };
+
+      // UNESP (Definições) metrics
+      const { data: unespData, error: unespError } = await supabase
+        .from('lexical_definitions')
+        .select('*');
+
+      if (unespError) throw unespError;
+
+      const unespMetrics: LexiconMetrics = {
+        fonte: 'unesp',
+        total: unespData?.length || 0,
+        validados: unespData?.length || 0, // Assumir todos validados
+        confianca_media: 1.0,
+      };
+
+      const allMetrics = [dialectalMetrics, gutenbergMetrics, houaissMetrics, unespMetrics];
       setMetrics(allMetrics);
 
       // Health checks
@@ -95,6 +123,22 @@ export function LexiconStatusDashboard() {
         health.push({
           status: 'warning',
           message: `Gutenberg tem ${gutenbergMetrics.total} verbetes. Ainda faltam ~${700000 - (gutenbergMetrics.total || 0)} verbetes.`
+        });
+      }
+
+      // Check Houaiss
+      if ((houaissMetrics.total || 0) === 0) {
+        health.push({
+          status: 'warning',
+          message: 'Dicionário Houaiss (Sinônimos) não possui verbetes. Importação necessária.'
+        });
+      }
+
+      // Check UNESP
+      if ((unespMetrics.total || 0) === 0) {
+        health.push({
+          status: 'warning',
+          message: 'Dicionário UNESP (Definições) não possui verbetes. Importação necessária.'
         });
       }
 
@@ -145,6 +189,8 @@ export function LexiconStatusDashboard() {
 
   const dialectal = metrics.find(m => m.fonte === 'dialectal');
   const gutenberg = metrics.find(m => m.fonte === 'gutenberg');
+  const houaissMetric = metrics.find(m => m.fonte === 'houaiss');
+  const unespMetric = metrics.find(m => m.fonte === 'unesp');
 
   return (
     <div className="space-y-6">
@@ -257,6 +303,52 @@ export function LexiconStatusDashboard() {
                 <p className="text-2xl font-bold">
                   {(gutenberg?.total || 0) - (gutenberg?.validados || 0)}
                 </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Houaiss Card */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <BookOpen className="h-5 w-5 text-purple-500" />
+              Dicionário Houaiss
+            </CardTitle>
+            <CardDescription>Sinônimos e Antônimos</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-muted-foreground">Total de Verbetes</span>
+                <span className="text-2xl font-bold">{houaissMetric?.total.toLocaleString() || 0}</span>
+              </div>
+              <Progress value={((houaissMetric?.total || 0) / 35000) * 100} className="h-2" />
+              <div className="text-xs text-muted-foreground">
+                Meta: ~35.000 verbetes
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* UNESP Card */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Database className="h-5 w-5 text-orange-500" />
+              Dicionário UNESP
+            </CardTitle>
+            <CardDescription>Definições e Exemplos</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-muted-foreground">Total de Verbetes</span>
+                <span className="text-2xl font-bold">{unespMetric?.total.toLocaleString() || 0}</span>
+              </div>
+              <Progress value={((unespMetric?.total || 0) / 1500) * 100} className="h-2" />
+              <div className="text-xs text-muted-foreground">
+                Meta: ~1.500 verbetes
               </div>
             </div>
           </CardContent>

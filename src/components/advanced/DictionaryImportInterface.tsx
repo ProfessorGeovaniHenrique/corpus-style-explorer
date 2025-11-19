@@ -8,15 +8,19 @@ import { toast } from 'sonner';
 import { BookOpen, Loader2, CheckCircle2, XCircle, Clock, AlertCircle, RefreshCw, Trash2, CheckSquare } from 'lucide-react';
 import { useDictionaryImportJobs, verifyDictionaryIntegrity, clearAndReimport, resumeImport } from '@/hooks/useDictionaryImportJobs';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { DictionaryImportTester } from './DictionaryImportTester';
 
 export function DictionaryImportInterface() {
-  const [isImporting, setIsImporting] = useState(false);
+  const [isImportingVolI, setIsImportingVolI] = useState(false);
+  const [isImportingVolII, setIsImportingVolII] = useState(false);
+  const [isImportingGutenberg, setIsImportingGutenberg] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
   const { data: jobs } = useDictionaryImportJobs();
   const resultsRef = useRef<HTMLDivElement>(null);
 
   const importDialectalVolume = async (volumeNum: 'I' | 'II') => {
-    setIsImporting(true);
+    const setter = volumeNum === 'I' ? setIsImportingVolI : setIsImportingVolII;
+    setter(true);
     try {
       const fileName = volumeNum === 'I' 
         ? '/src/data/dictionaries/dialectal-volume-I-raw.txt' 
@@ -26,7 +30,7 @@ export function DictionaryImportInterface() {
       if (!response.ok) {
         if (response.status === 404) {
           toast.error(`Arquivo não encontrado: Volume ${volumeNum}`);
-          setIsImporting(false);
+          setter(false);
           return;
         }
         throw new Error(`Erro ${response.status}: ${response.statusText}`);
@@ -35,7 +39,7 @@ export function DictionaryImportInterface() {
       const rawContent = await response.text();
       if (!rawContent || rawContent.trim().length === 0) {
         toast.error(`Arquivo vazio: Volume ${volumeNum}`);
-        setIsImporting(false);
+        setter(false);
         return;
       }
       
@@ -55,7 +59,42 @@ export function DictionaryImportInterface() {
     } catch (error: any) {
       toast.error(`Erro ao iniciar importação do Volume ${volumeNum}`);
     } finally {
-      setIsImporting(false);
+      setter(false);
+    }
+  };
+
+  const importGutenberg = async () => {
+    setIsImportingGutenberg(true);
+    try {
+      toast.info('Gutenberg: ~700k verbetes. Processamento em lotes de 5.000...');
+      
+      const response = await fetch('/data/dictionaries/gutenberg-raw.txt');
+      if (!response.ok) {
+        toast.error('Arquivo Gutenberg não encontrado');
+        return;
+      }
+      
+      const fileContent = await response.text();
+      if (!fileContent || fileContent.trim().length === 0) {
+        toast.error('Arquivo Gutenberg vazio');
+        return;
+      }
+
+      const { data, error } = await supabase.functions.invoke('process-gutenberg-dictionary', {
+        body: { 
+          fileContent, 
+          batchSize: 5000,
+          startIndex: 0
+        }
+      });
+
+      if (error) throw error;
+      toast.success(`Importação Gutenberg iniciada! Job ID: ${data.jobId}`);
+      setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: 'smooth' }), 500);
+    } catch (error: any) {
+      toast.error(`Erro ao iniciar importação do Gutenberg: ${error.message}`);
+    } finally {
+      setIsImportingGutenberg(false);
     }
   };
 
@@ -67,8 +106,9 @@ export function DictionaryImportInterface() {
   };
 
   const handleResume = async (job: any) => {
-    setIsImporting(true);
     const volumeNum = job.tipo_dicionario.includes('_I') ? 'I' : 'II';
+    const setter = volumeNum === 'I' ? setIsImportingVolI : setIsImportingVolII;
+    setter(true);
     const fileName = volumeNum === 'I' 
       ? '/src/data/dictionaries/dialectal-volume-I-raw.txt' 
       : '/src/data/dictionaries/dialectal-volume-II-raw.txt';
@@ -79,7 +119,7 @@ export function DictionaryImportInterface() {
     const processedContent = preprocessDialectalText(rawContent, volumeNum);
     
     await resumeImport(job, processedContent);
-    setIsImporting(false);
+    setter(false);
   };
 
   const handleClearAndReimport = async (tipoDicionario: string) => {
@@ -121,8 +161,8 @@ export function DictionaryImportInterface() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <Button onClick={() => importDialectalVolume('I')} disabled={isImporting} className="w-full">
-                {isImporting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Processando...</> : 'Importar'}
+              <Button onClick={() => importDialectalVolume('I')} disabled={isImportingVolI || isImportingVolII || isImportingGutenberg} className="w-full">
+                {isImportingVolI ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Processando...</> : 'Importar'}
               </Button>
             </CardContent>
           </Card>
@@ -135,8 +175,8 @@ export function DictionaryImportInterface() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <Button onClick={() => importDialectalVolume('II')} disabled={isImporting} className="w-full">
-                {isImporting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Processando...</> : 'Importar'}
+              <Button onClick={() => importDialectalVolume('II')} disabled={isImportingVolI || isImportingVolII || isImportingGutenberg} className="w-full">
+                {isImportingVolII ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Processando...</> : 'Importar'}
               </Button>
             </CardContent>
           </Card>
@@ -179,7 +219,7 @@ export function DictionaryImportInterface() {
                       <Button 
                         size="sm" 
                         onClick={() => handleResume(job)}
-                        disabled={isImporting}
+                        disabled={isImportingVolI || isImportingVolII || isImportingGutenberg}
                         className="flex items-center gap-1"
                       >
                         <RefreshCw className="h-3 w-3" />

@@ -285,11 +285,19 @@ export function MetadataEnrichmentInterface() {
     setCurrentIndex(session.currentIndex);
     setSessionStartTime(session.startedAt);
     
+    // ✅ CRÍTICO: Limpar storage APÓS restaurar dados
+    persistence.clearSession();
+    setLocalSessionToRestore(null);
+    setCloudSessionToRestore(null);
+    setShowRestoreDialog(false);
+    
     toast.success('Sessão restaurada com sucesso!');
   };
 
   const handleDiscardSession = () => {
     persistence.clearSession();
+    setLocalSessionToRestore(null);
+    setCloudSessionToRestore(null);
     broadcastSessionClear();
     toast.success('Sessão descartada');
   };
