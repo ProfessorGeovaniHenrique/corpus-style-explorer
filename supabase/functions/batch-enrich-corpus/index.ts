@@ -14,6 +14,65 @@ interface EnrichmentResult {
   detalhes?: string;
 }
 
+/**
+ * Carrega corpus dos arquivos públicos via HTTP
+ * Para nordestino, concatena as 3 partes
+ */
+async function loadCorpusFromPublic(corpusType: string, supabaseUrl: string): Promise<string> {
+  // Converter URL do Supabase para URL do Lovable Project
+  const baseUrl = supabaseUrl.replace('.supabase.co', '.lovableproject.com');
+  
+  if (corpusType === 'nordestino') {
+    console.log('Carregando corpus nordestino (3 partes)...');
+    
+    try {
+      const parts = await Promise.all([
+        fetch(`${baseUrl}/corpus/full-text/nordestino-parte-01.txt`),
+        fetch(`${baseUrl}/corpus/full-text/nordestino-parte-02.txt`),
+        fetch(`${baseUrl}/corpus/full-text/nordestino-parte-03.txt`)
+      ]);
+      
+      // Verificar se todas as partes foram carregadas
+      for (let i = 0; i < parts.length; i++) {
+        if (!parts[i].ok) {
+          throw new Error(`Erro ao carregar parte ${i + 1}: ${parts[i].status} ${parts[i].statusText}`);
+        }
+      }
+      
+      const texts = await Promise.all(parts.map(p => p.text()));
+      const concatenated = texts.join('\n');
+      
+      console.log(`Corpus nordestino carregado: ${concatenated.length} caracteres`);
+      return concatenated;
+      
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.error('Erro ao carregar corpus nordestino:', errorMsg);
+      throw new Error(`Falha ao carregar corpus nordestino: ${errorMsg}`);
+    }
+  }
+  
+  // Para gaucho, é um arquivo único
+  console.log('Carregando corpus gaucho...');
+  
+  try {
+    const response = await fetch(`${baseUrl}/corpus/full-text/gaucho-completo.txt`);
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+    
+    const text = await response.text();
+    console.log(`Corpus gaucho carregado: ${text.length} caracteres`);
+    return text;
+    
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    console.error('Erro ao carregar corpus gaucho:', errorMsg);
+    throw new Error(`Falha ao carregar corpus gaucho: ${errorMsg}`);
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -123,17 +182,9 @@ async function processEnrichment(
       .update({ status: 'processing' })
       .eq('id', jobId);
 
-    // 1. Carregar corpus do Storage
-    const corpusPath = `full-text/${corpusType}-completo.txt`;
-    const { data: fileData, error: downloadError } = await supabase.storage
-      .from('corpus')
-      .download(corpusPath);
-
-    if (downloadError) {
-      throw new Error(`Erro ao carregar corpus: ${downloadError.message}`);
-    }
-
-    const corpusText = await fileData.text();
+    // 1. Carregar corpus via HTTP (arquivos em public/)
+    console.log(`[Job ${jobId}] Carregando corpus ${corpusType} via HTTP...`);
+    const corpusText = await loadCorpusFromPublic(corpusType, supabaseUrl);
     
     // 2. Parsear corpus e identificar músicas sem metadados
     const songs = parseCorpus(corpusText);
