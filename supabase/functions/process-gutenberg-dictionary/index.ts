@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { withRetry } from "../_shared/retry.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -199,18 +200,21 @@ async function processInBackground(jobId: string, verbetes: string[]) {
         }));
 
       if (parsedBatch.length > 0) {
-        const { data, error: insertError } = await supabase
-          .from('gutenberg_lexicon')
-          .insert(parsedBatch)
-          .select();
+        await withRetry(async () => {
+          const { data, error: insertError } = await supabase
+            .from('gutenberg_lexicon')
+            .insert(parsedBatch)
+            .select();
 
-        if (insertError) {
-          console.error(`[JOB ${jobId}] Erro batch ${i}:`, insertError);
-          erros += batch.length;
-          errorLog.push(`Batch ${i}: ${insertError.message}`);
-        } else {
+          if (insertError) {
+            console.error(`[JOB ${jobId}] ❌ Erro batch ${i}:`, insertError);
+            throw insertError;
+          }
+          
           inseridos += data?.length || 0;
-        }
+        }, 5, 3000, 2);
+        
+        console.log(`[JOB ${jobId}] ✅ Batch de ${parsedBatch.length} verbetes inserido com sucesso`);
       }
 
       processados += batch.length;

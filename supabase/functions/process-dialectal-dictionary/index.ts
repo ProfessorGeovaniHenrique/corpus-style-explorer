@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { withRetry } from "../_shared/retry.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -272,16 +273,19 @@ async function processVerbetesInternal(jobId: string, verbetes: string[], volume
     }
 
     if (parsedBatch.length > 0) {
-      const { error: insertError } = await supabase
-        .from('dialectal_lexicon')
-        .upsert(parsedBatch, { onConflict: 'verbete_normalizado,origem_primaria', ignoreDuplicates: true });
+      await withRetry(async () => {
+        const { error: insertError } = await supabase
+          .from('dialectal_lexicon')
+          .upsert(parsedBatch, { onConflict: 'verbete_normalizado,origem_primaria', ignoreDuplicates: true });
 
-      if (insertError) {
-        console.error(`[JOB ${jobId}] Erro ao inserir batch:`, insertError);
-        erros += parsedBatch.length;
-      } else {
-        inseridos += parsedBatch.length;
-      }
+        if (insertError) {
+          console.error(`[JOB ${jobId}] ❌ Erro ao inserir batch:`, insertError);
+          throw insertError;
+        }
+      }, 3, 2000, 2);
+
+      inseridos += parsedBatch.length;
+      console.log(`[JOB ${jobId}] ✅ Batch de ${parsedBatch.length} verbetes inserido com sucesso`);
     }
 
     processados += batch.length;
