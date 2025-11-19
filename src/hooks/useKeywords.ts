@@ -110,8 +110,6 @@ function getCorpusPath(corpus: CorpusType): string {
       return '/src/data/corpus/corpus-estudo-gaucho.txt';
     case 'nordestino':
       return '/src/data/corpus/corpus-referencia-nordestino.txt';
-    case 'marenco-verso':
-      return '/src/data/corpus/corpus-luiz-marenco-verso.txt';
     default:
       return '/src/data/corpus/corpus-estudo-gaucho.txt';
   }
