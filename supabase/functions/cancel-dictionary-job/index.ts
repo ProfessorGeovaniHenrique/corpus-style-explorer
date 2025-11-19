@@ -1,12 +1,15 @@
 /**
- * ✅ SPRINT 1 + SPRINT 2: Cancelamento com Advisory Locks + Validação + Rate Limiting
- * Usa função SQL atômica + validação Zod + rate limiting Upstash
+ * ✅ SPRINT 1 + SPRINT 2 + SPRINT 3: Cancelamento Resiliente
+ * Advisory Locks + Validação + Rate Limiting + Circuit Breaker + Retry + Idempotência
  */
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { cancelJobSchema, createValidationMiddleware } from "../_shared/validation.ts";
 import { checkRateLimit, RateLimitPresets, createRateLimitHeaders } from "../_shared/rate-limit.ts";
+import { withCircuitBreaker, CircuitBreakerPresets } from "../_shared/circuit-breaker.ts";
+import { withSupabaseRetry } from "../_shared/retry.ts";
+import { withTimeout, Timeouts } from "../_shared/timeout.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -84,33 +87,38 @@ serve(async (req) => {
 
     console.log(`
 ╔═══════════════════════════════════════════════════════════╗
-║  🛑 CANCELAMENTO SOLICITADO (ATOMIC)                      
+║  🛑 CANCELAMENTO SOLICITADO (RESILIENTE)                  
 ║  📋 Job ID: ${jobId.substring(0, 8)}...
 ║  👤 Usuário: ${user.email}
 ║  📝 Motivo: ${reason}
-║  🔒 Usando Advisory Lock
+║  🔒 Advisory Lock + Circuit Breaker + Retry
 ╚═══════════════════════════════════════════════════════════╝
 `);
 
-    // 🔒 Chamar função SQL atômica com advisory lock
-    // Previne race conditions em cancelamentos simultâneos
-    const { data, error: rpcError } = await supabaseClient
-      .rpc('cancel_job_atomic', {
-        p_job_id: jobId,
-        p_user_id: user.id,
-        p_reason: reason
-      });
+    // 🔒 Executar com Circuit Breaker + Retry + Timeout + Idempotência
+    const result = await withTimeout(
+      () => withCircuitBreaker(
+        'cancel-job-db',
+        () => withSupabaseRetry(async () => {
+          // Função SQL é idempotente - pode ser chamada múltiplas vezes
+          const { data, error } = await supabaseClient.rpc('cancel_job_atomic', {
+            p_job_id: jobId,
+            p_user_id: user.id,
+            p_reason: reason
+          });
 
-    if (rpcError) {
-      console.error(`❌ Erro na função atômica: ${rpcError.message}`);
-      throw rpcError;
-    }
-
-    if (!data || data.length === 0) {
-      throw new Error('Nenhum resultado retornado da função de cancelamento');
-    }
-
-    const result = data[0];
+          if (error) throw error;
+          if (!data || data.length === 0) {
+            throw new Error('Nenhum resultado retornado');
+          }
+          return data[0];
+        }),
+        undefined, // no fallback
+        CircuitBreakerPresets.CRITICAL
+      ),
+      Timeouts.JOB_CANCELLATION,
+      'Timeout ao cancelar job (30s)'
+    );
 
     if (!result.success) {
       throw new Error(result.message || 'Falha ao cancelar job');
@@ -118,7 +126,7 @@ serve(async (req) => {
 
     console.log(`
 ╔═══════════════════════════════════════════════════════════╗
-║  ✅ JOB CANCELADO COM SUCESSO (ATOMIC)                    
+║  ✅ JOB CANCELADO COM SUCESSO (RESILIENTE)                
 ║  📊 Status: ${result.job_status}
 ║  ⏱️  Tipo: ${result.forced ? 'FORÇADO após timeout' : 'GRACEFUL'}
 ║  💬 Mensagem: ${result.message}

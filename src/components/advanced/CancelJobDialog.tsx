@@ -79,9 +79,18 @@ export function CancelJobDialog({ jobId, jobType, onCancelled }: CancelJobDialog
             <p className="text-xs text-muted-foreground">
               Mínimo de 5 caracteres
             </p>
-            <p className="text-xs text-primary/70 mt-2">
-              🔒 Cancelamento usa advisory locks para prevenir race conditions
-            </p>
+            <div className="mt-3 p-3 bg-primary/5 rounded-md border border-primary/20">
+              <p className="text-xs text-primary/80 font-medium mb-1">
+                🛡️ Proteções Ativas (Sprint 2 & 3):
+              </p>
+              <ul className="text-xs text-muted-foreground space-y-0.5 ml-4">
+                <li>• Advisory locks (previne race conditions)</li>
+                <li>• Rate limiting (5 cancelamentos/min)</li>
+                <li>• Circuit breaker (proteção contra falhas)</li>
+                <li>• Retry automático (até 5 tentativas)</li>
+                <li>• Timeout de 30s</li>
+              </ul>
+            </div>
           </div>
         </div>
 

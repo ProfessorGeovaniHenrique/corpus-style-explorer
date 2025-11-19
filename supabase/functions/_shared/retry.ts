@@ -1,6 +1,7 @@
 /**
  * Utilitário de retry com backoff exponencial para operações assíncronas
  * Usado para lidar com falhas transientes de rede/banco de dados
+ * ✅ SPRINT 3: Expandido com configs e retry específico para Supabase
  */
 
 export async function withRetry<T>(
@@ -31,4 +32,15 @@ export async function withRetry<T>(
   }
   
   throw lastError;
+}
+
+/**
+ * ✅ SPRINT 3: Retry específico para operações Supabase
+ * Trata erros específicos de timeout e conexão
+ */
+export async function withSupabaseRetry<T>(
+  fn: () => Promise<T>,
+  maxRetries: number = 5
+): Promise<T> {
+  return withRetry(fn, maxRetries, 200, 2);
 }
