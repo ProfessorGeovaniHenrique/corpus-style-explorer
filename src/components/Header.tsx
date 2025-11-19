@@ -24,7 +24,8 @@ import {
   History,
   Telescope,
   Moon,
-  Sun
+  Sun,
+  Sparkles
 } from "lucide-react";
 import logoVersoAustral from "@/assets/logo-versoaustral-completo.png";
 import logoUfrgs from "@/assets/logo-ufrgs-oficial.png";
@@ -135,6 +136,11 @@ const Header = () => {
                   <DropdownMenuItem onClick={() => navigate("/admin/lexicon-setup")}>
                     <Database className="mr-2 h-4 w-4" />
                     <span>Configuração de Léxico</span>
+                  </DropdownMenuItem>
+                  
+                  <DropdownMenuItem onClick={() => navigate("/admin/metadata-enrichment")}>
+                    <Sparkles className="mr-2 h-4 w-4" />
+                    <span>Enriquecimento de Metadados</span>
                   </DropdownMenuItem>
                   
                   <DropdownMenuSeparator />

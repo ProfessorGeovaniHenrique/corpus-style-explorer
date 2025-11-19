@@ -12,6 +12,7 @@ import Auth from "./pages/Auth";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import AppLayout from "./pages/AppLayout";
+import AdminLayout from "./components/AdminLayout";
 // Prototypes archived - accessible via Admin Gallery
 // import Dashboard from "./pages/Dashboard";
 // import Dashboard2 from "./pages/Dashboard2";
@@ -75,91 +76,110 @@ const RouterContent = () => {
         {/* Rota independente para DashboardMVP (sem AppLayout para evitar duplo header) */}
         <Route path="/dashboard-mvp" element={<DashboardMVP />} />
         <Route path="/onboarding" element={<Onboarding />} />
-            <Route 
-              path="/admin/dashboard" 
-              element={
-                <ProtectedRoute requiredRole="admin">
-                  <AdminDashboard />
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/admin/metrics" 
-              element={
-                <ProtectedRoute requiredRole="admin">
-                  <AdminMetrics />
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/admin/lexicon-setup" 
-              element={
-                <ProtectedRoute requiredRole="admin">
-                  <AdminLexiconSetup />
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/admin/users" 
-              element={
-                <ProtectedRoute requiredRole="admin">
-                  <AdminUsers />
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/admin/analytics" 
-              element={
-                <ProtectedRoute requiredRole="admin">
-                  <AdminAnalytics />
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/admin/access-requests" 
-              element={
-                <ProtectedRoute requiredRole="admin">
-                  <AdminAccessRequests />
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/admin/edge-functions" 
-              element={
-                <ProtectedRoute requiredRole="admin">
-                  <AdminEdgeFunctions />
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/admin/metadata-enrichment" 
-              element={
-                <ProtectedRoute requiredRole="admin">
-                  <AdminMetadataEnrichment />
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/admin/prototypes"
-              element={
-                <ProtectedRoute requiredRole="admin">
-                  <AdminPrototypeGallery />
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/developer-history" 
-              element={
-                <ProtectedRoute requiredRole="admin">
-                  <DeveloperHistory />
-                </ProtectedRoute>
-              } 
-            />
-            
-            {/* Protected routes for archived prototypes - admin only */}
-            <Route 
-              path="/prototypes/dashboard" 
-              element={
+        
+        {/* Admin Routes with AdminLayout for consistent navigation */}
+        <Route element={<AdminLayout />}>
+          <Route 
+            path="/admin/dashboard" 
+            element={
+              <ProtectedRoute requiredRole="admin">
+                <AdminDashboard />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/admin/metrics" 
+            element={
+              <ProtectedRoute requiredRole="admin">
+                <AdminMetrics />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/admin/lexicon-setup" 
+            element={
+              <ProtectedRoute requiredRole="admin">
+                <AdminLexiconSetup />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/admin/users" 
+            element={
+              <ProtectedRoute requiredRole="admin">
+                <AdminUsers />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/admin/analytics" 
+            element={
+              <ProtectedRoute requiredRole="admin">
+                <AdminAnalytics />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/admin/access-requests" 
+            element={
+              <ProtectedRoute requiredRole="admin">
+                <AdminAccessRequests />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/admin/edge-functions" 
+            element={
+              <ProtectedRoute requiredRole="admin">
+                <AdminEdgeFunctions />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/admin/metadata-enrichment" 
+            element={
+              <ProtectedRoute requiredRole="admin">
+                <AdminMetadataEnrichment />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/admin/prototypes"
+            element={
+              <ProtectedRoute requiredRole="admin">
+                <AdminPrototypeGallery />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/developer-history" 
+            element={
+              <ProtectedRoute requiredRole="admin">
+                <DeveloperHistory />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/devops-metrics" 
+            element={
+              <ProtectedRoute requiredRole="admin">
+                <DevOpsMetrics />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/developer-logs" 
+            element={
+              <ProtectedRoute requiredRole="admin">
+                <DeveloperLogs />
+              </ProtectedRoute>
+            } 
+          />
+          
+          {/* Protected routes for archived prototypes - admin only */}
+          <Route 
+            path="/prototypes/dashboard" 
+            element={
                 <ProtectedRoute requiredRole="admin">
                   <Suspense fallback={
                     <div className="min-h-screen flex items-center justify-center">
@@ -276,8 +296,8 @@ const RouterContent = () => {
                 </ProtectedRoute>
               } 
             />
-            <Route path="/devops-metrics" element={<DevOpsMetrics />} />
-            <Route path="/developer-logs" element={<DeveloperLogs />} />
+        </Route>
+            
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
     </Routes>
