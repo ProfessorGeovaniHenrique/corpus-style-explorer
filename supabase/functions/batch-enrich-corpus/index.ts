@@ -18,18 +18,17 @@ interface EnrichmentResult {
  * Carrega corpus dos arquivos públicos via HTTP
  * Para nordestino, concatena as 3 partes
  */
-async function loadCorpusFromPublic(corpusType: string, supabaseUrl: string): Promise<string> {
-  // Converter URL do Supabase para URL do Lovable Project
-  const baseUrl = supabaseUrl.replace('.supabase.co', '.lovableproject.com');
+async function loadCorpusFromPublic(corpusType: string, projectBaseUrl: string): Promise<string> {
+  // Usar a URL base do projeto passada como parâmetro
   
   if (corpusType === 'nordestino') {
     console.log('Carregando corpus nordestino (3 partes)...');
     
     try {
       const parts = await Promise.all([
-        fetch(`${baseUrl}/corpus/full-text/nordestino-parte-01.txt`),
-        fetch(`${baseUrl}/corpus/full-text/nordestino-parte-02.txt`),
-        fetch(`${baseUrl}/corpus/full-text/nordestino-parte-03.txt`)
+        fetch(`${projectBaseUrl}/corpus/full-text/nordestino-parte-01.txt`),
+        fetch(`${projectBaseUrl}/corpus/full-text/nordestino-parte-02.txt`),
+        fetch(`${projectBaseUrl}/corpus/full-text/nordestino-parte-03.txt`)
       ]);
       
       // Verificar se todas as partes foram carregadas
@@ -56,7 +55,7 @@ async function loadCorpusFromPublic(corpusType: string, supabaseUrl: string): Pr
   console.log('Carregando corpus gaucho...');
   
   try {
-    const response = await fetch(`${baseUrl}/corpus/full-text/gaucho-completo.txt`);
+    const response = await fetch(`${projectBaseUrl}/corpus/full-text/gaucho-completo.txt`);
     
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -104,11 +103,18 @@ Deno.serve(async (req) => {
         );
       }
 
-      const { corpusType } = await req.json();
+      const { corpusType, projectBaseUrl } = await req.json();
       
       if (!corpusType || !['gaucho', 'nordestino'].includes(corpusType)) {
         return new Response(
           JSON.stringify({ error: 'corpusType deve ser "gaucho" ou "nordestino"' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      if (!projectBaseUrl) {
+        return new Response(
+          JSON.stringify({ error: 'projectBaseUrl é obrigatório' }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
@@ -133,7 +139,7 @@ Deno.serve(async (req) => {
       }
 
       // Disparar background task
-      const backgroundTask = processEnrichment(job.id, corpusType, supabaseUrl, supabaseKey);
+      const backgroundTask = processEnrichment(job.id, corpusType, supabaseUrl, supabaseKey, projectBaseUrl);
       
       // @ts-ignore - EdgeRuntime.waitUntil exists in Deno Deploy
       if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime.waitUntil) {
@@ -169,7 +175,8 @@ async function processEnrichment(
   jobId: string,
   corpusType: string,
   supabaseUrl: string,
-  supabaseKey: string
+  supabaseKey: string,
+  projectBaseUrl: string
 ) {
   const supabase = createClient(supabaseUrl, supabaseKey);
   
@@ -184,7 +191,7 @@ async function processEnrichment(
 
     // 1. Carregar corpus via HTTP (arquivos em public/)
     console.log(`[Job ${jobId}] Carregando corpus ${corpusType} via HTTP...`);
-    const corpusText = await loadCorpusFromPublic(corpusType, supabaseUrl);
+    const corpusText = await loadCorpusFromPublic(corpusType, projectBaseUrl);
     
     // 2. Parsear corpus e identificar músicas sem metadados
     const songs = parseCorpus(corpusText);

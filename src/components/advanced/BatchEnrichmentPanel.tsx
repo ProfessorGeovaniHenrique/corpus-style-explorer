@@ -81,8 +81,13 @@ export function BatchEnrichmentPanel({ corpusType }: BatchEnrichmentPanelProps) 
   const handleStartEnrichment = async () => {
     setIsStarting(true);
     try {
+      const projectBaseUrl = window.location.origin;
+      
       const { data, error } = await supabase.functions.invoke('batch-enrich-corpus', {
-        body: { corpusType }
+        body: { 
+          corpusType,
+          projectBaseUrl
+        }
       });
 
       if (error) {
