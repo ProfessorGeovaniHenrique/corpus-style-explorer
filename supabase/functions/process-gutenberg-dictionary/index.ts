@@ -87,19 +87,19 @@ function parseGutenbergBlock(block: string): VerbeteGutenberg | null {
       return null;
     }
 
-    // 1. Verbete: Primeira linha (deve ser maiúscula e ter pelo menos 2 caracteres)
+    // 1. Verbete: Primeira linha - deve conter o padrão *palavra*,
     const verbeteRaw = lines[0];
     
-    // ✅ VALIDAÇÃO ROBUSTA: Deve ser toda em maiúsculas (ou quase toda)
-    const upperCount = (verbeteRaw.match(/[A-ZÁÀÃÂÉÊÍÓÔÕÚÇÑ]/g) || []).length;
-    const alphaCount = (verbeteRaw.match(/[A-Za-zÁÀÃÂÉÊÍÓÔÕÚÇÑáàãâéêíóôõúçñ]/g) || []).length;
+    // ✅ VALIDAR: Deve conter o padrão *palavra*,
+    const asteriskMatch = verbeteRaw.match(/^\*([A-ZÁÀÃÂÉÊÍÓÔÕÚÇÑa-záàãâéêíóôõúçñ\s-]+)\*,?/);
     
-    // Se menos de 80% das letras são maiúsculas, não é um verbete válido
-    if (verbeteRaw.length < 2 || alphaCount === 0 || (upperCount / alphaCount) < 0.8) {
+    if (!asteriskMatch) {
+      // Bloco não tem verbete válido
       return null;
     }
     
-    const verbete = verbeteRaw.replace(/[.,;:]$/, '').trim();
+    // ✅ EXTRAIR: Remover asteriscos e vírgula
+    const verbete = asteriskMatch[1].trim();
 
     // 2. Corpo da definição: Juntar todas as outras linhas
     const definitionBody = lines.slice(1).join(' ').trim();
@@ -448,9 +448,9 @@ serve(withInstrumentation('process-gutenberg-dictionary', async (req) => {
       `   - Total de linhas: ${fileStats.linhas.toLocaleString()}\n` +
       `   - Separador de blocos: ${fileStats.linhaSeparadora}\n`);
     
-    // ✅ NOVO SPLIT ROBUSTO: Usar regex com lookahead para identificar início de verbete
-    // Padrão: Linha que começa com palavra toda em MAIÚSCULAS (opcionalmente seguida de ponto)
-    const verbeteStartRegex = /(?=^[A-ZÁÀÃÂÉÊÍÓÔÕÚÇÑ][A-ZÁÀÃÂÉÊÍÓÔÕÚÇÑ\s-]+\.?\s*$)/m;
+    // ✅ NOVO SPLIT: Usar regex com lookahead para identificar início de verbete
+    // Padrão descoberto: Cada verbete começa com *palavra*, (asteriscos + vírgula)
+    const verbeteStartRegex = /(?=\n\*[A-ZÁÀÃÂÉÊÍÓÔÕÚÇÑa-záàãâéêíóôõúçñ\s-]+\*,)/;
     
     // Split inicial por esse padrão
     let blocks = fileContent.split(verbeteStartRegex)
@@ -458,13 +458,14 @@ serve(withInstrumentation('process-gutenberg-dictionary', async (req) => {
       .filter(b => b.length > 0);
     
     // 📊 LOGS DIAGNÓSTICOS - Split
-    console.log(`\n📊 [Gutenberg] SPLIT POR REGEX (lookahead):\n` +
-      `   - Regex pattern: /(?=^[A-ZÁÀÃÂÉÊÍÓÔÕÚÇÑ][A-ZÁÀÃÂÉÊÍÓÔÕÚÇÑ\\s-]+\\.?\\s*$)/m\n` +
+    console.log(`\n📊 [Gutenberg] SPLIT POR REGEX (asteriscos):\n` +
+      `   - Regex pattern: /(?=\\n\\*[A-Z...]+\\*,)/\n` +
+      `   - Padrão: Verbetes começam com *palavra*,\n` +
       `   - Blocos detectados: ${blocks.length.toLocaleString()}\n`);
     
     // Filtrar blocos muito pequenos ou muito grandes (rejeitados)
-    const MIN_BLOCK_SIZE = 10;  // Muito curto = ruído
-    const MAX_BLOCK_SIZE = 5000; // Muito longo = provável junção incorreta
+    const MIN_BLOCK_SIZE = 20;   // Verbete + definição mínima
+    const MAX_BLOCK_SIZE = 3000; // Evitar junção de múltiplos verbetes
     
     const rejectedBlocks: { reason: string, sample: string, count: number }[] = [];
     let tooShortCount = 0;
@@ -507,6 +508,15 @@ serve(withInstrumentation('process-gutenberg-dictionary', async (req) => {
       `   - Total rejeitado: ${tooShortCount + tooLongCount}\n` +
       `   - Blocos válidos aceitos: ${blocks.length.toLocaleString()}\n` +
       `   - Taxa de aceitação: ${((blocks.length / (blocks.length + tooShortCount + tooLongCount)) * 100).toFixed(1)}%\n`);
+    
+    // 📊 VALIDAÇÃO DE FORMATO: Verificar se blocos têm o padrão de asterisco
+    const blocksWithPattern = validBlocks.filter(b => 
+      b.match(/^\*[A-ZÁÀÃÂÉÊÍÓÔÕÚÇÑa-záàãâéêíóôõúçñ\s-]+\*,/)
+    ).length;
+    
+    console.log(`\n📊 [Gutenberg] VALIDAÇÃO DE FORMATO:\n` +
+      `   - Blocos com padrão *palavra*,: ${blocksWithPattern}\n` +
+      `   - Taxa de conformidade: ${((blocksWithPattern / validBlocks.length) * 100).toFixed(1)}%\n`);
     
     // 📊 Amostragem de rejeições
     if (rejectedBlocks.length > 0) {
