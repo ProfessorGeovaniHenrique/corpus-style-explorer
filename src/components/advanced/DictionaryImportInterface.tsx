@@ -21,6 +21,7 @@ export function DictionaryImportInterface() {
   const [isImportingVolI, setIsImportingVolI] = useState(false);
   const [isImportingVolII, setIsImportingVolII] = useState(false);
   const [isImportingGutenberg, setIsImportingGutenberg] = useState(false);
+  const [isUploadingToStorage, setIsUploadingToStorage] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
   const { data: jobs } = useDictionaryImportJobs();
   const resultsRef = useRef<HTMLDivElement>(null);
@@ -165,6 +166,40 @@ export function DictionaryImportInterface() {
     }
   };
 
+  const uploadGutenbergToStorage = async () => {
+    setIsUploadingToStorage(true);
+    try {
+      toast.info('📤 Fazendo upload do dicionário para o Storage...', { duration: 3000 });
+      
+      const { data, error } = await supabase.functions.invoke('upload-gutenberg-to-storage', {
+        method: 'POST',
+      });
+
+      if (error) {
+        console.error('Erro no upload:', error);
+        toast.error(`Erro: ${error.message}`);
+        return;
+      }
+
+      if (!data.success) {
+        toast.error(`Erro: ${data.error}`);
+        return;
+      }
+
+      toast.success(`✅ Upload concluído! Arquivo disponível no Storage (${(data.size / 1024 / 1024).toFixed(2)} MB)`, {
+        duration: 5000
+      });
+      
+      console.log('📁 Arquivo no Storage:', data.publicUrl);
+
+    } catch (error: any) {
+      console.error('Erro ao fazer upload:', error);
+      toast.error('Erro inesperado no upload');
+    } finally {
+      setIsUploadingToStorage(false);
+    }
+  };
+
   const handleVerifyIntegrity = async (tipoDicionario: string) => {
     setIsVerifying(true);
     const result = await verifyDictionaryIntegrity(tipoDicionario);
@@ -302,10 +337,25 @@ export function DictionaryImportInterface() {
                 <BookOpen className="h-5 w-5" />
                 Gutenberg (Completo)
               </CardTitle>
+              <CardDescription className="text-xs">
+                Passo 1: Enviar arquivo para o Storage (executar apenas uma vez)
+              </CardDescription>
             </CardHeader>
-            <CardContent>
-              <Button onClick={importGutenberg} disabled={isImportingVolI || isImportingVolII || isImportingGutenberg} className="w-full">
-                {isImportingGutenberg ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Processando...</> : 'Importar'}
+            <CardContent className="space-y-2">
+              <Button 
+                onClick={uploadGutenbergToStorage} 
+                disabled={isImportingVolI || isImportingVolII || isImportingGutenberg || isUploadingToStorage} 
+                variant="outline"
+                className="w-full"
+              >
+                {isUploadingToStorage ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Enviando para Storage...</> : '📤 1. Enviar para Storage'}
+              </Button>
+              <Button 
+                onClick={importGutenberg} 
+                disabled={isImportingVolI || isImportingVolII || isImportingGutenberg || isUploadingToStorage} 
+                className="w-full"
+              >
+                {isImportingGutenberg ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Processando...</> : '📥 2. Importar do Storage'}
               </Button>
             </CardContent>
           </Card>
