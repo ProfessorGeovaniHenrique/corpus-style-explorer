@@ -21,6 +21,7 @@ export interface DictionaryEntry {
 interface UseDictionaryValidationOptions {
   dictionaryType: 'dialectal' | 'gutenberg';
   volumeFilter?: string;
+  entryTypeFilter?: 'all' | 'word' | 'mwe';
   limit?: number;
 }
 
@@ -28,19 +29,23 @@ type DialectalRow = Database['public']['Tables']['dialectal_lexicon']['Row'];
 type GutenbergRow = Database['public']['Tables']['gutenberg_lexicon']['Row'];
 
 export function useDictionaryValidation(options: UseDictionaryValidationOptions) {
-  const { dictionaryType, volumeFilter, limit = 100 } = options;
+  const { dictionaryType, volumeFilter, entryTypeFilter = 'all', limit = 100 } = options;
   const queryClient = useQueryClient();
   const tableName = dictionaryType === 'dialectal' ? 'dialectal_lexicon' : 'gutenberg_lexicon';
 
   // Fetch entries
   const queryResult = useQuery<DictionaryEntry[], Error>({
-    queryKey: ['dict-validation', dictionaryType, volumeFilter],
+    queryKey: ['dict-validation', dictionaryType, volumeFilter, entryTypeFilter],
     queryFn: async () => {
       if (dictionaryType === 'dialectal') {
         let query = supabase.from('dialectal_lexicon').select('*');
         
         if (volumeFilter) {
           query = query.eq('volume_fonte', volumeFilter);
+        }
+
+        if (entryTypeFilter !== 'all') {
+          query = query.eq('entry_type', entryTypeFilter);
         }
         
         const { data, error } = await query
@@ -63,9 +68,13 @@ export function useDictionaryValidation(options: UseDictionaryValidationOptions)
           raw_data: item,
         }));
       } else {
-        const { data, error } = await supabase
-          .from('gutenberg_lexicon')
-          .select('*')
+        let query = supabase.from('gutenberg_lexicon').select('*');
+
+        if (entryTypeFilter !== 'all') {
+          query = query.eq('entry_type', entryTypeFilter);
+        }
+
+        const { data, error } = await query
           .order('validation_status', { ascending: true })
           .order('verbete', { ascending: true })
           .limit(limit);

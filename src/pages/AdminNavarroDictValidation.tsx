@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { MVPHeader } from '@/components/mvp/MVPHeader';
 import { MVPFooter } from '@/components/mvp/MVPFooter';
 import { AdminBreadcrumb } from '@/components/AdminBreadcrumb';
@@ -6,6 +7,8 @@ import { ValidationWorkspace } from '@/components/validation/ValidationWorkspace
 import { useDictionaryValidation } from '@/hooks/useDictionaryValidation';
 
 export default function AdminNavarroDictValidation() {
+  const [entryTypeFilter, setEntryTypeFilter] = useState<'all' | 'word' | 'mwe'>('all');
+
   const {
     entries,
     isLoading,
@@ -17,6 +20,7 @@ export default function AdminNavarroDictValidation() {
   } = useDictionaryValidation({
     dictionaryType: 'dialectal',
     volumeFilter: 'Navarro 2014',
+    entryTypeFilter,
     limit: 200,
   });
 
@@ -59,6 +63,8 @@ export default function AdminNavarroDictValidation() {
             onReject={rejectEntry}
             onSave={updateEntry}
             onRefetch={refetch}
+            entryTypeFilter={entryTypeFilter}
+            onEntryTypeFilterChange={setEntryTypeFilter}
           />
         </div>
       </div>

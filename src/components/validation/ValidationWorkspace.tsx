@@ -4,6 +4,7 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from '@/components/ui/resizable';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { VerbeteList } from './VerbeteList';
 import { VerbeteEditor } from './VerbeteEditor';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -17,6 +18,8 @@ interface ValidationWorkspaceProps {
   onReject: (id: string, notes?: string) => Promise<void>;
   onSave: (id: string, data: Partial<DictionaryEntry>) => Promise<void>;
   onRefetch?: () => void;
+  entryTypeFilter?: 'all' | 'word' | 'mwe';
+  onEntryTypeFilterChange?: (value: 'all' | 'word' | 'mwe') => void;
 }
 
 export function ValidationWorkspace({
@@ -26,6 +29,8 @@ export function ValidationWorkspace({
   onReject,
   onSave,
   onRefetch,
+  entryTypeFilter = 'all',
+  onEntryTypeFilterChange,
 }: ValidationWorkspaceProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<ValidationStatus>('pending');
@@ -93,19 +98,37 @@ export function ValidationWorkspace({
   }, [selectedId, filteredEntries]);
 
   return (
-    <ResizablePanelGroup direction="horizontal" className="min-h-[calc(100vh-12rem)] w-full rounded-lg border">
-      {/* Left Panel - List */}
-      <ResizablePanel defaultSize={30} minSize={20} maxSize={40}>
-        <VerbeteList
-          entries={filteredEntries}
-          selectedId={selectedId}
-          statusFilter={statusFilter}
-          onSelect={setSelectedId}
-          onFilterChange={setStatusFilter}
-          stats={stats}
-          isLoading={isLoading}
-        />
-      </ResizablePanel>
+    <div className="space-y-4">
+      {/* Filters */}
+      {onEntryTypeFilterChange && (
+        <div className="flex items-center gap-4 p-4 bg-card rounded-lg border">
+          <label className="text-sm font-medium">Tipo de Entrada:</label>
+          <Select value={entryTypeFilter} onValueChange={onEntryTypeFilterChange}>
+            <SelectTrigger className="w-[200px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos</SelectItem>
+              <SelectItem value="word">Palavras</SelectItem>
+              <SelectItem value="mwe">Expressões (MWE)</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
+      <ResizablePanelGroup direction="horizontal" className="min-h-[calc(100vh-16rem)] w-full rounded-lg border">
+        {/* Left Panel - List */}
+        <ResizablePanel defaultSize={30} minSize={20} maxSize={40}>
+          <VerbeteList
+            entries={filteredEntries}
+            selectedId={selectedId}
+            statusFilter={statusFilter}
+            onSelect={setSelectedId}
+            onFilterChange={setStatusFilter}
+            stats={stats}
+            isLoading={isLoading}
+          />
+        </ResizablePanel>
 
       <ResizableHandle withHandle />
 
@@ -164,5 +187,6 @@ export function ValidationWorkspace({
         </div>
       </ResizablePanel>
     </ResizablePanelGroup>
+    </div>
   );
 }
