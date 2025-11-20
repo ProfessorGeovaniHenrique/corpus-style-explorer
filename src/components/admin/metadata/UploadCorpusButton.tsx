@@ -31,8 +31,16 @@ export function UploadCorpusButton({ corpusType }: UploadCorpusButtonProps) {
         throw new Error(data.error || 'Erro desconhecido no upload');
       }
 
-      const sizeMB = (data.fileSize / 1024 / 1024).toFixed(2);
-      toast.success(`Upload concluído! Arquivo: ${sizeMB} MB`);
+      if (data.uploads && Array.isArray(data.uploads)) {
+        // Multi-parte (gaúcho ou nordestino)
+        const partsCount = data.uploads.length;
+        const totalMB = data.totalSizeMB || (data.totalSize / 1024 / 1024).toFixed(2);
+        toast.success(`Upload concluído! ${partsCount} arquivos, total: ${totalMB} MB`);
+      } else {
+        // Arquivo único (legado)
+        const sizeMB = (data.fileSize / 1024 / 1024).toFixed(2);
+        toast.success(`Upload concluído! Arquivo: ${sizeMB} MB`);
+      }
       
     } catch (error) {
       console.error('Erro no upload:', error);

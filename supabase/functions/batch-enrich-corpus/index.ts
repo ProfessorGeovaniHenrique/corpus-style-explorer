@@ -21,69 +21,74 @@ interface EnrichmentResult {
  * Para gaucho, carrega do Storage para suportar arquivos grandes
  */
 async function loadCorpusFromStorage(corpusType: string, projectBaseUrl: string): Promise<string> {
+  console.log(`📂 Carregando corpus tipo: ${corpusType}`);
+  
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
   const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
   const supabase = createClient(supabaseUrl, supabaseKey);
   
   if (corpusType === 'nordestino') {
-    console.log('Carregando corpus nordestino (3 partes) via HTTP...');
+    // Concatenar as 3 partes do nordestino do Storage
+    console.log('Carregando 3 partes do corpus nordestino do Storage...');
+    const parts = [
+      'nordestino-parte-01.txt',
+      'nordestino-parte-02.txt', 
+      'nordestino-parte-03.txt'
+    ];
     
-    try {
-      const parts = await Promise.all([
-        fetch(`${projectBaseUrl}/corpus/full-text/nordestino-parte-01.txt`),
-        fetch(`${projectBaseUrl}/corpus/full-text/nordestino-parte-02.txt`),
-        fetch(`${projectBaseUrl}/corpus/full-text/nordestino-parte-03.txt`)
-      ]);
+    let fullText = '';
+    for (let i = 0; i < parts.length; i++) {
+      const part = parts[i];
+      console.log(`[${i + 1}/3] Baixando ${part}...`);
       
-      // Verificar se todas as partes foram carregadas
-      for (let i = 0; i < parts.length; i++) {
-        if (!parts[i].ok) {
-          throw new Error(`Erro ao carregar parte ${i + 1}: ${parts[i].status} ${parts[i].statusText}`);
-        }
+      const { data, error } = await supabase.storage
+        .from('corpus')
+        .download(`full-text/${part}`);
+      
+      if (error) {
+        throw new Error(`Erro ao baixar ${part}: ${error.message}`);
       }
       
-      const texts = await Promise.all(parts.map(p => p.text()));
-      const concatenated = texts.join('\n');
+      const partText = await data.text();
+      fullText += partText;
+      console.log(`${part}: ${partText.length} caracteres (${(data.size / 1024 / 1024).toFixed(2)} MB)`);
+    }
+    
+    console.log(`✅ Corpus nordestino completo: ${fullText.length} caracteres`);
+    return fullText;
+    
+  } else if (corpusType === 'gaucho') {
+    // Concatenar as 3 partes do gaúcho do Storage
+    console.log('Carregando 3 partes do corpus gaúcho do Storage...');
+    const parts = [
+      'gaucho-parte-01.txt',
+      'gaucho-parte-02.txt',
+      'gaucho-parte-03.txt'
+    ];
+    
+    let fullText = '';
+    for (let i = 0; i < parts.length; i++) {
+      const part = parts[i];
+      console.log(`[${i + 1}/3] Baixando ${part}...`);
       
-      console.log(`Corpus nordestino carregado: ${concatenated.length} caracteres`);
-      return concatenated;
+      const { data, error } = await supabase.storage
+        .from('corpus')
+        .download(`full-text/${part}`);
       
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : String(error);
-      console.error('Erro ao carregar corpus nordestino:', errorMsg);
-      throw new Error(`Falha ao carregar corpus nordestino: ${errorMsg}`);
-    }
-  }
-  
-  // Para gaucho, carregar do Supabase Storage (suporta arquivos grandes)
-  console.log('Carregando corpus gaucho do Supabase Storage...');
-  
-  try {
-    const { data, error } = await supabase.storage
-      .from('corpus')
-      .download('full-text/gaucho-completo.txt');
-    
-    if (error) {
-      console.error('Erro do Storage:', error);
-      throw new Error(`Storage error: ${error.message || JSON.stringify(error)}`);
+      if (error) {
+        throw new Error(`Erro ao baixar ${part}: ${error.message}`);
+      }
+      
+      const partText = await data.text();
+      fullText += partText;
+      console.log(`${part}: ${partText.length} caracteres (${(data.size / 1024 / 1024).toFixed(2)} MB)`);
     }
     
-    if (!data) {
-      throw new Error('Arquivo não encontrado no Storage');
-    }
-
-    const fileSize = data.size;
-    console.log(`Arquivo baixado do Storage: ${fileSize} bytes (${(fileSize / 1024 / 1024).toFixed(2)} MB)`);
+    console.log(`✅ Corpus gaúcho completo: ${fullText.length} caracteres`);
+    return fullText;
     
-    const text = await data.text();
-    const lines = text.split('\n').length;
-    console.log(`Corpus gaucho carregado: ${text.length} caracteres, ${lines} linhas`);
-    return text;
-    
-  } catch (error) {
-    const errorMsg = error instanceof Error ? error.message : String(error);
-    console.error('Erro ao carregar corpus gaucho do Storage:', errorMsg);
-    throw new Error(`Falha ao carregar corpus gaucho: ${errorMsg}`);
+  } else {
+    throw new Error(`Tipo de corpus inválido: ${corpusType}`);
   }
 }
 

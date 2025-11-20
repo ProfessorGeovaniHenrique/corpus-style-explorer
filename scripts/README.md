@@ -1,4 +1,35 @@
-# 🤖 Script de Enriquecimento Automatizado de Corpus
+# 🤖 Scripts de Manutenção do Corpus
+
+## 📦 Script de Divisão do Corpus Gaúcho
+
+### Por quê dividir?
+O arquivo `gaucho-completo.txt` tem 45MB (~894K linhas), o que causa problemas de upload via HTTP. A solução é dividi-lo em 3 partes de ~15MB cada.
+
+### Uso Rápido
+
+```bash
+# Na raiz do projeto
+node scripts/divide-corpus-gaucho.js
+```
+
+### O que o script faz
+
+1. **Lê** `public/corpus/full-text/gaucho-completo.txt`
+2. **Divide** em 3 partes nos pontos de corte identificados:
+   - `gaucho-parte-01.txt`: linhas 1-298.001 (~15 MB)
+   - `gaucho-parte-02.txt`: linhas 298.002-596.048 (~15 MB)  
+   - `gaucho-parte-03.txt`: linhas 596.049-894.135 (~15 MB)
+3. **Garante** que cada parte termina com separador `---------------`
+
+### Próximos Passos
+
+1. ✅ Executar script de divisão
+2. 🔼 Fazer upload via Admin > Metadata Enrichment > "Upload gaucho para Storage"
+3. 🎵 Iniciar enriquecimento (deve identificar ~13.755 músicas)
+
+---
+
+## 🤖 Script de Enriquecimento Automatizado de Corpus
 
 ## Uso Rápido
 

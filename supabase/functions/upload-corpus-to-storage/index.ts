@@ -24,56 +24,77 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     if (corpusType === 'gaucho') {
-      // Carregar arquivo do public/
-      console.log('Carregando gaucho-completo.txt via HTTP...');
-      const response = await fetch(`${projectBaseUrl}/corpus/full-text/gaucho-completo.txt`);
+      // Upload das 3 partes do gaúcho
+      console.log('Carregando 3 partes do corpus gaúcho...');
       
-      if (!response.ok) {
-        throw new Error(`Falha ao carregar arquivo: HTTP ${response.status}`);
-      }
+      const parts = [
+        'gaucho-parte-01.txt',
+        'gaucho-parte-02.txt',
+        'gaucho-parte-03.txt'
+      ];
 
-      const blob = await response.blob();
-      const fileSize = blob.size;
-      console.log(`Arquivo carregado: ${fileSize} bytes (${(fileSize / 1024 / 1024).toFixed(2)} MB)`);
+      const uploads = [];
+      let totalSize = 0;
 
-      // Upload para o Storage
-      console.log('Fazendo upload para o Storage...');
-      const { data, error } = await supabase.storage
-        .from('corpus')
-        .upload('full-text/gaucho-completo.txt', blob, {
-          contentType: 'text/plain',
-          upsert: true
+      for (let i = 0; i < parts.length; i++) {
+        const part = parts[i];
+        console.log(`[${i + 1}/3] Processando ${part}...`);
+        
+        const response = await fetch(`${projectBaseUrl}/corpus/full-text/${part}`);
+        if (!response.ok) {
+          throw new Error(`Falha ao carregar ${part}: HTTP ${response.status}`);
+        }
+
+        const blob = await response.blob();
+        const fileSize = blob.size;
+        totalSize += fileSize;
+        console.log(`${part}: ${fileSize} bytes (${(fileSize / 1024 / 1024).toFixed(2)} MB)`);
+
+        const { data, error } = await supabase.storage
+          .from('corpus')
+          .upload(`full-text/${part}`, blob, {
+            contentType: 'text/plain',
+            upsert: true
+          });
+
+        if (error) {
+          throw new Error(`Erro no upload de ${part}: ${error.message}`);
+        }
+
+        // Verificar upload
+        const { data: downloadData, error: downloadError } = await supabase.storage
+          .from('corpus')
+          .download(`full-text/${part}`);
+
+        if (downloadError) {
+          throw new Error(`Erro ao verificar ${part}: ${downloadError.message}`);
+        }
+
+        const verifySize = downloadData.size;
+        if (Math.abs(verifySize - fileSize) > 100) {
+          throw new Error(`Tamanho difere em ${part}: original ${fileSize}, storage ${verifySize}`);
+        }
+
+        uploads.push({ 
+          file: part, 
+          size: fileSize, 
+          sizeMB: (fileSize / 1024 / 1024).toFixed(2),
+          path: data.path,
+          verified: true
         });
-
-      if (error) {
-        throw new Error(`Erro no upload: ${error.message}`);
+        
+        console.log(`✅ ${part} upload e verificação OK`);
       }
 
-      console.log('Upload concluído com sucesso!', data);
-
-      // Verificar o arquivo no Storage
-      const { data: downloadData, error: downloadError } = await supabase.storage
-        .from('corpus')
-        .download('full-text/gaucho-completo.txt');
-
-      if (downloadError) {
-        throw new Error(`Erro ao verificar upload: ${downloadError.message}`);
-      }
-
-      const verifySize = downloadData.size;
-      console.log(`Verificação: arquivo no Storage tem ${verifySize} bytes`);
-
-      if (Math.abs(verifySize - fileSize) > 100) {
-        throw new Error(`Tamanho do arquivo difere: original ${fileSize}, storage ${verifySize}`);
-      }
+      console.log(`\n✨ Upload completo! Total: ${(totalSize / 1024 / 1024).toFixed(2)} MB`);
 
       return new Response(
         JSON.stringify({
           success: true,
-          message: 'Upload concluído com sucesso',
-          fileSize: fileSize,
-          storagePath: 'full-text/gaucho-completo.txt',
-          verifySize: verifySize
+          message: 'Upload de todas as 3 partes concluído',
+          totalSize: totalSize,
+          totalSizeMB: (totalSize / 1024 / 1024).toFixed(2),
+          uploads: uploads
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
