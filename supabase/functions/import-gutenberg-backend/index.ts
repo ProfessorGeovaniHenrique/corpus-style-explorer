@@ -1,3 +1,4 @@
+// 🔥 DEPLOY TIMESTAMP: 2025-01-20T15:30:00Z - Correções críticas de split e parser
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.81.1';
 import { withRetry } from '../_shared/retry.ts';
 
@@ -59,12 +60,24 @@ function parseGutenbergEntry(entryText: string): VerbeteGutenberg | null {
     const verbete = asteriskMatch[1].trim();
     const classe_gramatical = asteriskMatch[2]?.trim();
 
-    // Extrair definições
+    // Extrair definições - PARSER MELHORADO
     const definicoes: Array<{ tipo?: string; texto: string }> = [];
     for (let i = 1; i < lines.length; i++) {
       const line = lines[i];
-      if (line.match(/^[A-Z]/)) {
+      
+      // ✅ Pular linhas que são apenas classe gramatical
+      if (line.match(/^_[a-z\s\.]+_?$/i)) {
+        console.log(`   [SKIP] Classe gramatical: "${line}"`);
+        continue;
+      }
+      
+      // ✅ Pular linhas muito curtas ou vazias
+      if (line.length < 3) continue;
+      
+      // ✅ Capturar qualquer linha com texto real (mesmo começando com _, (, [, etc)
+      if (line.match(/[a-zA-ZáàãâéêíóôõúçÁÀÃÂÉÊÍÓÔÕÚÇ]/)) {
         definicoes.push({ texto: line });
+        console.log(`   [CAPTURA] Definição: "${line.substring(0, 60)}..."`);
       }
     }
 
@@ -249,7 +262,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    console.log('🚀 VERSÃO 3.0 - Importação com Chunking e Parsing Corrigido');
+    console.log('🚀 VERSÃO 4.0 - Split e Parser CORRIGIDOS + Logs Detalhados');
     
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
@@ -318,11 +331,11 @@ Deno.serve(async (req) => {
       throw new Error('Nenhuma URL de dicionário disponível ou acessível');
     }
 
-    // 🔍 DEBUG URGENTE - CONTEÚDO BRUTO DO ARQUIVO
-    console.log("\n🔍 DEBUG - Início do arquivo (primeiros 500 chars):");
-    console.log("---INÍCIO---");
-    console.log(fileContent.substring(0, 500));
-    console.log("---FIM DOS 500 CHARS---\n");
+    // 🔍 DEBUG DETALHADO - CONTEÚDO BRUTO DO ARQUIVO
+    console.log("\n🔍 DEBUG - Início do arquivo (primeiros 1000 chars):");
+    console.log("═══════════════════════════════════════════════════════════");
+    console.log(fileContent.substring(0, 1000));
+    console.log("═══════════════════════════════════════════════════════════\n");
 
     // Log das primeiras linhas para debug
     const firstLines = fileContent.split('\n').slice(0, 10);
@@ -345,23 +358,32 @@ Deno.serve(async (req) => {
       console.log('✂️ Removido cabeçalho/rodapé do Project Gutenberg');
     }
 
-    // Split por verbetes - PADRÃO CORRIGIDO: *Palavra*,
-    console.log('🔍 Aplicando split com padrão *palavra*,...');
+    // Split por verbetes - REGEX CORRIGIDO: Quebra em \n seguido de *palavra*,
+    console.log('🔍 Aplicando split CORRIGIDO: /\\n(?=\\*[A-ZÁ-Ú][^*]*\\*,)/');
     const verbetes = contentToParse
-      .split(/(?=\n\*[A-ZÁÀÃÂÉÊÍÓÔÕÚÇÑa-záàãâéêíóôõúçñ\s-]+\*,)/)
+      .split(/\n(?=\*[A-ZÁ-Ú][^*]*\*,)/)
       .map(v => v.trim())
       .filter(v => {
+        // Validar: Deve começar com *palavra*, e ter conteúdo
         const match = v.match(/^\*[A-ZÁÀÃÂÉÊÍÓÔÕÚÇÑa-záàãâéêíóôõúçñ\s-]+\*,/);
-        return match !== null && v.length > 10;
+        const isValid = match !== null && v.length > 10;
+        
+        if (!isValid && v.length > 0) {
+          console.log(`❌ [REJEITADO] "${v.substring(0, 50)}..."`);
+        }
+        
+        return isValid;
       });
 
-    // 🔍 DEBUG - RESULTADO DO SPLIT
+    // 🔍 DEBUG COMPLETO - RESULTADO DO SPLIT
     console.log(`\n🔍 DEBUG - Total de verbetes após split: ${verbetes.length}`);
-    console.log("\n🔍 DEBUG - Primeiros 3 verbetes para inspeção:\n");
-    verbetes.slice(0, 3).forEach((v, i) => {
-      console.log(`--- VERBETE ${i} (primeiros 200 chars) ---`);
-      console.log(v.substring(0, 200));
-      console.log(`--- FIM VERBETE ${i} ---\n`);
+    console.log("\n🔍 DEBUG - Primeiros 5 verbetes COMPLETOS para inspeção:\n");
+    verbetes.slice(0, 5).forEach((v, i) => {
+      console.log(`╔════════════════════════════════════════════════════════════╗`);
+      console.log(`║ VERBETE ${i + 1} (primeiros 300 chars)                          ║`);
+      console.log(`╠════════════════════════════════════════════════════════════╣`);
+      console.log(v.substring(0, 300));
+      console.log(`╚════════════════════════════════════════════════════════════╝\n`);
     });
 
     console.log(`\n📚 Total de verbetes identificados: ${verbetes.length}`);
