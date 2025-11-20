@@ -17,7 +17,7 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 
 interface BatchValidationDialogProps {
-  batchSize: 100 | 1000;
+  batchSize: 100 | 1000 | 10000;
   dictionaryType: 'dialectal' | 'gutenberg' | 'rochaPombo' | 'unesp';
   onSuccess?: () => void;
 }

@@ -14,6 +14,7 @@ interface DictionaryMetadata {
   githubUrl?: string;
   descricao: string;
   licenca?: string;
+  customActions?: React.ReactNode;
 }
 
 interface DictionaryMetadataCardProps {
@@ -107,15 +108,17 @@ export function DictionaryMetadataCard({ metadata, onImport, onVerify, isImporti
         {/* Status badge */}
         <div className="flex items-center gap-2">
           <Badge 
-            variant={isComplete ? "default" : isPartial ? "secondary" : "outline"}
+            variant={isComplete ? 'default' : isPartial ? 'secondary' : 'outline'}
             className="text-xs"
           >
-            {isComplete ? 'Completo' : isPartial ? 'Parcial' : 'Incompleto'}
+            {isComplete ? '✓ Completo' : isPartial ? 'Parcial' : 'Pendente'}
           </Badge>
         </div>
 
         {/* Ações */}
-        <div className="flex items-center gap-2 pt-2">
+        <div className="flex gap-2 flex-wrap">
+          {metadata.customActions}
+          
           {onImport && (
             <Button 
               size="sm" 

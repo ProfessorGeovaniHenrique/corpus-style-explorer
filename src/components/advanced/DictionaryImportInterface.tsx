@@ -268,7 +268,21 @@ export function DictionaryImportInterface() {
                 atual: jobs?.find(j => j.tipo_dicionario === 'GUTENBERG')?.verbetes_inseridos || 0,
                 githubUrl: 'https://github.com/ProfessorGeovaniHenrique/estilisticadecorpus/tree/main/public/dictionaries',
                 descricao: 'Dicionário completo da língua portuguesa com definições, etimologias e exemplos de uso.',
-                licenca: 'Gutenberg License'
+                licenca: 'Gutenberg License',
+                customActions: (
+                  <div className="flex gap-2">
+                    <BatchValidationDialog
+                      batchSize={1000}
+                      dictionaryType="gutenberg"
+                      onSuccess={() => queryClient.invalidateQueries()}
+                    />
+                    <BatchValidationDialog
+                      batchSize={10000}
+                      dictionaryType="gutenberg"
+                      onSuccess={() => queryClient.invalidateQueries()}
+                    />
+                  </div>
+                )
               }}
               onImport={importGutenberg}
               isImporting={isImportingGutenberg}

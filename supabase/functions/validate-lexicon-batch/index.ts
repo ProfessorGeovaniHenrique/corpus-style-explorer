@@ -7,7 +7,7 @@ const corsHeaders = {
 
 interface ValidationRequest {
   dictionaryType: 'dialectal' | 'gutenberg' | 'rochaPombo' | 'unesp';
-  batchSize: 100 | 1000;
+  batchSize: 100 | 1000 | 10000;
 }
 
 Deno.serve(async (req) => {
