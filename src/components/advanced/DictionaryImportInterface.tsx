@@ -305,7 +305,21 @@ export function DictionaryImportInterface() {
                 atual: jobs?.find(j => j.tipo_dicionario === 'ROCHA_POMBO')?.verbetes_inseridos || 0,
                 githubUrl: 'https://github.com/ProfessorGeovaniHenrique/estilisticadecorpus/tree/main/public/dictionaries',
                 descricao: 'Dicionário oficial de sinônimos da ABL, referência nacional para sinonímia e antonímia.',
-                licenca: 'ABL - Uso Acadêmico'
+                licenca: 'ABL - Uso Acadêmico',
+                customActions: (
+                  <div className="flex gap-2">
+                    <BatchValidationDialog
+                      batchSize={1000}
+                      dictionaryType="rochaPombo"
+                      onSuccess={() => queryClient.invalidateQueries()}
+                    />
+                    <BatchValidationDialog
+                      batchSize={10000}
+                      dictionaryType="rochaPombo"
+                      onSuccess={() => queryClient.invalidateQueries()}
+                    />
+                  </div>
+                )
               }}
               onImport={importRochaPombo}
               isImporting={isImportingRochaPombo}
@@ -322,7 +336,21 @@ export function DictionaryImportInterface() {
                 atual: jobs?.find(j => j.tipo_dicionario === 'UNESP')?.verbetes_inseridos || 0,
                 githubUrl: 'https://github.com/ProfessorGeovaniHenrique/estilisticadecorpus/tree/main/src/data/dictionaries',
                 descricao: 'Definições lexicográficas acadêmicas com exemplos contextualizados e registro de uso.',
-                licenca: 'CC BY-NC-SA 4.0'
+                licenca: 'CC BY-NC-SA 4.0',
+                customActions: (
+                  <div className="flex gap-2">
+                    <BatchValidationDialog
+                      batchSize={1000}
+                      dictionaryType="unesp"
+                      onSuccess={() => queryClient.invalidateQueries()}
+                    />
+                    <BatchValidationDialog
+                      batchSize={10000}
+                      dictionaryType="unesp"
+                      onSuccess={() => queryClient.invalidateQueries()}
+                    />
+                  </div>
+                )
               }}
               onImport={importUnesp}
               isImporting={isImportingUnesp}
@@ -340,7 +368,21 @@ export function DictionaryImportInterface() {
                 atual: jobs?.find(j => j.tipo_dicionario === 'nordestino_navarro')?.verbetes_inseridos || 0,
                 githubUrl: 'https://raw.githubusercontent.com/ProfessorGeovaniHenrique/estilisticadecorpus/main/public/corpus/NAVARROCLEAN.txt',
                 descricao: 'Dicionário especializado do léxico nordestino com regionalismos, expressões idiomáticas e marcadores culturais. Inclui variações dialetais de todos os estados do Nordeste.',
-                licenca: 'CEPE - Uso Acadêmico'
+                licenca: 'CEPE - Uso Acadêmico',
+                customActions: (
+                  <div className="flex gap-2">
+                    <BatchValidationDialog
+                      batchSize={1000}
+                      dictionaryType="nordestino"
+                      onSuccess={() => queryClient.invalidateQueries()}
+                    />
+                    <BatchValidationDialog
+                      batchSize={10000}
+                      dictionaryType="nordestino"
+                      onSuccess={() => queryClient.invalidateQueries()}
+                    />
+                  </div>
+                )
               }}
               onImport={importNavarro}
               isImporting={isImportingNavarro}

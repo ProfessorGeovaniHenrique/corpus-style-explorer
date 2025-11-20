@@ -125,22 +125,22 @@ function normalizePOS(pos: string): string {
 /**
  * Parser para formato REAL do Dicionário UNESP
  * 
- * Formato: palavra PALAVRA[variacao]POS numero definição
- * Exemplo: abafar ABAFARataarVt 1 sufocar; asfixiar: Omormaço abafava todos nós.
+ * Formato CORRETO: PALAVRA palavra-silabada POS numero definição
+ * Exemplo: MESOTERAPIA me-so-te-ra-pia Sf (Med) tratamento por meio de injeções subcutâneas
  */
 function parseUNESPEntry(text: string): UNESPEntry | null {
   try {
     const trimmed = text.trim();
     if (!trimmed) return null;
     
-    // Match principal: palavra + PALAVRA_MAIÚSCULA + [variacao opcional] + POS + numero + definição
+    // Match principal: PALAVRA_MAIÚSCULA + palavra-silabada + POS + numero + definição
     const mainMatch = trimmed.match(
-      /^([a-záàãéêíóôúç\-]+)\s+([A-ZÁÀÃÉÊÍÓÔÚÇ]+)([a-záàãéêíóôúç\-]*)(Adj|S\.m\.|S\.f\.|Sm|Sf|Vt|Vi|Adv|Prep|Conj|Interj)\.?\s+(\d+)\s+(.+)$/is
+      /^([A-ZÁÀÃÉÊÍÓÔÚÇ][A-ZÁÀÃÉÊÍÓÔÚÇ\-]+)\s+([a-záàãéêíóôúç][a-záàãéêíóôúç:\-]+)\s+(Adj|Adi|S\.m\.|S\.f\.|Sm|Sf|St|Vt|Vi|Adv|Prep|Conj|Interj)\s+(.+)$/is
     );
     
     if (!mainMatch) {
-      // Fallback: Tentar formato simplificado (palavra PALAVRA)
-      const simpleMatch = trimmed.match(/^([a-záàãéêíóôúç\-]+)\s+([A-ZÁÀÃÉÊÍÓÔÚÇ]+)/);
+      // Fallback: Tentar formato simplificado (apenas PALAVRA)
+      const simpleMatch = trimmed.match(/^([A-ZÁÀÃÉÊÍÓÔÚÇ][A-ZÁÀÃÉÊÍÓÔÚÇ\-]+)/);
       if (!simpleMatch) return null;
       
       return {
@@ -152,11 +152,15 @@ function parseUNESPEntry(text: string): UNESPEntry | null {
       };
     }
     
-    const palavra = mainMatch[1].toLowerCase().trim();
-    const variacao = mainMatch[3] ? mainMatch[3].toLowerCase() : '';
-    const pos = mainMatch[4].trim();
-    const acepcao = parseInt(mainMatch[5]);
-    const definicaoRaw = mainMatch[6].trim();
+    const palavraMaiuscula = mainMatch[1];
+    const palavraSilabada = mainMatch[2];
+    const pos = mainMatch[3].trim();
+    const restoTexto = mainMatch[4].trim();
+    
+    // Extrair número de acepção (se houver)
+    const acepcaoMatch = restoTexto.match(/^(\d+)\s+/);
+    const acepcao = acepcaoMatch ? parseInt(acepcaoMatch[1]) : 1;
+    const definicaoRaw = acepcaoMatch ? restoTexto.substring(acepcaoMatch[0].length) : restoTexto;
     
     // Extrair exemplos (após dois-pontos)
     const exemploSplit = definicaoRaw.split(':');
@@ -165,9 +169,12 @@ function parseUNESPEntry(text: string): UNESPEntry | null {
       ? [exemploSplit.slice(1).join(':').trim()] 
       : [];
     
-    // Extrair registro de uso (entre parênteses)
-    const registroMatch = definicaoRaw.match(/\(([^)]+)\)/);
+    // Extrair registro de uso (entre parênteses no início)
+    const registroMatch = definicaoRaw.match(/^\(([^)]+)\)/);
     const registro = registroMatch ? registroMatch[1].trim() : '';
+    
+    // Usar a palavra maiúscula como base (mais confiável que a silabada)
+    const palavra = palavraMaiuscula.toLowerCase().trim();
     
     return {
       palavra,
@@ -175,7 +182,7 @@ function parseUNESPEntry(text: string): UNESPEntry | null {
       definicao,
       exemplos,
       registro,
-      variacao,
+      variacao: palavraSilabada,
       acepcao
     };
   } catch (error) {
@@ -231,9 +238,9 @@ async function processInBackground(
     const cleanedContent = cleanUNESPContent(rawContent);
     console.log(`🧹 Conteúdo limpo. Tamanho original: ${rawContent.length}, limpo: ${cleanedContent.length}`);
     
-    // Dividir em entradas (formato REAL: palavra PALAVRA)
+    // Dividir em entradas (formato REAL: PALAVRA palavra-silabada)
     const entries = cleanedContent
-      .split(/(?=^[a-záàãéêíóôúç]+\s+[A-ZÁÀÃÉÊÍÓÔÚÇ]{2,})/gm)
+      .split(/(?=^[A-ZÁÀÃÉÊÍÓÔÚÇ][A-ZÁÀÃÉÊÍÓÔÚÇ\-]+\s+[a-záàãéêíóôúç])/gm)
       .filter(e => e.trim().length > 0);
 
     console.log(`📊 [Job ${jobId}] Total de entradas detectadas: ${entries.length}`);
