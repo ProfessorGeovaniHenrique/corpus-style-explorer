@@ -409,17 +409,30 @@ async function processVerbetesInternal(jobId: string, verbetes: string[], volume
     const batch = verbetes.slice(i, i + BATCH_SIZE);
     const parsedBatch: any[] = [];
 
+    // ✅ CONTADORES DE ERROS POR TIPO
+    let parseErrors = {
+      total: 0,
+      regex_failed: 0,
+      too_short: 0,
+      null_bytes: 0
+    };
+
     for (const verbeteRaw of batch) {
       const parsed = parseVerbete(verbeteRaw, volumeNum);
       if (!parsed) {
         erros++;
+        parseErrors.total++;
         
-        // ✅ Log detalhado apenas para primeiros 5 erros (evitar spam)
-        if (erros <= 5) {
-          console.error(`❌ Parse falhou para verbete #${erros}: ${verbeteRaw.substring(0, 100)}`);
+        // Diagnóstico do tipo de erro
+        if (verbeteRaw.length < 20) parseErrors.too_short++;
+        else if (verbeteRaw.includes('\u0000')) parseErrors.null_bytes++;
+        else parseErrors.regex_failed++;
+        
+        // Log de amostra (primeiros 10 ou 5% dos erros)
+        if (parseErrors.total <= 10 || Math.random() < 0.05) {
+          console.error(`❌ Parse falhou (amostra): "${verbeteRaw.substring(0, 80)}..."`);
         }
         
-        // ✅ Não logar no banco (economizar recursos)
         continue;
       }
       
@@ -437,6 +450,15 @@ async function processVerbetesInternal(jobId: string, verbetes: string[], volume
       
       // ✅ Sanitização adicional como double-check de segurança
       parsedBatch.push(sanitizeObject(parsed));
+    }
+
+    // ✅ LOG AGREGADO DE ERROS DE PARSING AO FINAL DO BATCH
+    if (parseErrors.total > 0) {
+      console.log(`\n⚠️ ERROS DE PARSING NO BATCH:`);
+      console.log(`   - Total: ${parseErrors.total}`);
+      console.log(`   - Regex falhou: ${parseErrors.regex_failed}`);
+      console.log(`   - Muito curto: ${parseErrors.too_short}`);
+      console.log(`   - Null bytes: ${parseErrors.null_bytes}`);
     }
 
     if (parsedBatch.length > 0) {
@@ -564,10 +586,16 @@ serve(withInstrumentation('process-dialectal-dictionary', async (req) => {
       );
     }
 
-    console.log(`[VOLUME ${volumeNum}] Recebendo ${fileContent.length} caracteres (offset: ${offsetInicial})`);
+    // ✅ LOG CONSOLIDADO DE ARQUIVO
+    const totalLinhas = (fileContent.match(/\n/g) || []).length + 1;
+    console.log(`📊 ARQUIVO RECEBIDO:`);
+    console.log(`   - Volume: ${volumeNum}`);
+    console.log(`   - Tamanho: ${fileContent.length.toLocaleString()} caracteres`);
+    console.log(`   - Linhas totais: ${totalLinhas.toLocaleString()}`);
+    console.log(`   - Offset inicial: ${offsetInicial}`);
 
     // 🔍 DEBUG: Análise da estrutura do arquivo
-    console.log(`🔍 DEBUG - Primeiros 500 caracteres:`);
+    console.log(`\n🔍 DEBUG - Primeiros 500 caracteres:`);
     console.log(fileContent.substring(0, 500));
     console.log(`🔍 DEBUG - Estrutura de quebras:`);
     console.log(`   - Contém \\n\\n: ${fileContent.includes('\n\n')}`);
@@ -623,6 +651,13 @@ serve(withInstrumentation('process-dialectal-dictionary', async (req) => {
       console.log(`⚠️ Fallback gerou ${allBlocks.length} blocos`);
     }
 
+    // ✅ ESTATÍSTICAS DE SPLIT
+    console.log(`\n📊 ESTATÍSTICAS DE SPLIT:`);
+    console.log(`   - Total de blocos brutos: ${allBlocks.length}`);
+    console.log(`   - Método usado: ${parts.length > 3 ? 'Regex de verbete' : 'Fallback por parágrafos'}`);
+    console.log(`   - Blocos com < 20 chars: ${allBlocks.filter(b => b.length < 20).length}`);
+    console.log(`   - Blocos com > 1000 chars: ${allBlocks.filter(b => b.length > 1000).length}`);
+
     // Log dos primeiros 3 blocos para validação manual
     console.log(`📋 Primeiros 3 blocos após split:`);
     allBlocks.slice(0, 3).forEach((bloco, i) => {
@@ -630,43 +665,41 @@ serve(withInstrumentation('process-dialectal-dictionary', async (req) => {
       console.log(`   ${i + 1}. ${primeiraLinha.substring(0, 80)}...`);
     });
 
-    // ✅ Filtros com logging de rejeições
-    const rejeitados: { index: number; razao: string; preview: string }[] = [];
+    // ✅ LOGS DE REJEIÇÃO AMOSTRADOS COM ESTATÍSTICAS COMPLETAS
+    const rejeitados: { 
+      index: number; 
+      razao: string; 
+      preview: string;
+      posicaoRelativa: 'inicio' | 'meio' | 'fim';
+    }[] = [];
 
     const verbetes = allBlocks.filter((v, index) => {
-      // Filtro 1: Mínimo 20 caracteres
+      const posicaoRelativa = 
+        index < allBlocks.length * 0.33 ? 'inicio' :
+        index < allBlocks.length * 0.66 ? 'meio' : 'fim';
+        
+      // Filtro 1: Muito curto
       if (v.length < 20) {
-        if (rejeitados.length < 10) {
-          rejeitados.push({ 
-            index, 
-            razao: 'muito curto', 
-            preview: v.substring(0, 40) 
-          });
+        // Amostragem: primeiros 10 ou 5% de chance
+        if (rejeitados.length < 10 || Math.random() < 0.05) {
+          rejeitados.push({ index, razao: 'muito curto', preview: v, posicaoRelativa });
         }
         return false;
       }
       
-      // Filtro 2: Deve começar com palavra MAIÚSCULA + marcador
+      // Filtro 2: Padrão não encontrado
       const verbetePattern = /^[A-ZÁÀÃÉÊÍÓÔÚÇ\-]{2,}\s+\((?:BRAS|PLAT|CAST|QUER|PORT|BRAS\/PLAT|PLAT\/CAST)\)/;
       if (!verbetePattern.test(v)) {
-        if (rejeitados.length < 10) {
-          rejeitados.push({ 
-            index, 
-            razao: 'padrão de verbete não encontrado', 
-            preview: v.substring(0, 60) 
-          });
+        if (rejeitados.length < 10 || Math.random() < 0.05) {
+          rejeitados.push({ index, razao: 'padrão não encontrado', preview: v.substring(0, 60), posicaoRelativa });
         }
         return false;
       }
       
-      // Filtro 3: Remover seções introdutórias
+      // Filtro 3: Seções introdutórias
       if (/^(Prefácio|Metodologia|Introdução|PATROCÍNIO|PRODUÇÃO|FINANCIAMENTO|SUMÁRIO|ÍNDICE)/i.test(v)) {
-        if (rejeitados.length < 10) {
-          rejeitados.push({ 
-            index, 
-            razao: 'seção introdutória', 
-            preview: v.substring(0, 60) 
-          });
+        if (rejeitados.length < 10 || Math.random() < 0.05) {
+          rejeitados.push({ index, razao: 'seção introdutória', preview: v.substring(0, 60), posicaoRelativa });
         }
         return false;
       }
@@ -674,13 +707,28 @@ serve(withInstrumentation('process-dialectal-dictionary', async (req) => {
       return true;
     });
 
-    // Log dos rejeitados para análise
-    if (rejeitados.length > 0) {
-      console.log(`\n❌ Primeiros ${Math.min(rejeitados.length, 10)} blocos rejeitados:`);
-      rejeitados.forEach(({ index, razao, preview }) => {
-        console.log(`   ${index}: [${razao}] "${preview}..."`);
-      });
-    }
+    // Estatísticas agregadas de rejeições
+    const rejeicoesPorRazao = rejeitados.reduce((acc, r) => {
+      acc[r.razao] = (acc[r.razao] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    console.log(`\n📊 ESTATÍSTICAS DE REJEIÇÃO:`);
+    console.log(`   - Total de blocos: ${allBlocks.length}`);
+    console.log(`   - Verbetes aceitos: ${verbetes.length} (${((verbetes.length / allBlocks.length) * 100).toFixed(1)}%)`);
+    console.log(`   - Blocos rejeitados: ${allBlocks.length - verbetes.length}`);
+    console.log(`\n   Rejeições por razão:`);
+    Object.entries(rejeicoesPorRazao).forEach(([razao, count]) => {
+      console.log(`     - ${razao}: ${count}`);
+    });
+
+    // Amostra de rejeitados por posição no arquivo
+    console.log(`\n❌ AMOSTRA DE BLOCOS REJEITADOS (máx 20):`);
+    const amostrasRejeitados = rejeitados.slice(0, 20);
+    amostrasRejeitados.forEach(({ index, razao, preview, posicaoRelativa }) => {
+      console.log(`   [${posicaoRelativa.toUpperCase()}] Bloco ${index}: [${razao}]`);
+      console.log(`      "${preview}..."`);
+    });
 
     // Log dos aceitos
     console.log(`\n✅ Primeiros 5 verbetes ACEITOS:`);
