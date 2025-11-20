@@ -128,9 +128,37 @@ function parseVerbete(verbeteRaw: string, volumeNum: string): any | null {
   try {
     // ✅ Sanitizar texto de entrada removendo null bytes
     const cleanText = sanitizeText(verbeteRaw) || '';
-    const normalizedText = cleanText.replace(/\s+/g, ' ').replace(/[-–—]/g, '-');
     
-    // ✅ FASE 2: Regex principal melhorado para aceitar mais variações
+    // ✅ NOVO: Detectar sub-verbetes (verbetes derivados dentro do mesmo bloco)
+    // Ex: dentro de "ABA" pode ter "ABAETADO", "ABAETAR" como sub-verbetes
+    const subVerbetePattern = /\n([A-ZÁÀÃÉÊÍÓÔÚÇ\-]{2,})\s+\((?:BRAS|PLAT|CAST|QUER|PORT)\)/g;
+    const subVerbetes = [...cleanText.matchAll(subVerbetePattern)];
+    
+    if (subVerbetes.length > 1) {
+      // Múltiplos verbetes no mesmo bloco - processar apenas o primeiro
+      // Os outros serão processados como blocos separados pelo split principal
+      const firstSubEnd = subVerbetes[1].index!;
+      const cleanedText = cleanText.substring(0, firstSubEnd).trim();
+      console.log(`⚠️ Sub-verbetes detectados: ${subVerbetes.length}. Processando apenas primeiro verbete.`);
+      const normalizedText = cleanedText.replace(/\s+/g, ' ').replace(/[-–—]/g, '-');
+      return parseVerbeteSingle(normalizedText, volumeNum);
+    }
+    
+    const normalizedText = cleanText.replace(/\s+/g, ' ').replace(/[-–—]/g, '-');
+    return parseVerbeteSingle(normalizedText, volumeNum);
+  } catch (error: any) {
+    console.error(`❌ Erro no parseVerbete:`, error.message);
+    return null;
+  }
+}
+
+/**
+ * ✅ Parser interno - extrai dados de um único verbete
+ */
+function parseVerbeteSingle(normalizedText: string, volumeNum: string): any | null {
+  try {
+    
+    // Regex principal melhorado para aceitar mais variações
     // Formato: PALAVRA (ORIGEM) POS MARCADORES - Definição
     const headerRegex = /^([A-ZÁÀÃÉÊÍÓÔÚÇ\-\(\)\s]+?)\s+\((BRAS|PLAT|CAST|QUER|BRAS\/PLAT|PORT)\s?\)\s+([^-]+?)(?:\s+-\s+|\n)(.+)$/s;
     const match = normalizedText.match(headerRegex);
@@ -207,7 +235,7 @@ function parseVerbete(verbeteRaw: string, volumeNum: string): any | null {
         return sanitizeObject(result);
       }
       
-      console.error(`❌ Parse falhou completamente para: ${verbeteRaw.substring(0, 100)}`);
+      console.error(`❌ Parse falhou completamente para: ${normalizedText.substring(0, 100)}`);
       return null;
     }
     
@@ -501,37 +529,23 @@ serve(withInstrumentation('process-dialectal-dictionary', async (req) => {
 
     console.log(`[VOLUME ${volumeNum}] Recebendo ${fileContent.length} caracteres (offset: ${offsetInicial})`);
 
-    // ✅ FASE 1: Split e pré-processamento
-    const allBlocks = fileContent.split(/\n{2,}/).map(v => v.trim());
+    // ✅ REFATORADO: Split baseado no padrão de verbete (palavra MAIÚSCULA + marcador de origem)
+    // Isso garante que cada bloco comece exatamente onde um verbete começa
+    const verbeteDelimiter = /(?=\n[A-ZÁÀÃÉÊÍÓÔÚÇ\-]{2,}\s+\((?:BRAS|PLAT|CAST|QUER|PORT|BRAS\/PLAT|PLAT\/CAST)\))/g;
+    const allBlocks = fileContent.split(verbeteDelimiter).map(v => v.trim()).filter(v => v.length > 0);
     
-    // ✅ FASE 2: Filtros aprimorados para remover ruído
+    // ✅ REFATORADO: Filtros simplificados - apenas essenciais
     const verbetes = allBlocks.filter(v => {
-      // Filtro 1: Mínimo 10 caracteres
-      if (v.length < 10) return false;
+      // Filtro 1: Mínimo 20 caracteres (verbetes dialectais são complexos)
+      if (v.length < 20) return false;
       
-      // Filtro 2: Remover separadores de página (linhas de ====)
-      if (/^[=\-_]{10,}$/.test(v)) return false;
+      // Filtro 2: DEVE começar com palavra em MAIÚSCULAS seguida de marcador de origem
+      // Este é o critério definitivo de um verbete dialectal
+      const verbetePattern = /^[A-ZÁÀÃÉÊÍÓÔÚÇ\-]{2,}\s+\((?:BRAS|PLAT|CAST|QUER|PORT|BRAS\/PLAT|PLAT\/CAST)\)/;
+      if (!verbetePattern.test(v)) return false;
       
-      // Filtro 3: Remover marcadores de página
-      if (/^PÁGINA\s+\d+\s+de\s+\d+/i.test(v)) return false;
-      
-      // Filtro 4: Remover linhas que são apenas números
-      if (/^\d+$/.test(v)) return false;
-      
-      // Filtro 5: Verbete válido deve começar com letra maiúscula
-      if (!/^[A-ZÁÀÃÂÉÊÍÓÔÕÚÇ]/.test(v)) return false;
-      
-      // Filtro 6: Remover linhas muito curtas mesmo após trim
-      if (v.replace(/\s+/g, '').length < 5) return false;
-      
-      // ✅ FILTRO 7: Remover seções introdutórias (prefácio, metodologia, etc.)
-      const secaoIntro = /^(Prefácio|Agradecimentos?|Metodologia|Objetivos?|Introdução|Apresentação|Justificativ|Formação|Trecho|Autores?|Dicionário|Enquadramento|Recolhe|Abonação|Caracteriza-se|Uma questão|Foi necessário|Com isso|O leitor|A leitura|Alterações|PATROCÍNIO|PRODUÇÃO|FINANCIAMENTO|Composto com|Este dicionário|Neste|O presente|Nossa|A obra|O trabalho|Cabe destacar|É importante|Considerando|Conforme|Segundo|De acordo)/i;
-      if (secaoIntro.test(v)) return false;
-      
-      // ✅ FILTRO 8: CRÍTICO - Verbete dialectal DEVE ter marcador de origem nos primeiros 200 caracteres
-      // Verbetes sempre têm (BRAS), (PLAT), (CAST), (QUER), (PORT), etc.
-      const temOrigem = /\((?:BRAS|PLAT|CAST|QUER|PORT|BRAS\/PLAT|PLAT\/CAST)\s?\)/;
-      if (!temOrigem.test(v.substring(0, 200))) return false;
+      // Filtro 3: Remover seções introdutórias explícitas (apenas padrões principais)
+      if (/^(Prefácio|Metodologia|Introdução|PATROCÍNIO|PRODUÇÃO|FINANCIAMENTO)/i.test(v)) return false;
       
       return true;
     });
