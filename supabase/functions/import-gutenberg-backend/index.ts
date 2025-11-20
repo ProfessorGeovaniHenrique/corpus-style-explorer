@@ -269,19 +269,45 @@ Deno.serve(async (req) => {
     }
 
     const fileContent = await response.text();
-    console.log('✅ Arquivo baixado com sucesso');
+    console.log(`✅ Arquivo baixado: ${fileContent.length} caracteres`);
+    
+    // Log primeiras linhas para debug
+    const firstLines = fileContent.split('\n').slice(0, 5).join('\n');
+    console.log('📄 Primeiras linhas do arquivo:', firstLines);
 
-    // Split verbetes
-    const verbetes = fileContent
+    // Split verbetes - tentar múltiplas estratégias
+    let verbetes = fileContent
       .split(/\n\n+/)
       .map(v => v.trim())
       .filter(v => v && v.startsWith('*'));
 
-    console.log(`📚 Total de verbetes encontrados: ${verbetes.length}`);
+    console.log(`📚 Verbetes encontrados com estratégia 1 (\\n\\n+): ${verbetes.length}`);
+
+    // Se não encontrar com dupla quebra, tentar com quebra simples seguida de asterisco
+    if (verbetes.length === 0) {
+      verbetes = fileContent
+        .split(/\n(?=\*)/)
+        .map(v => v.trim())
+        .filter(v => v && v.startsWith('*'));
+      console.log(`📚 Verbetes encontrados com estratégia 2 (\\n(?=\\*)): ${verbetes.length}`);
+    }
+
+    // Se ainda não encontrar, tentar split por asterisco
+    if (verbetes.length === 0) {
+      verbetes = fileContent
+        .split(/(?=\*[A-Z])/i)
+        .map(v => v.trim())
+        .filter(v => v && v.length > 5);
+      console.log(`📚 Verbetes encontrados com estratégia 3 ((?=\\*[A-Z])): ${verbetes.length}`);
+    }
 
     if (verbetes.length === 0) {
-      throw new Error('Nenhum verbete válido encontrado no arquivo');
+      console.error('❌ Formato do arquivo não reconhecido');
+      console.error('Amostra do conteúdo:', fileContent.substring(0, 500));
+      throw new Error('Nenhum verbete válido encontrado no arquivo. Verifique o formato do arquivo no GitHub.');
     }
+
+    console.log(`✅ Total de verbetes para processar: ${verbetes.length}`);
 
     // Criar job
     const { data: job, error: jobError } = await supabase
