@@ -76,6 +76,12 @@ export function MetadataEnrichmentInterface() {
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'enriched' | 'validated' | 'applied' | 'rejected'>('all');
   const [confidenceFilter, setConfidenceFilter] = useState<'all' | 'high' | 'medium' | 'low'>('all');
   const [showApplyDialog, setShowApplyDialog] = useState(false);
+  const [massActionDialog, setMassActionDialog] = useState<{
+    open: boolean;
+    action: 'validate-high' | 'validate-all' | 'reject-all';
+    count: number;
+    indices: number[];
+  } | null>(null);
   
   // Estados de persistência
   const [cloudSessionId, setCloudSessionId] = useState<string | null>(null);
@@ -603,6 +609,121 @@ export function MetadataEnrichmentInterface() {
       return { ...s, status: 'rejected' as const };
     }));
   };
+
+  // MASS VALIDATION FUNCTIONS
+  const validateMultipleSongs = useCallback((indices: number[], accept: boolean) => {
+    setSongs(prev => prev.map((song, i) => {
+      if (!indices.includes(i)) return song;
+      
+      if (accept && song.sugestao && song.sugestao.fonte !== 'not-found') {
+        return {
+          ...song,
+          compositor: song.compositorEditado || song.sugestao.compositor,
+          album: song.sugestao.album || song.album,
+          ano: song.sugestao.ano || song.ano,
+          fonte: song.compositorEditado ? 'manual' as const : song.sugestao.fonte as ('musicbrainz' | 'ai-inferred'),
+          fonteValidada: song.sugestao.fonte,
+          status: 'validated' as const
+        };
+      }
+      
+      return { ...song, status: 'rejected' as const };
+    }));
+    
+    toast.success(`${indices.length} músicas ${accept ? 'validadas' : 'rejeitadas'} com sucesso!`);
+    saveCurrentSession();
+  }, [saveCurrentSession]);
+
+  const validateAllHighConfidence = useCallback(() => {
+    const highConfidenceIndices = songs
+      .map((song, index) => ({ song, index }))
+      .filter(({ song }) => 
+        song.sugestao && 
+        song.sugestao.confianca >= 85 &&
+        song.status !== 'validated' &&
+        song.status !== 'rejected' &&
+        song.status !== 'applied'
+      )
+      .map(({ index }) => index);
+    
+    if (highConfidenceIndices.length === 0) {
+      toast.info('Nenhuma música com alta confiança para validar');
+      return;
+    }
+    
+    setMassActionDialog({
+      open: true,
+      action: 'validate-high',
+      count: highConfidenceIndices.length,
+      indices: highConfidenceIndices
+    });
+  }, [songs]);
+
+  const validateAllFiltered = useCallback(() => {
+    const validatableIndices = displaySongs
+      .map(song => songs.indexOf(song))
+      .filter(index => {
+        const song = songs[index];
+        return song.sugestao && 
+               song.status !== 'validated' && 
+               song.status !== 'rejected' &&
+               song.status !== 'applied';
+      });
+    
+    if (validatableIndices.length === 0) {
+      toast.info('Nenhuma música disponível para validar');
+      return;
+    }
+    
+    setMassActionDialog({
+      open: true,
+      action: 'validate-all',
+      count: validatableIndices.length,
+      indices: validatableIndices
+    });
+  }, [songs, displaySongs]);
+
+  const rejectAllFiltered = useCallback(() => {
+    const rejectableIndices = displaySongs
+      .map(song => songs.indexOf(song))
+      .filter(index => {
+        const song = songs[index];
+        return song.sugestao && 
+               song.status !== 'validated' && 
+               song.status !== 'rejected' &&
+               song.status !== 'applied';
+      });
+    
+    if (rejectableIndices.length === 0) {
+      toast.info('Nenhuma música disponível para rejeitar');
+      return;
+    }
+    
+    setMassActionDialog({
+      open: true,
+      action: 'reject-all',
+      count: rejectableIndices.length,
+      indices: rejectableIndices
+    });
+  }, [songs, displaySongs]);
+
+  const confirmMassAction = useCallback(() => {
+    if (!massActionDialog) return;
+    
+    const { action, indices } = massActionDialog;
+    
+    switch (action) {
+      case 'validate-high':
+      case 'validate-all':
+        validateMultipleSongs(indices, true);
+        break;
+      case 'reject-all':
+        validateMultipleSongs(indices, false);
+        break;
+    }
+    
+    setMassActionDialog(null);
+  }, [massActionDialog, validateMultipleSongs]);
   
   // FASE 3: Aplicar metadados ao corpus
   const applyToCorpus = async () => {
@@ -1109,40 +1230,111 @@ export function MetadataEnrichmentInterface() {
             </div>
 
             {statusFilter !== 'pending' && (
-              <div className="flex gap-2 mb-4">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setConfidenceFilter('all')}
-                  className={confidenceFilter === 'all' ? 'bg-accent' : ''}
-                >
-                  Todas
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setConfidenceFilter('high')}
-                  className={confidenceFilter === 'high' ? 'bg-green-500/20' : ''}
-                >
-                  Alta (≥85%)
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setConfidenceFilter('medium')}
-                  className={confidenceFilter === 'medium' ? 'bg-yellow-500/20' : ''}
-                >
-                  Média (70-84%)
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setConfidenceFilter('low')}
-                  className={confidenceFilter === 'low' ? 'bg-red-500/20' : ''}
-                >
-                  Baixa (&lt;70%)
-                </Button>
-              </div>
+              <>
+                <div className="flex gap-2 mb-4">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setConfidenceFilter('all')}
+                    className={confidenceFilter === 'all' ? 'bg-accent' : ''}
+                  >
+                    Todas
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setConfidenceFilter('high')}
+                    className={confidenceFilter === 'high' ? 'bg-green-500/20' : ''}
+                  >
+                    Alta (≥85%)
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setConfidenceFilter('medium')}
+                    className={confidenceFilter === 'medium' ? 'bg-yellow-500/20' : ''}
+                  >
+                    Média (70-84%)
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setConfidenceFilter('low')}
+                    className={confidenceFilter === 'low' ? 'bg-red-500/20' : ''}
+                  >
+                    Baixa (&lt;70%)
+                  </Button>
+                </div>
+
+                {/* Mass Actions Section */}
+                {statusFilter === 'enriched' && displaySongs.length > 0 && (
+                  <div className="border-t pt-4 mt-4">
+                    <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                      <Zap className="h-4 w-4" />
+                      Ações em Massa
+                    </h3>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={validateAllHighConfidence}
+                        disabled={isEnriching}
+                        className="bg-green-600 hover:bg-green-700 text-white"
+                      >
+                        <Check className="h-4 w-4 mr-2" />
+                        Validar Alta Confiança (≥85%)
+                        <Badge variant="secondary" className="ml-2 bg-white/20">
+                          {songs.filter(s => 
+                            s.sugestao && 
+                            s.sugestao.confianca >= 85 && 
+                            s.status !== 'validated' && 
+                            s.status !== 'rejected' &&
+                            s.status !== 'applied'
+                          ).length}
+                        </Badge>
+                      </Button>
+                      
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={validateAllFiltered}
+                        disabled={isEnriching}
+                        className="border-blue-500 text-blue-600 hover:bg-blue-50"
+                      >
+                        <Check className="h-4 w-4 mr-2" />
+                        Validar Todas Visíveis
+                        <Badge variant="secondary" className="ml-2">
+                          {displaySongs.filter(s => 
+                            s.sugestao && 
+                            s.status !== 'validated' && 
+                            s.status !== 'rejected' &&
+                            s.status !== 'applied'
+                          ).length}
+                        </Badge>
+                      </Button>
+                      
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={rejectAllFiltered}
+                        disabled={isEnriching}
+                        className="border-red-500 text-red-600 hover:bg-red-50"
+                      >
+                        <X className="h-4 w-4 mr-2" />
+                        Rejeitar Todas Visíveis
+                        <Badge variant="secondary" className="ml-2">
+                          {displaySongs.filter(s => 
+                            s.sugestao && 
+                            s.status !== 'validated' && 
+                            s.status !== 'rejected' &&
+                            s.status !== 'applied'
+                          ).length}
+                        </Badge>
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </CardHeader>
           <CardContent>
@@ -1319,6 +1511,49 @@ export function MetadataEnrichmentInterface() {
           <RoadmapTab />
         </TabsContent>
       </Tabs>
+      
+      {/* Mass Action Confirmation Dialog */}
+      <AlertDialog open={massActionDialog?.open ?? false} onOpenChange={(open) => !open && setMassActionDialog(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {massActionDialog?.action === 'reject-all' ? 'Rejeitar Músicas em Massa?' : 'Validar Músicas em Massa?'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {massActionDialog?.action === 'validate-high' && (
+                <>
+                  Você está prestes a <strong>validar {massActionDialog.count} músicas</strong> com alta confiança (≥85%).
+                  <br /><br />
+                  ✅ Todas as sugestões serão aplicadas automaticamente
+                </>
+              )}
+              {massActionDialog?.action === 'validate-all' && (
+                <>
+                  Você está prestes a <strong>validar {massActionDialog.count} músicas visíveis</strong> na lista atual.
+                  <br /><br />
+                  ✅ Todas as sugestões serão aplicadas automaticamente
+                </>
+              )}
+              {massActionDialog?.action === 'reject-all' && (
+                <>
+                  Você está prestes a <strong>rejeitar {massActionDialog.count} músicas visíveis</strong> na lista atual.
+                  <br /><br />
+                  ⚠️ Esta ação não pode ser desfeita facilmente
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={confirmMassAction}
+              className={massActionDialog?.action === 'reject-all' ? 'bg-red-600 hover:bg-red-700' : ''}
+            >
+              {massActionDialog?.action === 'reject-all' ? 'Rejeitar Todas' : 'Validar Todas'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       
       {/* FASE 3: AlertDialog para confirmar aplicação */}
       <AlertDialog open={showApplyDialog} onOpenChange={setShowApplyDialog}>
