@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { ChevronLeft, ChevronRight, Check, X, Save, FileText } from 'lucide-react';
 import { notifications } from '@/lib/notifications';
-import type { DictionaryEntry } from './ValidationWorkspace';
+import type { DictionaryEntry } from '@/hooks/useDictionaryValidation';
 
 interface VerbeteEditorProps {
   entry: DictionaryEntry;

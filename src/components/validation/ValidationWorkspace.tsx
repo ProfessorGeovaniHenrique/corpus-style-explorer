@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   ResizableHandle,
   ResizablePanel,
@@ -8,22 +8,7 @@ import { VerbeteList } from './VerbeteList';
 import { VerbeteEditor } from './VerbeteEditor';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { BarChart3 } from 'lucide-react';
-
-export type ValidationStatus = 'pending' | 'approved' | 'corrected' | 'rejected';
-
-export interface DictionaryEntry {
-  id: string;
-  verbete: string;
-  verbete_normalizado: string;
-  classe_gramatical?: string | null;
-  definicoes?: any;
-  validation_status: ValidationStatus;
-  validation_notes?: string | null;
-  reviewed_at?: string | null;
-  reviewed_by?: string | null;
-  // Raw data for comparison
-  raw_data?: any;
-}
+import type { DictionaryEntry, ValidationStatus } from '@/hooks/useDictionaryValidation';
 
 interface ValidationWorkspaceProps {
   entries: DictionaryEntry[];
@@ -78,6 +63,34 @@ export function ValidationWorkspace({
     handleNavigate('next');
     onRefetch?.();
   };
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore if typing in input/textarea
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+
+      // Arrow Up/Down navigation
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        handleNavigate('prev');
+      } else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        handleNavigate('next');
+      }
+
+      // Ctrl+Enter to approve
+      if (e.ctrlKey && e.key === 'Enter' && selectedId) {
+        e.preventDefault();
+        handleApproveAndNext(selectedId);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedId, filteredEntries]);
 
   return (
     <ResizablePanelGroup direction="horizontal" className="min-h-[calc(100vh-12rem)] w-full rounded-lg border">

@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Search, Filter } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { DictionaryEntry, ValidationStatus } from './ValidationWorkspace';
+import type { DictionaryEntry, ValidationStatus } from '@/hooks/useDictionaryValidation';
 
 interface VerbeteListProps {
   entries: DictionaryEntry[];
