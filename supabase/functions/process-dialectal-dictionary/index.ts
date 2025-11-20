@@ -445,7 +445,7 @@ async function processVerbetesInternal(jobId: string, verbetes: string[], volume
       await withRetry(async () => {
         const { error: insertError } = await supabase
           .from('dialectal_lexicon')
-          .upsert(parsedBatch, { onConflict: 'verbete_normalizado,origem_primaria', ignoreDuplicates: true });
+          .upsert(parsedBatch, { onConflict: 'verbete_normalizado,volume_fonte', ignoreDuplicates: true });
         
         if (insertError) {
           console.error(`[JOB ${jobId}] ❌ Erro ao inserir batch:`, insertError);

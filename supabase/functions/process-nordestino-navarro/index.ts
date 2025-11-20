@@ -277,7 +277,7 @@ async function processInBackground(supabase: any, jobId: string, lines: string[]
         const { error: insertError } = await supabase
           .from('dialectal_lexicon')
           .upsert(verbetes, { 
-            onConflict: 'verbete_normalizado',
+            onConflict: 'verbete_normalizado,volume_fonte',
             ignoreDuplicates: false 
           });
 
@@ -312,7 +312,7 @@ async function processInBackground(supabase: any, jobId: string, lines: string[]
       const { error: insertError } = await supabase
         .from('dialectal_lexicon')
         .upsert(verbetes, { 
-          onConflict: 'verbete_normalizado',
+          onConflict: 'verbete_normalizado,volume_fonte',
           ignoreDuplicates: false 
         });
 
