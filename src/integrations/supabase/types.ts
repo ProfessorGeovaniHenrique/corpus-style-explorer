@@ -680,6 +680,7 @@ export type Database = {
           contextos_culturais: Json | null
           criado_em: string | null
           definicoes: Json | null
+          entry_type: string | null
           frequencia_uso: string | null
           id: string
           influencia_platina: boolean | null
@@ -710,6 +711,7 @@ export type Database = {
           contextos_culturais?: Json | null
           criado_em?: string | null
           definicoes?: Json | null
+          entry_type?: string | null
           frequencia_uso?: string | null
           id?: string
           influencia_platina?: boolean | null
@@ -740,6 +742,7 @@ export type Database = {
           contextos_culturais?: Json | null
           criado_em?: string | null
           definicoes?: Json | null
+          entry_type?: string | null
           frequencia_uso?: string | null
           id?: string
           influencia_platina?: boolean | null
@@ -1187,6 +1190,7 @@ export type Database = {
           criado_em: string | null
           definicoes: Json | null
           derivados: string[] | null
+          entry_type: string | null
           etimologia: string | null
           exemplos: string[] | null
           expressoes: string[] | null
@@ -1215,6 +1219,7 @@ export type Database = {
           criado_em?: string | null
           definicoes?: Json | null
           derivados?: string[] | null
+          entry_type?: string | null
           etimologia?: string | null
           exemplos?: string[] | null
           expressoes?: string[] | null
@@ -1243,6 +1248,7 @@ export type Database = {
           criado_em?: string | null
           definicoes?: Json | null
           derivados?: string[] | null
+          entry_type?: string | null
           etimologia?: string | null
           exemplos?: string[] | null
           expressoes?: string[] | null
