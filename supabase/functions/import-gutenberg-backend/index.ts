@@ -135,13 +135,13 @@ Deno.serve(async (req) => {
 
     console.log('🚀 Iniciando importação do Gutenberg via backend...');
 
-    // Buscar o arquivo do GitHub (repositório público)
-    const fileUrl = 'https://raw.githubusercontent.com/seu-usuario/seu-repo/main/src/data/dictionaries/gutenberg-dictionary.txt';
-    console.log(`📥 Carregando arquivo do GitHub: ${fileUrl}`);
+    // Buscar o arquivo da pasta public
+    const fileUrl = `${new URL(req.url).origin}/dictionaries/gutenberg-completo.txt`;
+    console.log(`📥 Carregando arquivo: ${fileUrl}`);
     
     const fileResponse = await fetch(fileUrl);
     if (!fileResponse.ok) {
-      throw new Error(`Arquivo não encontrado no GitHub: ${fileResponse.status}. Certifique-se de que o arquivo está no repositório público.`);
+      throw new Error(`Arquivo não encontrado: ${fileResponse.status}. Verifique se o arquivo existe em public/dictionaries/`);
     }
 
     const fileContent = await fileResponse.text();
