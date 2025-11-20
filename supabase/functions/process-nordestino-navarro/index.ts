@@ -93,6 +93,43 @@ serve(async (req) => {
   }
 });
 
+// Função para validar se é um verbete real (não metadado ou título)
+function isValidVerbete(verbete: string): boolean {
+  // Excluir verbetes muito longos (>40 chars) - provavelmente títulos
+  if (verbete.length > 40) {
+    console.log(`🚫 Verbete muito longo ignorado: "${verbete}"`);
+    return false;
+  }
+  
+  // Excluir títulos de obras (padrão "A/O + Maiúscula + espaço + Maiúscula")
+  if (/^(A|O|As|Os)\s+[A-ZÁÀÂÃÉÈÊÍÏÓÔÕÖÚÇÑ][a-z]+/.test(verbete)) {
+    console.log(`🚫 Título de obra ignorado: "${verbete}"`);
+    return false;
+  }
+  
+  // Excluir entradas com anos (formato NNNN-NNNN ou vol.N)
+  if (/\d{4}(-\d{4})?|vol\.\s*\d+/i.test(verbete)) {
+    console.log(`🚫 Entrada com ano/volume ignorada: "${verbete}"`);
+    return false;
+  }
+  
+  // Excluir palavras acadêmicas típicas de metadados
+  const metadataKeywords = [
+    'história', 'memória', 'dicionário', 'literatura', 
+    'imprensa', 'educação', 'república', 'revolução',
+    'folclore', 'língua', 'ortografia', 'norma',
+    'canção', 'baião', 'cordel', 'poema'
+  ];
+  
+  const verbeteLower = verbete.toLowerCase();
+  if (metadataKeywords.some(keyword => verbeteLower.includes(keyword) && verbete.length > 15)) {
+    console.log(`🚫 Metadado ignorado: "${verbete}"`);
+    return false;
+  }
+  
+  return true;
+}
+
 function parseNordestinoEntry(line: string): ParsedEntry | null {
   // Split por bullet point
   const parts = line.split('•').map(p => p.trim()).filter(p => p);
@@ -100,6 +137,11 @@ function parseNordestinoEntry(line: string): ParsedEntry | null {
   if (parts.length < 2) return null;
   
   const verbete = parts[0].trim();
+  
+  // Validar se é um verbete real
+  if (!isValidVerbete(verbete)) {
+    return null;
+  }
   
   // Extrair TODAS as acepções
   const acepcoes = extractAcepcoes(parts.slice(1));
@@ -224,7 +266,28 @@ async function processInBackground(supabase: any, jobId: string, lines: string[]
     for (let i = offsetInicial; i < lines.length; i++) {
       const line = lines[i].trim();
       
+      // Filtro 1: Ignorar linhas sem bullet point
       if (!line || !line.includes('•')) continue;
+      
+      // Filtro 2: Ignorar instruções numeradas (ex: "11. Os sinônimos...")
+      if (/^\d+\.\s+/.test(line)) {
+        console.log(`🚫 Instrução ignorada na linha ${i}`);
+        continue;
+      }
+      
+      // Filtro 3: Ignorar linhas com termos de instrução específicos
+      const instructionTerms = ['sinônimo', 'equivalente', 'grafado', 'aspetas', 'definição do verbete'];
+      if (instructionTerms.some(term => line.toLowerCase().includes(term) && line.length > 50)) {
+        console.log(`🚫 Metadado de instrução ignorado na linha ${i}`);
+        continue;
+      }
+      
+      // Filtro 4: Ignorar títulos muito longos antes do primeiro bullet (>20 chars)
+      const beforeBullet = line.split('•')[0];
+      if (beforeBullet.length > 40) {
+        console.log(`🚫 Título longo ignorado na linha ${i}: "${beforeBullet.substring(0, 30)}..."`);
+        continue;
+      }
 
       try {
         const parsedEntry = parseNordestinoEntry(line);
