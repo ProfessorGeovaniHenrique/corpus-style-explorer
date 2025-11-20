@@ -99,14 +99,27 @@ Deno.serve(async (req) => {
     const ids = entries.map(e => e.id);
     const updateField = dictionaryType === 'dialectal' ? 'validado_humanamente' : 'validado';
     
-    const { error: updateError } = await supabase
+    console.log(`🔄 Atualizando ${ids.length} entradas na tabela ${tableName}`);
+    console.log(`📝 Campo de update: ${updateField} = true`);
+    console.log(`🆔 Primeiros 3 IDs:`, ids.slice(0, 3));
+    
+    const { data: updateData, error: updateError } = await supabase
       .from(tableName)
       .update({ [updateField]: true })
-      .in('id', ids);
+      .in('id', ids)
+      .select('id');
 
     if (updateError) {
-      throw new Error(`Erro ao atualizar entradas: ${updateError.message}`);
+      console.error('❌ Erro detalhado do update:', {
+        message: updateError.message,
+        details: updateError.details,
+        hint: updateError.hint,
+        code: updateError.code
+      });
+      throw new Error(`Erro ao atualizar entradas: ${updateError.message} (code: ${updateError.code}, details: ${updateError.details})`);
     }
+
+    console.log(`✅ Update bem-sucedido: ${updateData?.length || 0} linhas afetadas`);
 
     console.log(`✅ ${entries.length} entradas validadas com sucesso`);
 
