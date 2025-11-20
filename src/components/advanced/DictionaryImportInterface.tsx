@@ -250,7 +250,7 @@ export function DictionaryImportInterface() {
                 tipo: 'dialectal',
                 esperado: 10000,
                 atual: jobs?.find(j => j.tipo_dicionario.includes('DIALECTAL'))?.verbetes_inseridos || 0,
-                githubUrl: 'https://github.com/yourusername/corpus-data',
+                githubUrl: 'https://github.com/ProfessorGeovaniHenrique/estilisticadecorpus/tree/main/src/data/dictionaries',
                 descricao: 'Léxico regionalista gaúcho com termos campeiros, platinismos e expressões típicas do Rio Grande do Sul.',
                 licenca: 'Domínio Público'
               }}
@@ -266,7 +266,7 @@ export function DictionaryImportInterface() {
                 tipo: 'gutenberg',
                 esperado: 700000,
                 atual: jobs?.find(j => j.tipo_dicionario === 'GUTENBERG')?.verbetes_inseridos || 0,
-                githubUrl: 'https://github.com/yourusername/corpus-data',
+                githubUrl: 'https://github.com/ProfessorGeovaniHenrique/estilisticadecorpus/tree/main/public/dictionaries',
                 descricao: 'Dicionário completo da língua portuguesa com definições, etimologias e exemplos de uso.',
                 licenca: 'Gutenberg License'
               }}
@@ -283,7 +283,7 @@ export function DictionaryImportInterface() {
                 tipo: 'rochaPombo',
                 esperado: 50000,
                 atual: jobs?.find(j => j.tipo_dicionario === 'ROCHA_POMBO')?.verbetes_inseridos || 0,
-                githubUrl: 'https://github.com/yourusername/corpus-data',
+                githubUrl: 'https://github.com/ProfessorGeovaniHenrique/estilisticadecorpus/tree/main/public/dictionaries',
                 descricao: 'Dicionário oficial de sinônimos da ABL, referência nacional para sinonímia e antonímia.',
                 licenca: 'ABL - Uso Acadêmico'
               }}
@@ -299,7 +299,7 @@ export function DictionaryImportInterface() {
                 tipo: 'unesp',
                 esperado: 100000,
                 atual: jobs?.find(j => j.tipo_dicionario === 'UNESP')?.verbetes_inseridos || 0,
-                githubUrl: 'https://github.com/yourusername/corpus-data',
+                githubUrl: 'https://github.com/ProfessorGeovaniHenrique/estilisticadecorpus/tree/main/src/data/dictionaries',
                 descricao: 'Definições lexicográficas acadêmicas com exemplos contextualizados e registro de uso.',
                 licenca: 'CC BY-NC-SA 4.0'
               }}
