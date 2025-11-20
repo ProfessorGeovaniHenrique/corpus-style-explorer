@@ -23,7 +23,8 @@ Deno.serve(async (req) => {
       'dialectal_lexicon',
       'lexical_definitions', 
       'lexical_synonyms',
-      'gutenberg_lexicon'
+      'gutenberg_lexicon',
+      'human_validations'
     ];
 
     const results: Record<string, { deleted: number; error?: string }> = {};

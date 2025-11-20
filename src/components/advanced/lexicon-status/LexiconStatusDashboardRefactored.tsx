@@ -1,10 +1,10 @@
 import { useLexiconStats } from '@/hooks/useLexiconStats';
 import { DictionaryStatusCard } from './DictionaryStatusCard';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, RefreshCw, TrendingUp, Database, CheckCircle, Trash2, AlertTriangle } from 'lucide-react';
+import { Loader2, RefreshCw, TrendingUp, Database, Trash2, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useState } from 'react';
@@ -23,6 +23,7 @@ import {
 export function LexiconStatusDashboardRefactored() {
   const { data: stats, isLoading, refetch, isRefetching } = useLexiconStats();
   const [isClearing, setIsClearing] = useState(false);
+  const navigate = useNavigate();
 
   const handleClearAllDictionaries = async () => {
     setIsClearing(true);
@@ -49,7 +50,7 @@ export function LexiconStatusDashboardRefactored() {
     );
   }
 
-  if (!stats || !stats.gaucho || !stats.navarro || !stats.gutenberg || !stats.rochaPombo || !stats.unesp || !stats.overall) {
+  if (!stats || !stats.gaucho || !stats.navarro || !stats.gutenberg || !stats.rochaPombo || !stats.overall) {
     return (
       <Alert>
         <AlertDescription>Nenhuma estatística disponível ou estrutura de dados incompleta</AlertDescription>
@@ -83,11 +84,11 @@ export function LexiconStatusDashboardRefactored() {
             Operação Crítica: Limpeza de Dicionários
           </CardTitle>
           <CardDescription>
-            Esta operação irá <strong>EXCLUIR PERMANENTEMENTE</strong> todos os verbetes dos 5 dicionários
+            Esta operação irá <strong>EXCLUIR PERMANENTEMENTE</strong> todos os verbetes dos 4 dicionários
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-xs">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
             <div className="p-2 bg-background rounded border">
               <p className="font-semibold">Gaúcho Unificado</p>
               <p className="text-muted-foreground">{stats.gaucho.total.toLocaleString()} verbetes</p>
@@ -95,10 +96,6 @@ export function LexiconStatusDashboardRefactored() {
             <div className="p-2 bg-background rounded border">
               <p className="font-semibold">Navarro 2014</p>
               <p className="text-muted-foreground">{stats.navarro.total.toLocaleString()} verbetes</p>
-            </div>
-            <div className="p-2 bg-background rounded border">
-              <p className="font-semibold">UNESP</p>
-              <p className="text-muted-foreground">{stats.unesp.total.toLocaleString()} verbetes</p>
             </div>
             <div className="p-2 bg-background rounded border">
               <p className="font-semibold">Rocha Pombo</p>
@@ -132,7 +129,6 @@ export function LexiconStatusDashboardRefactored() {
                   <ul className="list-disc list-inside space-y-1 text-sm">
                     <li>Gaúcho Unificado ({stats.gaucho.total.toLocaleString()} verbetes)</li>
                     <li>Navarro 2014 ({stats.navarro.total.toLocaleString()} verbetes)</li>
-                    <li>UNESP ({stats.unesp.total.toLocaleString()} verbetes)</li>
                     <li>Rocha Pombo ({stats.rochaPombo.total.toLocaleString()} verbetes)</li>
                     <li>Gutenberg ({stats.gutenberg.total.toLocaleString()} verbetes)</li>
                   </ul>
@@ -200,8 +196,8 @@ export function LexiconStatusDashboardRefactored() {
       </div>
 
       <div className="space-y-3">
-        <h3 className="text-lg font-semibold">Status por Dicionário (5 Dicionários)</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        <h3 className="text-lg font-semibold">Status por Dicionário (4 Dicionários)</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           
           <DictionaryStatusCard
             nome="Gaúcho Unificado"
@@ -211,6 +207,13 @@ export function LexiconStatusDashboardRefactored() {
               validados: stats.gaucho.validados,
               confianca: stats.gaucho.confianca_media,
             }}
+            acoes={[
+              {
+                label: 'Validar',
+                onClick: () => navigate('/admin/dictionary-validation/gaucho_unificado'),
+                variant: 'default'
+              }
+            ]}
           />
 
           <DictionaryStatusCard
@@ -221,16 +224,13 @@ export function LexiconStatusDashboardRefactored() {
               validados: stats.navarro.validados,
               confianca: stats.navarro.confianca_media,
             }}
-          />
-
-          <DictionaryStatusCard
-            nome="UNESP"
-            status={stats.unesp.total === 0 ? 'empty' : 'healthy'}
-            metricas={{
-              total: stats.unesp.total,
-              validados: stats.unesp.total,
-              confianca: 1.0,
-            }}
+            acoes={[
+              {
+                label: 'Validar',
+                onClick: () => navigate('/admin/navarro-validation'),
+                variant: 'default'
+              }
+            ]}
           />
 
           <DictionaryStatusCard
@@ -241,6 +241,13 @@ export function LexiconStatusDashboardRefactored() {
               validados: stats.rochaPombo.total,
               confianca: 1.0,
             }}
+            acoes={[
+              {
+                label: 'Validar',
+                onClick: () => navigate('/admin/dictionary-validation/rocha_pombo'),
+                variant: 'default'
+              }
+            ]}
           />
 
           <DictionaryStatusCard
@@ -251,39 +258,17 @@ export function LexiconStatusDashboardRefactored() {
               validados: stats.gutenberg.validados,
               confianca: stats.gutenberg.confianca_media,
             }}
+            acoes={[
+              {
+                label: 'Validar',
+                onClick: () => navigate('/admin/dictionary-validation/gutenberg'),
+                variant: 'default'
+              }
+            ]}
           />
           
         </div>
       </div>
-
-      {/* ✅ Card Especial: Validação Navarro 2014 */}
-      <Card className="border-primary/20 bg-primary/5">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <CheckCircle className="h-5 w-5 text-primary" />
-            Validação Humana: Navarro 2014
-          </CardTitle>
-          <CardDescription>
-            Valide manualmente os verbetes do dicionário Nordestino para aumentar a precisão
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex justify-between items-center">
-          <div className="space-y-1">
-            <p className="text-sm text-muted-foreground">
-              Taxa atual de validação: <strong>{((stats.navarro.validados / Math.max(1, stats.navarro.total)) * 100).toFixed(2)}%</strong>
-            </p>
-            <p className="text-sm text-muted-foreground">
-              {(stats.navarro.total - stats.navarro.validados).toLocaleString()} verbetes disponíveis para validação
-            </p>
-          </div>
-          <Link to="/admin/navarro-validation">
-            <Button className="flex items-center gap-2">
-              <CheckCircle className="h-4 w-4" />
-              Validar Verbetes
-            </Button>
-          </Link>
-        </CardContent>
-      </Card>
     </div>
   );
 }

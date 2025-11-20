@@ -24,6 +24,7 @@ import DevOpsMetrics from "./pages/DevOpsMetrics";
 import DeveloperLogs from "./pages/DeveloperLogs";
 import AdminLexiconSetupRefactored from "./pages/AdminLexiconSetupRefactored";
 import AdminNavarroDictValidation from "./pages/AdminNavarroDictValidation";
+import AdminDictionaryValidation from "./pages/AdminDictionaryValidation";
 import AdminUsers from "./pages/AdminUsers";
 import AdminAnalytics from "./pages/AdminAnalytics";
 import AdminAccessRequests from "./pages/AdminAccessRequests";
@@ -107,6 +108,14 @@ const RouterContent = () => {
             element={
               <ProtectedRoute requiredRole="admin">
                 <AdminNavarroDictValidation />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/admin/dictionary-validation/:tipo" 
+            element={
+              <ProtectedRoute requiredRole="admin">
+                <AdminDictionaryValidation />
               </ProtectedRoute>
             } 
           />
