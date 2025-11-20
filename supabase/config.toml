@@ -1,4 +1,4 @@
-project_id = "xwnvacyomyivmnikfyjw"
+project_id = "kywmhuubbsvclkorxrse"
 
 [functions.process-pending-jobs]
 verify_jwt = false
