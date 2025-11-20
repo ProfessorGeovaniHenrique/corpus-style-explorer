@@ -1,6 +1,8 @@
 import { memo } from 'react';
 // @ts-ignore - react-window types
-import { FixedSizeList } from 'react-window';
+import ReactWindow from 'react-window';
+
+const FixedSizeList = (ReactWindow as any).FixedSizeList;
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
