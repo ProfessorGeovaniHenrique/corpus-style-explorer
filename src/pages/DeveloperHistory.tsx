@@ -15,6 +15,7 @@ import { MilestoneProgress } from "@/components/dev-history/MilestoneProgress";
 import { VelocityChart } from "@/components/dev-history/VelocityChart";
 import { SearchBar } from "@/components/dev-history/SearchBar";
 import { SyncStatusDashboard } from "@/components/dev-history/SyncStatusDashboard";
+import { ToolsMethodologies } from "@/components/dev-history/ToolsMethodologies";
 import type { SearchResult } from "@/hooks/useDevHistorySearch";
 
 export default function DeveloperHistory() {
@@ -84,13 +85,14 @@ export default function DeveloperHistory() {
 
         {/* Main Content Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-6">
-            <TabsTrigger value="timeline">Timeline de Construção</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-7">
+            <TabsTrigger value="timeline">Timeline</TabsTrigger>
             <TabsTrigger value="velocity">Velocidade</TabsTrigger>
-            <TabsTrigger value="scientific">Evolução Científica</TabsTrigger>
-            <TabsTrigger value="corrections">Correções Críticas</TabsTrigger>
+            <TabsTrigger value="scientific">Evolução</TabsTrigger>
+            <TabsTrigger value="corrections">Correções</TabsTrigger>
             <TabsTrigger value="methodologies">Metodologias</TabsTrigger>
-            <TabsTrigger value="roadmap">Roadmap & MVP</TabsTrigger>
+            <TabsTrigger value="tools">Ferramentas</TabsTrigger>
+            <TabsTrigger value="roadmap">Roadmap</TabsTrigger>
           </TabsList>
 
           <TabsContent value="timeline" className="space-y-4 mt-6">
@@ -113,6 +115,10 @@ export default function DeveloperHistory() {
             <div className="grid gap-4">
               <ScientificEvolution showMethodologies />
             </div>
+          </TabsContent>
+
+          <TabsContent value="tools" className="space-y-4 mt-6">
+            <ToolsMethodologies />
           </TabsContent>
 
           <TabsContent value="roadmap" className="space-y-4 mt-6">

@@ -62,3 +62,14 @@ export {
   type Persona,
   type FutureProspect
 } from './product-roadmap';
+
+export {
+  tools,
+  ecosystemMetrics,
+  getToolById,
+  getToolsByCategory,
+  getProductionTools,
+  getToolEvolutionData,
+  getAllReferences,
+  type Tool
+} from './tools-methodologies';
