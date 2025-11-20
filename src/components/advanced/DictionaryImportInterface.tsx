@@ -326,12 +326,76 @@ export function DictionaryImportInterface() {
                   </>
                 )}
               </Button>
-              <p className="text-sm text-muted-foreground">
-                O dicionário será carregado diretamente do repositório GitHub.
-                Importação completa em lote com processamento paralelo.
-              </p>
-            </CardContent>
-          </Card>
+            <p className="text-sm text-muted-foreground">
+              O dicionário será carregado diretamente do repositório GitHub.
+              Importação completa em lote com processamento paralelo.
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* Card Houaiss */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <BookOpen className="h-5 w-5" />
+              Dicionário Houaiss (Sinônimos)
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Button 
+              onClick={importHouaiss}
+              disabled={importStates.isImportingHouaiss}
+              className="w-full"
+            >
+              {importStates.isImportingHouaiss ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Importando Houaiss...
+                </>
+              ) : (
+                <>
+                  <Download className="mr-2 h-4 w-4" />
+                  Importar Houaiss
+                </>
+              )}
+            </Button>
+            <p className="text-sm text-muted-foreground">
+              Sinônimos e relações lexicais carregados do GitHub.
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* Card UNESP */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <BookOpen className="h-5 w-5" />
+              Dicionário UNESP (Definições)
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Button 
+              onClick={importUnesp}
+              disabled={importStates.isImportingUnesp}
+              className="w-full"
+            >
+              {importStates.isImportingUnesp ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Importando UNESP...
+                </>
+              ) : (
+                <>
+                  <Download className="mr-2 h-4 w-4" />
+                  Importar UNESP
+                </>
+              )}
+            </Button>
+            <p className="text-sm text-muted-foreground">
+              Definições lexicográficas carregadas do GitHub.
+            </p>
+          </CardContent>
+        </Card>
         </div>
       </div>
 

@@ -32,6 +32,15 @@ verify_jwt = true
 
 [functions.import-gutenberg-backend]
 verify_jwt = true
+
+[functions.import-dialectal-backend]
+verify_jwt = true
+
+[functions.import-houaiss-backend]
+verify_jwt = true
+
+[functions.import-unesp-backend]
+verify_jwt = true
 # Importação do dicionário Gutenberg via backend
 # Proteção: Apenas usuários autenticados (admins)
 
