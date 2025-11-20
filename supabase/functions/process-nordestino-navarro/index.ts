@@ -7,6 +7,7 @@ const corsHeaders = {
 };
 
 interface ProcessRequest {
+  jobId?: string;  // ✅ NOVO: ID do job existente (opcional)
   fileContent?: string;
   offsetInicial?: number;
 }
@@ -32,29 +33,48 @@ serve(async (req) => {
   const supabase = createClient(supabaseUrl, supabaseKey);
 
   try {
-    const { fileContent, offsetInicial = 0 }: ProcessRequest = await req.json();
+    const { jobId, fileContent, offsetInicial = 0 }: ProcessRequest = await req.json();
     
-    console.log(`📚 Iniciando importação do Dicionário do Nordeste (Navarro 2014) - offset: ${offsetInicial}`);
+    let job: any;
+    let jobIdFinal: string;
 
-    // Criar job de importação
-    const { data: job, error: jobError } = await supabase
-      .from('dictionary_import_jobs')
-      .insert({
-        tipo_dicionario: 'navarro_nordeste_2014',
-        status: 'iniciado',
-        offset_inicial: offsetInicial,
-        metadata: {
-          fonte: 'Dicionário do Nordeste - Fred Navarro - 2014 (Limpo)',
-          url_github: 'https://github.com/ProfessorGeovaniHenrique/estilisticadecorpus/blob/main/public/dictionaries/NAVARROCLEAN.txt'
-        }
-      })
-      .select()
-      .single();
+    if (jobId) {
+      // ✅ Se jobId fornecido, usar job existente
+      console.log(`🔄 Usando job existente: ${jobId}`);
+      const { data, error } = await supabase
+        .from('dictionary_import_jobs')
+        .select('*')
+        .eq('id', jobId)
+        .single();
+      
+      if (error || !data) {
+        throw new Error(`Job ${jobId} não encontrado: ${error?.message}`);
+      }
+      job = data;
+      jobIdFinal = job.id;
+    } else {
+      // ✅ Se não fornecido, criar novo job (compatibilidade)
+      console.log(`✅ Criando novo job`);
+      const { data, error: jobError } = await supabase
+        .from('dictionary_import_jobs')
+        .insert({
+          tipo_dicionario: 'navarro_nordeste_2014',
+          status: 'iniciado',
+          offset_inicial: offsetInicial,
+          metadata: {
+            fonte: 'Dicionário do Nordeste - Fred Navarro - 2014 (Limpo)',
+            url_github: 'https://github.com/ProfessorGeovaniHenrique/estilisticadecorpus/blob/main/public/dictionaries/NAVARROCLEAN.txt'
+          }
+        })
+        .select()
+        .single();
+      
+      if (jobError) throw jobError;
+      job = data;
+      jobIdFinal = job.id;
+    }
 
-    if (jobError) throw jobError;
-
-    const jobId = job.id;
-    console.log(`✅ Job criado: ${jobId}`);
+    console.log(`📋 Job final: ${jobIdFinal} - offset: ${offsetInicial}`);
 
     // Usar conteúdo do body ou buscar do GitHub
     let content: string;
@@ -73,12 +93,12 @@ serve(async (req) => {
     console.log(`📊 Total de linhas processadas: ${lines.length}`);
 
     // Processar em background
-    processInBackground(supabase, jobId, lines, offsetInicial);
+    processInBackground(supabase, jobIdFinal, lines, offsetInicial);
 
     return new Response(
       JSON.stringify({ 
         success: true, 
-        jobId,
+        jobId: jobIdFinal,
         message: 'Importação iniciada com sucesso'
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
