@@ -33,6 +33,8 @@ import AdminAccessRequests from "./pages/AdminAccessRequests";
 import AdminEdgeFunctions from "./pages/AdminEdgeFunctions";
 import DeveloperHistory from "./pages/DeveloperHistory";
 import AdminMetricsRealtime from "./pages/AdminMetricsRealtime";
+import MusicEnrichment from "./pages/MusicEnrichment";
+import MusicCatalog from "./pages/MusicCatalog";
 import NotFound from "./pages/NotFound";
 import { lazy, Suspense } from "react";
 
@@ -205,6 +207,22 @@ const RouterContent = () => {
             element={
               <ProtectedRoute requiredRole="admin">
                 <AdminMetricsRealtime />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/music-enrichment" 
+            element={
+              <ProtectedRoute requiredRole="admin">
+                <MusicEnrichment />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/music-catalog" 
+            element={
+              <ProtectedRoute requiredRole="admin">
+                <MusicCatalog />
               </ProtectedRoute>
             } 
           />
