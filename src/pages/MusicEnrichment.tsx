@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { EmptyStateMusicEnrichment } from '@/components/music/EmptyStateMusicEnrichment';
 import { MusicAnalysisResult } from '@/components/music/MusicAnalysisResult';
 import { MusicUploadDialog } from '@/components/music/MusicUploadDialog';
+import { ingestionService } from '@/services/ingestionService';
 
 function MusicEnrichmentContent() {
   const { uploadFile, uploadState, progress, error, parsedData, fileName, resetProcessing } = useProcessing();
@@ -30,10 +31,36 @@ function MusicEnrichmentContent() {
     toast.info('Operação cancelada');
   }, [resetProcessing]);
 
-  const handleImport = useCallback(() => {
-    toast.success(`${parsedData.length} músicas importadas com sucesso!`);
-    navigate('/music-catalog');
-  }, [parsedData.length, navigate]);
+  const handleImport = useCallback(async () => {
+    try {
+      // Filtrar apenas músicas com título e artista
+      const validSongs = parsedData.filter(song => song.titulo && song.artista);
+      
+      if (validSongs.length === 0) {
+        toast.error('Nenhuma música válida encontrada (título e artista são obrigatórios)');
+        return;
+      }
+      
+      const result = await ingestionService.extractTitles(
+        validSongs.map(song => ({
+          titulo: song.titulo,
+          artista: song.artista!,
+          compositor: song.compositor,
+          ano: song.ano,
+          album: undefined,
+          genero: undefined
+        }))
+      );
+      
+      toast.success(
+        `${result.songsCreated} músicas importadas! ${result.artistsCreated} artistas criados.`
+      );
+      navigate('/music-catalog');
+    } catch (error) {
+      toast.error('Erro ao importar dados');
+      console.error('Import error:', error);
+    }
+  }, [parsedData, navigate]);
 
   // Estado: Análise completa (arquivo processado)
   if (uploadState === 'complete' && parsedData.length > 0) {
