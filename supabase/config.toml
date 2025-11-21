@@ -1,5 +1,14 @@
 project_id = "kywmhuubbsvclkorxrse"
 
+[functions.extract-music-titles]
+verify_jwt = false
+
+[functions.process-music-data]
+verify_jwt = false
+
+[functions.enrich-music-data]
+verify_jwt = false
+
 [functions.process-pending-jobs]
 verify_jwt = false
 
