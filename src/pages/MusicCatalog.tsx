@@ -10,6 +10,7 @@ import {
 import { ArtistDetailsSheet } from '@/components/music/ArtistDetailsSheet';
 import { EnrichmentBatchModal } from '@/components/music/EnrichmentBatchModal';
 import { EnrichmentMetricsDashboard } from '@/components/music/EnrichmentMetricsDashboard';
+import { Song } from '@/components/music/SongCard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -35,11 +36,27 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
+interface LocalArtist {
+  id: string;
+  name: string;
+  genre: string | null;
+  corpus_id: string | null;
+  normalized_name: string | null;
+  biography?: string | null;
+  biography_source?: string | null;
+  // Relação do Supabase (join)
+  corpora?: {
+    id: string;
+    name: string;
+    color: string | null;
+  };
+}
+
 export default function MusicCatalog() {
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
   const [searchQuery, setSearchQuery] = useState('');
-  const [songs, setSongs] = useState<any[]>([]);
-  const [artists, setArtists] = useState<any[]>([]);
+  const [songs, setSongs] = useState<Song[]>([]);
+  const [artists, setArtists] = useState<LocalArtist[]>([]);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     totalSongs: 0,

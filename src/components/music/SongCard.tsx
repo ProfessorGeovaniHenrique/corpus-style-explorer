@@ -16,6 +16,7 @@ export interface Song {
   id: string;
   title: string;
   artist?: string;
+  artist_id?: string;
   composer?: string | null;
   album?: string;
   year?: string;
@@ -31,6 +32,24 @@ export interface Song {
   youtube_url?: string | null;
   lyrics?: string | null;
   enrichment_source?: string | null;
+  raw_data?: any;
+  corpus_id?: string | null;
+  upload_id?: string | null;
+  created_at?: string;
+  updated_at?: string;
+  normalized_title?: string | null;
+  // Relações do Supabase (joins)
+  artists?: {
+    id: string;
+    name: string;
+    genre: string | null;
+    corpus_id: string | null;
+  };
+  corpora?: {
+    id: string;
+    name: string;
+    color: string | null;
+  };
 }
 
 interface SongCardProps {
