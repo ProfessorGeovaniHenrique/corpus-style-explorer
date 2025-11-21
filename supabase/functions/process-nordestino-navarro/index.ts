@@ -115,134 +115,99 @@ serve(async (req) => {
   }
 });
 
-// Função simplificada - arquivo já está limpo de metadados
+// ✅ Validação simplificada de verbete
 function isValidVerbete(verbete: string): boolean {
-  // Apenas validações essenciais
   if (verbete.length === 0 || verbete.length > 50) {
     return false;
   }
-  
   return true;
 }
 
+// ✅ Detectar classes gramaticais comuns
+function detectGrammarClass(text: string): string | null {
+  const posPatterns = ['s.m.', 's.f.', 's.2g.', 'v.t.d.', 'v.t.i.', 'v.int.', 'v.pron.', 'adj.', 'adv.', 'loc.', 'fraseol.'];
+  for (const pattern of posPatterns) {
+    if (text.toLowerCase().includes(pattern)) {
+      return text;
+    }
+  }
+  return null;
+}
+
+// ✅ Detectar região por código de estado ou "n.e."
+function detectRegion(text: string): string | null {
+  // Códigos de estado: ba, ce, pe, etc.
+  if (text.match(/^[a-z]{2}$/i)) {
+    return text.toUpperCase();
+  }
+  // Nordeste abreviado
+  if (text.toLowerCase() === 'n.e.') {
+    return 'NORDESTE';
+  }
+  return null;
+}
+
+// ✅ PARSER SIMPLIFICADO E DIRETO POR ÍNDICE
 function parseNordestinoEntry(line: string): ParsedEntry | null {
-  // Split por bullet point
+  // ✅ Split por bullet point
   const parts = line.split('•').map(p => p.trim()).filter(p => p);
   
   if (parts.length < 2) return null;
   
-  const verbete = parts[0].trim();
+  // ✅ MAPEAMENTO DIRETO POR ÍNDICE
+  const verbete = parts[0]; // Índice 0: verbete
   
-  // Validar se é um verbete real
   if (!isValidVerbete(verbete)) {
     return null;
   }
   
-  // Extrair TODAS as acepções
-  const acepcoes = extractAcepcoes(parts.slice(1));
+  // ✅ Índice 1: classe gramatical (se existir)
+  const classe_gramatical = parts.length > 1 ? detectGrammarClass(parts[1]) : null;
   
-  if (acepcoes.length === 0) return null;
+  // ✅ Índice 2: região (se existir)
+  let origem_regionalista: string[] = [];
+  if (parts.length > 2) {
+    const region = detectRegion(parts[2]);
+    if (region) {
+      origem_regionalista.push(region);
+    }
+  }
   
-  // Consolidar todas as acepções em um único registro
-  const allClasses = [...new Set(acepcoes.map(a => a.pos))].join(' / ');
-  const allRegioes = [...new Set(acepcoes.flatMap(a => a.regioes))];
-  const allVariantes = [...new Set(acepcoes.flatMap(a => a.variantes))];
-  const allDefinicoes = acepcoes.flatMap(a => a.definicoes);
+  // Se não detectou região, assumir NORDESTE
+  if (origem_regionalista.length === 0) {
+    origem_regionalista.push('NORDESTE');
+  }
   
+  // ✅ ÍNDICE 3 EM DIANTE: DEFINIÇÃO COMPLETA (concatenar preservando estrutura)
+  let definicaoCompleta = '';
+  if (parts.length > 3) {
+    // Preservar TODA a estrutura: acepções numeradas, aspas, colchetes, etc.
+    definicaoCompleta = parts.slice(3).join(' • ');
+  } else if (parts.length === 3) {
+    // Caso especial: se só tem 3 partes, a definição pode estar no índice 2
+    if (!detectRegion(parts[2])) {
+      definicaoCompleta = parts[2];
+    }
+  }
   
-  const entry_type = verbete.trim().includes(' ') ? 'mwe' : 'word';
+  // Se não há definição, descartar entrada
+  if (!definicaoCompleta || definicaoCompleta.trim().length === 0) {
+    return null;
+  }
+  
+  const entry_type = verbete.includes(' ') ? 'mwe' : 'word';
   
   return {
     verbete,
     verbete_normalizado: verbete.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''),
-    tipo_dicionario: 'navarro_2014', // ✅ ESCALÁVEL: Identificador único do dicionário
-    classe_gramatical: allClasses,
-    origem_regionalista: allRegioes,
-    variantes: allVariantes,
-    definicoes: allDefinicoes,
+    tipo_dicionario: 'navarro_2014',
+    classe_gramatical,
+    origem_regionalista,
+    variantes: [], // Variantes podem ser extraídas futuramente se necessário
+    definicoes: [definicaoCompleta], // ✅ Array com UMA string contendo TODA a definição
     entry_type,
     volume_fonte: 'Navarro 2014',
     confianca_extracao: 0.92
-  };
-}
-
-function extractAcepcoes(parts: string[]): Array<{pos: string, regioes: string[], variantes: string[], definicoes: string[]}> {
-  const acepcoes: Array<{pos: string, regioes: string[], variantes: string[], definicoes: string[]}> = [];
-  let currentContent = '';
-  
-  for (const part of parts) {
-    // Detectar início de nova acepção numerada (1 •, 2 •, etc)
-    const match = part.match(/^(\d+)\s+(.+)/);
-    if (match) {
-      if (currentContent) {
-        acepcoes.push(parseAcepcao(currentContent));
-      }
-      currentContent = match[2];
-    } else {
-      currentContent += (currentContent ? ' • ' : '') + part;
-    }
-  }
-  
-  // Adicionar última acepção ou única
-  if (currentContent) {
-    acepcoes.push(parseAcepcao(currentContent));
-  }
-  
-  // Se não há acepções, tratar todo conteúdo como única acepção
-  if (acepcoes.length === 0) {
-    acepcoes.push(parseAcepcao(parts.join(' • ')));
-  }
-  
-  return acepcoes;
-}
-
-function parseAcepcao(content: string): {pos: string, regioes: string[], variantes: string[], definicoes: string[]} {
-  const posPatterns = ['s.m.', 's.f.', 's.2g.', 'v.t.d.', 'v.t.i.', 'v.int.', 'v.pron.', 'adj.', 'adv.', 'loc.', 'fraseol.'];
-  let pos: string | null = null;
-  const regioes: string[] = [];
-  const variantes: string[] = [];
-  const definicoes: string[] = [];
-  
-  const parts = content.split('•').map(p => p.trim()).filter(p => p);
-  
-  for (const part of parts) {
-    // Detectar POS
-    if (!pos && posPatterns.some(p => part.toLowerCase().includes(p))) {
-      pos = part;
-      continue;
-    }
-    
-    // Detectar região (códigos de estado: ba, ce, pe, etc. ou n.e.)
-    if (part.match(/^[a-z]{2}$/i)) {
-      regioes.push(part.toUpperCase());
-      continue;
-    }
-    
-    if (part.toLowerCase() === 'n.e.') {
-      regioes.push('NORDESTE');
-      continue;
-    }
-    
-    // Detectar variantes (entre parênteses ou var.)
-    if (part.includes('(') || part.toLowerCase().includes('var.')) {
-      variantes.push(part);
-      continue;
-    }
-    
-    // Resto é definição
-    definicoes.push(part);
-  }
-  
-  // Se não encontrou região, assumir NORDESTE
-  if (regioes.length === 0) {
-    regioes.push('NORDESTE');
-  }
-  
-  return {
-    pos: pos || 's.m.',
-    regioes,
-    variantes,
-    definicoes
   };
 }
 
@@ -270,9 +235,21 @@ async function processInBackground(supabase: any, jobId: string, lines: string[]
       if (!line || !line.includes('•')) continue;
 
       try {
-        const parsedEntry = parseNordestinoEntry(line);
-        if (parsedEntry) {
-          verbetes.push(parsedEntry);
+        // ✅ PRÉ-PROCESSAMENTO: Dividir linhas com // (múltiplas entradas)
+        const subLines = line.includes('//') 
+          ? line.split('//').map(s => s.trim()).filter(s => s)
+          : [line];
+        
+        // Processar cada sub-linha como entrada independente
+        for (const subLine of subLines) {
+          const parsedEntry = parseNordestinoEntry(subLine);
+          if (parsedEntry) {
+            verbetes.push(parsedEntry);
+            // Log de amostra para debug (apenas primeiros 5 verbetes)
+            if (verbetes.length <= 5) {
+              console.log(`✅ Verbete: ${parsedEntry.verbete} | Def: ${parsedEntry.definicoes[0]?.substring(0, 80)}...`);
+            }
+          }
         }
       } catch (parseError) {
         console.error(`Erro ao parsear linha ${i}:`, line, parseError);
