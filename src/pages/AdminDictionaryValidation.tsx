@@ -23,6 +23,7 @@ import { VerbeteCard } from '@/components/validation/VerbeteCard';
 import { useValidationShortcuts } from '@/hooks/useValidationShortcuts';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useQueryClient } from '@tanstack/react-query';
 
 const DICTIONARY_CONFIG: Record<string, { 
   displayName: string; 
@@ -48,6 +49,7 @@ const DICTIONARY_CONFIG: Record<string, {
 export default function AdminDictionaryValidation() {
   const { tipo } = useParams<{ tipo: string }>();
   const config = DICTIONARY_CONFIG[tipo || ''];
+  const queryClient = useQueryClient();
   
   const [posFilter, setPosFilter] = useState<string>('all');
   const [validationFilter, setValidationFilter] = useState<string>('all');
@@ -355,6 +357,19 @@ export default function AdminDictionaryValidation() {
         </div>
 
         <div className="space-y-6">
+          {/* Badge de Status de Atualização */}
+          {(isLoading || queryClient.isFetching({ queryKey: ['backend-lexicon'] }) > 0) && (
+            <div className="fixed bottom-4 right-4 z-50">
+              <Badge 
+                variant="outline" 
+                className="gap-2 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-primary/50 shadow-lg animate-pulse"
+              >
+                <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                <span className="font-medium">Atualizando dados...</span>
+              </Badge>
+            </div>
+          )}
+
           {/* Painel de Validação em Tempo Real */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Card de Validados */}

@@ -121,7 +121,11 @@ Deno.serve(async (req) => {
 
       const { data, error } = await supabase
         .from(tableName)
-        .update({ [updateField]: true })
+        .update({ 
+          [updateField]: true,
+          validation_status: 'approved',
+          reviewed_at: new Date().toISOString()
+        })
         .in('id', chunk)
         .select('id');
 

@@ -186,6 +186,115 @@ export default function AdminDictionaryImport() {
           />
         </div>
 
+        {/* Card de Estatísticas de Validação */}
+        <Card className="mb-6 border-2 border-primary/20 bg-gradient-to-br from-primary/5 via-background to-background">
+          <div className="p-6">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <div className="p-3 rounded-xl bg-primary/20 ring-2 ring-primary/30">
+                  <Database className="h-6 w-6 text-primary" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-semibold">Status de Validação</h2>
+                  <p className="text-sm text-muted-foreground">Progresso da revisão humana dos léxicos</p>
+                </div>
+              </div>
+              {!lexiconStats && (
+                <Badge variant="outline" className="gap-2">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  Carregando...
+                </Badge>
+              )}
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {/* Gutenberg */}
+              <div className="space-y-3 p-4 rounded-lg border bg-card">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium flex items-center gap-2">
+                    📖 Gutenberg
+                  </span>
+                  <Badge variant="outline" className="font-mono">
+                    {lexiconStats?.gutenberg?.total > 0 
+                      ? ((lexiconStats.gutenberg.validados / lexiconStats.gutenberg.total) * 100).toFixed(1)
+                      : 0}%
+                  </Badge>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>✅ Validados: {lexiconStats?.gutenberg?.validados?.toLocaleString('pt-BR') || 0}</span>
+                  </div>
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>⏳ Pendentes: {((lexiconStats?.gutenberg?.total || 0) - (lexiconStats?.gutenberg?.validados || 0)).toLocaleString('pt-BR')}</span>
+                  </div>
+                  <Progress 
+                    value={lexiconStats?.gutenberg?.total > 0 
+                      ? (lexiconStats.gutenberg.validados / lexiconStats.gutenberg.total) * 100
+                      : 0} 
+                    className="h-2"
+                  />
+                </div>
+              </div>
+
+              {/* Gaúcho Unificado */}
+              <div className="space-y-3 p-4 rounded-lg border bg-card">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium flex items-center gap-2">
+                    🧉 Gaúcho
+                  </span>
+                  <Badge variant="outline" className="font-mono">
+                    {lexiconStats?.gaucho?.total > 0 
+                      ? ((lexiconStats.gaucho.validados / lexiconStats.gaucho.total) * 100).toFixed(1)
+                      : 0}%
+                  </Badge>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>✅ Validados: {lexiconStats?.gaucho?.validados?.toLocaleString('pt-BR') || 0}</span>
+                  </div>
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>⏳ Pendentes: {((lexiconStats?.gaucho?.total || 0) - (lexiconStats?.gaucho?.validados || 0)).toLocaleString('pt-BR')}</span>
+                  </div>
+                  <Progress 
+                    value={lexiconStats?.gaucho?.total > 0 
+                      ? (lexiconStats.gaucho.validados / lexiconStats.gaucho.total) * 100
+                      : 0} 
+                    className="h-2"
+                  />
+                </div>
+              </div>
+
+              {/* Geral */}
+              <div className="space-y-3 p-4 rounded-lg border bg-card">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium flex items-center gap-2">
+                    🌍 Geral
+                  </span>
+                  <Badge variant="outline" className="font-mono">
+                    {lexiconStats?.overall?.validation_rate 
+                      ? (lexiconStats.overall.validation_rate * 100).toFixed(1)
+                      : 0}%
+                  </Badge>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>✅ Validados: {((lexiconStats?.gaucho?.validados || 0) + (lexiconStats?.gutenberg?.validados || 0)).toLocaleString('pt-BR')}</span>
+                  </div>
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>⏳ Pendentes: {(((lexiconStats?.gaucho?.total || 0) - (lexiconStats?.gaucho?.validados || 0)) + ((lexiconStats?.gutenberg?.total || 0) - (lexiconStats?.gutenberg?.validados || 0))).toLocaleString('pt-BR')}</span>
+                  </div>
+                  <Progress 
+                    value={lexiconStats?.overall?.validation_rate 
+                      ? lexiconStats.overall.validation_rate * 100
+                      : 0} 
+                    className="h-2"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </Card>
+
         {/* Quick Status Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           {DICTIONARY_LIST.map((dict) => {

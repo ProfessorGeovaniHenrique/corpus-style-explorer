@@ -15,6 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import { CheckSquare, Loader2, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface BatchValidationDialogProps {
   batchSize: number;
@@ -26,6 +27,7 @@ interface BatchValidationDialogProps {
 export function BatchValidationDialog({ batchSize, dictionaryType, onSuccess, trigger }: BatchValidationDialogProps) {
   const [isValidating, setIsValidating] = useState(false);
   const [open, setOpen] = useState(false);
+  const queryClient = useQueryClient();
 
   const handleValidate = async () => {
     setIsValidating(true);
@@ -42,10 +44,26 @@ export function BatchValidationDialog({ batchSize, dictionaryType, onSuccess, tr
 
       if (error) throw error;
 
+      // Invalidar todas as queries relacionadas para forçar atualização
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['backend-lexicon'] }),
+        queryClient.invalidateQueries({ queryKey: ['lexicon-stats'] }),
+        queryClient.invalidateQueries({ queryKey: ['dialectal-lexicon'] }),
+      ]);
+
+      // Buscar stats atualizadas para o toast
+      const newStats = queryClient.getQueryData(['lexicon-stats']) as any;
+      
+      const dictionaryLabel = getDictionaryLabel();
+      const statsInfo = newStats ? 
+        `📊 ${dictionaryLabel}: ${newStats[dictionaryType === 'dialectal' ? 'gaucho' : 'gutenberg']?.validados?.toLocaleString('pt-BR') || 0} validados | ${((newStats[dictionaryType === 'dialectal' ? 'gaucho' : 'gutenberg']?.total || 0) - (newStats[dictionaryType === 'dialectal' ? 'gaucho' : 'gutenberg']?.validados || 0)).toLocaleString('pt-BR')} pendentes` 
+        : '';
+
       toast.success(
         `✅ ${data.validated} entradas validadas com sucesso!`,
         {
-          description: data.skipped > 0 ? `${data.skipped} já estavam validadas` : undefined
+          description: statsInfo || (data.skipped > 0 ? `${data.skipped} já estavam validadas` : undefined),
+          duration: 5000,
         }
       );
       
