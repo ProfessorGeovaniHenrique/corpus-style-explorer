@@ -15,6 +15,7 @@ interface ProcessRequest {
 interface ParsedEntry {
   verbete: string;
   verbete_normalizado: string;
+  tipo_dicionario: string; // ✅ Identificador único do dicionário
   classe_gramatical: string | null;
   origem_regionalista: string[];
   variantes: string[];
@@ -154,6 +155,7 @@ function parseNordestinoEntry(line: string): ParsedEntry | null {
   return {
     verbete,
     verbete_normalizado: verbete.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''),
+    tipo_dicionario: 'navarro_2014', // ✅ ESCALÁVEL: Identificador único do dicionário
     classe_gramatical: allClasses,
     origem_regionalista: allRegioes,
     variantes: allVariantes,

@@ -50,13 +50,13 @@ serve(async (req) => {
 
     console.log('🔍 Fetching lexicon stats (optimized SQL aggregations)...');
 
-    // ✅ FASE 1 & 2: Queries SQL otimizadas com COUNT direto (sem limite de 1000 linhas)
+    // ✅ FASE 1 & 2: Queries SQL otimizadas com RPC flexível (escalável)
     const [gauchoResult, navarroResult, gutenbergResult, rochaPomboResult, rochaPomboValidadosResult, unespResult, lastImportResult] = await Promise.all([
       // Gaúcho Unificado V2 - Query SQL otimizada
-      supabase.rpc('get_dialectal_stats_by_type', { dict_type: 'gaucho_unificado_v2' }).single(),
+      supabase.rpc('get_dialectal_stats_flexible', { dict_type: 'gaucho_unificado_v2', volume_filter: null }).single(),
       
-      // Navarro 2014 - Query SQL otimizada
-      supabase.rpc('get_dialectal_stats_by_type', { dict_type: 'navarro_2014' }).single(),
+      // Navarro 2014 - Query SQL otimizada com RPC flexível
+      supabase.rpc('get_dialectal_stats_flexible', { dict_type: 'navarro_2014', volume_filter: null }).single(),
       
       // Gutenberg
       supabase.rpc('get_gutenberg_stats', {}, { count: 'exact' }),

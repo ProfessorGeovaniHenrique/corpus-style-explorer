@@ -2074,6 +2074,16 @@ export type Database = {
           validados: number
         }[]
       }
+      get_dialectal_stats_flexible: {
+        Args: { dict_type?: string; volume_filter?: string }
+        Returns: {
+          campeiros: number
+          confianca_media: number
+          platinismos: number
+          total: number
+          validados: number
+        }[]
+      }
       get_gutenberg_stats: {
         Args: never
         Returns: {
