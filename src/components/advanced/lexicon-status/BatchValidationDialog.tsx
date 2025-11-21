@@ -20,9 +20,10 @@ interface BatchValidationDialogProps {
   batchSize: number;
   dictionaryType: string;
   onSuccess?: () => void;
+  trigger?: React.ReactNode;
 }
 
-export function BatchValidationDialog({ batchSize, dictionaryType, onSuccess }: BatchValidationDialogProps) {
+export function BatchValidationDialog({ batchSize, dictionaryType, onSuccess, trigger }: BatchValidationDialogProps) {
   const [isValidating, setIsValidating] = useState(false);
   const [open, setOpen] = useState(false);
 
@@ -72,10 +73,12 @@ export function BatchValidationDialog({ batchSize, dictionaryType, onSuccess }: 
   return (
     <AlertDialog open={open} onOpenChange={setOpen}>
       <AlertDialogTrigger asChild>
-        <Button variant="outline" size="sm" className="gap-2">
-          <CheckSquare className="h-4 w-4" />
-          Validar {batchSize}
-        </Button>
+        {trigger || (
+          <Button variant="outline" size="sm" className="gap-2">
+            <CheckSquare className="h-4 w-4" />
+            Validar {batchSize}
+          </Button>
+        )}
       </AlertDialogTrigger>
       
       <AlertDialogContent>
