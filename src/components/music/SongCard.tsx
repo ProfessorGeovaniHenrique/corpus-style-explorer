@@ -2,8 +2,9 @@ import { useState } from 'react';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Music, Eye, Edit, Sparkles, Loader2, AlertCircle, CheckCircle2, MoreVertical, RefreshCw, Trash2, Folder, Youtube, Play, X } from 'lucide-react';
+import { Music, Eye, Edit, Sparkles, Loader2, AlertCircle, CheckCircle2, MoreVertical, RefreshCw, Trash2, Folder, Youtube, Play, X, ChevronDown, ChevronUp } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -96,6 +97,7 @@ export function SongCard({
 }: SongCardProps) {
   const [showVideoPlayer, setShowVideoPlayer] = useState(false);
   const [thumbnailError, setThumbnailError] = useState(false);
+  const [isLyricsOpen, setIsLyricsOpen] = useState(false);
   
   // Compatibilidade: suporta ambos youtubeUrl e youtube_url
   const youtubeLink = song.youtubeUrl || song.youtube_url;
@@ -220,6 +222,11 @@ export function SongCard({
           <div className="absolute top-1 right-1 flex flex-col gap-1">
             {getStatusBadge(song.status)}
             {confidence > 0 && getConfidenceBadge(confidence)}
+            {song.status === 'enriched' && (
+              <Badge variant="default" className="text-xs animate-pulse">
+                Novo
+              </Badge>
+            )}
           </div>
         </div>
 
@@ -385,6 +392,35 @@ export function SongCard({
             )}
           </div>
 
+          {/* Letra Colapsável */}
+          {song.lyrics && (
+            <Collapsible open={isLyricsOpen} onOpenChange={setIsLyricsOpen}>
+              <CollapsibleTrigger asChild>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="w-full justify-between hover:bg-muted/50"
+                >
+                  <span className="text-xs font-medium">
+                    {isLyricsOpen ? 'Ocultar' : 'Ver'} Letra
+                  </span>
+                  {isLyricsOpen ? (
+                    <ChevronUp className="w-4 h-4" />
+                  ) : (
+                    <ChevronDown className="w-4 h-4" />
+                  )}
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="pt-2">
+                <div className="bg-muted/30 rounded-lg p-3 max-h-60 overflow-y-auto">
+                  <pre className="text-xs whitespace-pre-wrap font-sans leading-relaxed text-foreground">
+                    {song.lyrics}
+                  </pre>
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
+          )}
+
           {/* YouTube Player Embed - Apenas no modo full */}
           {!isCompact && showVideoPlayer && videoId && (
             <div className="w-full aspect-video rounded-lg overflow-hidden bg-black animate-fade-in">
@@ -400,18 +436,6 @@ export function SongCard({
                 className="w-full h-full"
               />
             </div>
-          )}
-          
-          {/* Botão Ver Letra - Apenas no modo full */}
-          {!isCompact && onView && (
-            <Button 
-              variant="ghost" 
-              className="w-full justify-between text-sm"
-              onClick={() => onView(song)}
-            >
-              Ocultar Letra
-              <AlertCircle className="w-4 h-4" />
-            </Button>
           )}
         </div>
       </CardContent>
