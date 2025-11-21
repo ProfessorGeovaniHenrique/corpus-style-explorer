@@ -8,6 +8,7 @@ import {
   AdvancedExportMenu 
 } from '@/components/music';
 import { EnrichmentBatchModal } from '@/components/music/EnrichmentBatchModal';
+import { EnrichmentMetricsDashboard } from '@/components/music/EnrichmentMetricsDashboard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -31,6 +32,8 @@ export default function MusicCatalog() {
   const [enrichingIds, setEnrichingIds] = useState<Set<string>>(new Set());
   const [batchModalOpen, setBatchModalOpen] = useState(false);
   const [pendingSongsForBatch, setPendingSongsForBatch] = useState<any[]>([]);
+  const [showMetricsDashboard, setShowMetricsDashboard] = useState(false);
+  const [metricsData, setMetricsData] = useState<any>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -41,8 +44,8 @@ export default function MusicCatalog() {
     try {
       setLoading(true);
 
-      // Carregar músicas com artistas
-      let query = supabase
+      // Carregar todas as músicas para estatísticas completas
+      const { data: allSongsData, error: allSongsError } = await supabase
         .from('songs')
         .select(`
           *,
@@ -51,17 +54,19 @@ export default function MusicCatalog() {
             name,
             genre
           )
-        `);
+        `)
+        .order('created_at', { ascending: false });
 
-      if (statusFilter !== 'all') {
-        query = query.eq('status', statusFilter);
-      }
+      if (allSongsError) throw allSongsError;
 
-      const { data: songsData, error: songsError } = await query
-        .order('created_at', { ascending: false })
-        .limit(100);
+      const allSongs = allSongsData || [];
 
-      if (songsError) throw songsError;
+      // Filtrar músicas baseado no filtro de status
+      const displayedSongs = statusFilter === 'all' 
+        ? allSongs 
+        : allSongs.filter(s => s.status === statusFilter);
+
+      setSongs(displayedSongs);
 
       // Carregar artistas únicos
       const { data: artistsData, error: artistsError } = await supabase
@@ -70,19 +75,127 @@ export default function MusicCatalog() {
         .order('name');
 
       if (artistsError) throw artistsError;
-
-      setSongs(songsData || []);
       setArtists(artistsData || []);
 
       // Calcular estatísticas
-      const totalSongs = songsData?.length || 0;
-      const totalArtists = artistsData?.length || 0;
-      const pendingSongs = (songsData as any[])?.filter(s => s.status === 'pending').length || 0;
-      const avgConfidence = songsData?.length 
-        ? (songsData as any[]).reduce((acc, s) => acc + (s.confidence_score || 0), 0) / songsData.length
+      const enrichedCount = allSongs.filter(s => s.status === 'enriched').length;
+      const pendingCount = allSongs.filter(s => s.status === 'pending').length;
+      const errorCount = allSongs.filter(s => s.status === 'error').length;
+
+      const avgConfidence = enrichedCount > 0
+        ? allSongs
+            .filter(s => s.status === 'enriched')
+            .reduce((acc, s) => acc + (s.confidence_score || 0), 0) / enrichedCount
         : 0;
 
-      setStats({ totalSongs, totalArtists, avgConfidence, pendingSongs });
+      setStats({ 
+        totalSongs: allSongs.length, 
+        totalArtists: artistsData?.length || 0, 
+        avgConfidence, 
+        pendingSongs: pendingCount 
+      });
+
+      // Calcular métricas para o dashboard
+      const successRate = allSongs.length > 0 
+        ? (enrichedCount / allSongs.length) * 100 
+        : 0;
+
+      // Histórico dos últimos 30 dias
+      const last30Days = Array.from({ length: 30 }, (_, i) => {
+        const date = new Date();
+        date.setDate(date.getDate() - (29 - i));
+        return date.toISOString().split('T')[0];
+      });
+
+      const historyData = last30Days.map(date => {
+        const dayStart = new Date(date);
+        const dayEnd = new Date(date);
+        dayEnd.setDate(dayEnd.getDate() + 1);
+
+        const enrichedOnDay = allSongs.filter(s => 
+          s.updated_at && 
+          new Date(s.updated_at) >= dayStart && 
+          new Date(s.updated_at) < dayEnd &&
+          s.status === 'enriched'
+        ).length;
+
+        const errorsOnDay = allSongs.filter(s => 
+          s.updated_at && 
+          new Date(s.updated_at) >= dayStart && 
+          new Date(s.updated_at) < dayEnd &&
+          s.status === 'error'
+        ).length;
+
+        return {
+          date: date.split('-').slice(1).join('/'),
+          success: enrichedOnDay,
+          failure: errorsOnDay
+        };
+      });
+
+      // Distribuição por fonte
+      const enrichedSongs = allSongs.filter(s => s.status === 'enriched');
+      const sourceMap = new Map<string, { count: number; totalConfidence: number }>();
+      
+      enrichedSongs.forEach(song => {
+        const source = song.enrichment_source || 'Unknown';
+        const existing = sourceMap.get(source) || { count: 0, totalConfidence: 0 };
+        sourceMap.set(source, {
+          count: existing.count + 1,
+          totalConfidence: existing.totalConfidence + (song.confidence_score || 0)
+        });
+      });
+
+      const sourceDistribution = Array.from(sourceMap.entries()).map(([source, data]) => ({
+        source,
+        count: data.count,
+        avgConfidence: data.count > 0 ? (data.totalConfidence / data.count) : 0
+      }));
+
+      // Distribuição de confiança
+      const confidenceRanges = [
+        { range: '0-20%', min: 0, max: 20 },
+        { range: '21-40%', min: 21, max: 40 },
+        { range: '41-60%', min: 41, max: 60 },
+        { range: '61-80%', min: 61, max: 80 },
+        { range: '81-100%', min: 81, max: 100 }
+      ];
+
+      const confidenceDistribution = confidenceRanges.map(range => ({
+        range: range.range,
+        count: enrichedSongs.filter(s => 
+          s.confidence_score >= range.min && s.confidence_score <= range.max
+        ).length
+      }));
+
+      // Enriquecimentos recentes
+      const recentEnrichments = allSongs
+        .filter(s => s.status === 'enriched' || s.status === 'error')
+        .sort((a, b) => new Date(b.updated_at || 0).getTime() - new Date(a.updated_at || 0).getTime())
+        .slice(0, 10)
+        .map(s => ({
+          id: s.id,
+          title: s.title,
+          artist: s.artists?.name || 'Unknown',
+          timestamp: s.updated_at || s.created_at,
+          status: s.status,
+          confidence: s.confidence_score || 0,
+          source: s.enrichment_source || 'Unknown'
+        }));
+
+      setMetricsData({
+        totalSongs: allSongs.length,
+        enriched: enrichedCount,
+        pending: pendingCount,
+        errors: errorCount,
+        successRate,
+        avgConfidence,
+        enrichmentHistory: historyData,
+        sourceDistribution,
+        confidenceDistribution,
+        recentEnrichments
+      });
+
     } catch (error) {
       console.error('Erro ao carregar dados:', error);
       toast({
@@ -180,6 +293,43 @@ export default function MusicCatalog() {
     toast({
       title: "🎉 Enriquecimento concluído!",
       description: "Todas as músicas foram processadas."
+    });
+  };
+
+  const handleExportReport = () => {
+    if (!metricsData) return;
+
+    const reportData = {
+      generatedAt: new Date().toISOString(),
+      summary: {
+        totalSongs: metricsData.totalSongs,
+        enriched: metricsData.enriched,
+        pending: metricsData.pending,
+        errors: metricsData.errors,
+        successRate: metricsData.successRate,
+        avgConfidence: metricsData.avgConfidence
+      },
+      enrichmentHistory: metricsData.enrichmentHistory,
+      sourceDistribution: metricsData.sourceDistribution,
+      confidenceDistribution: metricsData.confidenceDistribution,
+      recentEnrichments: metricsData.recentEnrichments
+    };
+
+    const blob = new Blob([JSON.stringify(reportData, null, 2)], { 
+      type: 'application/json' 
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `relatorio-enriquecimento-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    toast({
+      title: "✅ Relatório exportado!",
+      description: "Arquivo JSON baixado com sucesso."
     });
   };
 
@@ -301,6 +451,7 @@ export default function MusicCatalog() {
           <TabsTrigger value="songs">Músicas</TabsTrigger>
           <TabsTrigger value="artists">Artistas</TabsTrigger>
           <TabsTrigger value="stats">Estatísticas</TabsTrigger>
+          <TabsTrigger value="metrics">Métricas</TabsTrigger>
         </TabsList>
 
         <TabsContent value="songs" className="space-y-4">
@@ -401,6 +552,15 @@ export default function MusicCatalog() {
               subtitle="score de qualidade"
             />
           </div>
+        </TabsContent>
+
+        <TabsContent value="metrics" className="space-y-4">
+          {metricsData && (
+            <EnrichmentMetricsDashboard 
+              metrics={metricsData}
+              onExportReport={handleExportReport}
+            />
+          )}
         </TabsContent>
       </Tabs>
 
