@@ -47,19 +47,25 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    console.log('🔍 Fetching lexicon stats (aggregated)...');
+    console.log('🔍 Fetching lexicon stats (optimized SQL aggregations)...');
 
-    // Parallel queries for maximum performance
-    const [dialectalData, gutenbergResult, rochaPomboResult, unespResult, lastImportResult] = await Promise.all([
-      // Dialectal - Buscar dados completos para separar Gaúcho e Navarro
-      supabase.from('dialectal_lexicon')
-        .select('volume_fonte, validado_humanamente, confianca_extracao, origem_regionalista, influencia_platina'),
+    // ✅ FASE 1 & 2: Queries SQL otimizadas com COUNT direto (sem limite de 1000 linhas)
+    const [gauchoResult, navarroResult, gutenbergResult, rochaPomboResult, unespResult, lastImportResult] = await Promise.all([
+      // Gaúcho Unificado V2 - Query SQL otimizada
+      supabase.rpc('get_dialectal_stats_by_type', { dict_type: 'gaucho_unificado_v2' }).single(),
+      
+      // Navarro 2014 - Query SQL otimizada
+      supabase.rpc('get_dialectal_stats_by_type', { dict_type: 'navarro_2014' }).single(),
+      
       // Gutenberg
       supabase.rpc('get_gutenberg_stats', {}, { count: 'exact' }),
+      
       // Rocha Pombo (ABL) count
       supabase.from('lexical_synonyms').select('*', { count: 'exact', head: true }).eq('fonte', 'rocha_pombo'),
+      
       // UNESP count
       supabase.from('lexical_definitions').select('*', { count: 'exact', head: true }),
+      
       // Last import
       supabase.from('dictionary_import_jobs')
         .select('tempo_fim')
@@ -69,39 +75,22 @@ serve(async (req) => {
         .single()
     ]);
 
-    // Separar verbetes Gaúcho e Navarro baseado em volume_fonte
-    const allDialectal = dialectalData.data || [];
-    
-    const gauchoVerbetes = allDialectal.filter(d => {
-      const vol = (d.volume_fonte || '').toLowerCase();
-      return vol.includes('i') || vol.includes('ii') || vol.includes('gaúcho') || vol.includes('gaucho');
-    });
-    
-    const navarroVerbetes = allDialectal.filter(d => {
-      const vol = (d.volume_fonte || '').toLowerCase();
-      return vol.includes('navarro') || vol.includes('nordeste') || vol.includes('2014');
-    });
-
-    // Calcular stats Gaúcho
+    // Processar stats Gaúcho (com fallback para dados vazios)
+    const gauchoData = gauchoResult.data as any;
     const gauchoStats = {
-      total: gauchoVerbetes.length,
-      validados: gauchoVerbetes.filter(v => v.validado_humanamente).length,
-      confianca_media: gauchoVerbetes.length > 0
-        ? gauchoVerbetes.reduce((sum, v) => sum + (v.confianca_extracao || 0), 0) / gauchoVerbetes.length
-        : 0,
-      campeiros: gauchoVerbetes.filter(v => 
-        Array.isArray(v.origem_regionalista) && v.origem_regionalista.includes('campeiro')
-      ).length,
-      platinismos: gauchoVerbetes.filter(v => v.influencia_platina).length,
+      total: gauchoData?.total || 0,
+      validados: gauchoData?.validados || 0,
+      confianca_media: parseFloat(gauchoData?.confianca_media || '0'),
+      campeiros: gauchoData?.campeiros || 0,
+      platinismos: gauchoData?.platinismos || 0,
     };
 
-    // Calcular stats Navarro
+    // Processar stats Navarro (com fallback para dados vazios)
+    const navarroData = navarroResult.data as any;
     const navarroStats = {
-      total: navarroVerbetes.length,
-      validados: navarroVerbetes.filter(v => v.validado_humanamente).length,
-      confianca_media: navarroVerbetes.length > 0
-        ? navarroVerbetes.reduce((sum, v) => sum + (v.confianca_extracao || 0), 0) / navarroVerbetes.length
-        : 0,
+      total: navarroData?.total || 0,
+      validados: navarroData?.validados || 0,
+      confianca_media: parseFloat(navarroData?.confianca_media || '0'),
     };
 
     // Process gutenberg data
