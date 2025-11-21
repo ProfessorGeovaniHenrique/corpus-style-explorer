@@ -29,6 +29,7 @@ interface ClearDictionariesCardProps {
 
 export function ClearDictionariesCard({ stats, onSuccess }: ClearDictionariesCardProps) {
   const [isClearing, setIsClearing] = useState(false);
+  const [clearingIndividual, setClearingIndividual] = useState<string | null>(null);
 
   const handleClearAllDictionaries = async () => {
     setIsClearing(true);
@@ -47,6 +48,25 @@ export function ClearDictionariesCard({ stats, onSuccess }: ClearDictionariesCar
     }
   };
 
+  const handleClearSingleDictionary = async (dictionaryType: string, displayName: string) => {
+    setClearingIndividual(dictionaryType);
+    try {
+      const { data, error } = await supabase.functions.invoke('clear-dictionary', {
+        body: { dictionaryType }
+      });
+      
+      if (error) throw error;
+      
+      toast.success(`✅ ${displayName} foi limpo com sucesso`);
+      onSuccess?.();
+    } catch (error: any) {
+      console.error('Erro ao limpar:', error);
+      toast.error(`❌ Erro ao limpar ${displayName}: ${error.message}`);
+    } finally {
+      setClearingIndividual(null);
+    }
+  };
+
   return (
     <Card className="border-destructive/50 bg-destructive/5">
       <CardHeader>
@@ -60,22 +80,153 @@ export function ClearDictionariesCard({ stats, onSuccess }: ClearDictionariesCar
       </CardHeader>
       <CardContent className="space-y-4">
         {stats && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
-            <div className="p-2 bg-background rounded border">
-              <p className="font-semibold">Gaúcho Unificado</p>
-              <p className="text-muted-foreground">{stats.gaucho.total.toLocaleString()} verbetes</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+            <div className="p-3 bg-background rounded border space-y-2">
+              <div className="flex justify-between items-center">
+                <div>
+                  <p className="font-semibold">Gaúcho Unificado</p>
+                  <p className="text-muted-foreground">{stats.gaucho.total.toLocaleString()} verbetes</p>
+                </div>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      disabled={clearingIndividual === 'gaucho' || stats.gaucho.total === 0}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Confirmar exclusão - Gaúcho Unificado</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Tem certeza que deseja excluir <strong>{stats.gaucho.total.toLocaleString()} verbetes</strong> do dicionário Gaúcho Unificado? Esta ação não pode ser desfeita.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={() => handleClearSingleDictionary('gaucho', 'Gaúcho Unificado')}
+                        className="bg-destructive hover:bg-destructive/90"
+                      >
+                        Sim, Excluir
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </div>
             </div>
-            <div className="p-2 bg-background rounded border">
-              <p className="font-semibold">Navarro 2014</p>
-              <p className="text-muted-foreground">{stats.navarro.total.toLocaleString()} verbetes</p>
+
+            <div className="p-3 bg-background rounded border space-y-2">
+              <div className="flex justify-between items-center">
+                <div>
+                  <p className="font-semibold">Navarro 2014</p>
+                  <p className="text-muted-foreground">{stats.navarro.total.toLocaleString()} verbetes</p>
+                </div>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      disabled={clearingIndividual === 'navarro' || stats.navarro.total === 0}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Confirmar exclusão - Navarro 2014</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Tem certeza que deseja excluir <strong>{stats.navarro.total.toLocaleString()} verbetes</strong> do dicionário Navarro 2014? Esta ação não pode ser desfeita.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={() => handleClearSingleDictionary('navarro', 'Navarro 2014')}
+                        className="bg-destructive hover:bg-destructive/90"
+                      >
+                        Sim, Excluir
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </div>
             </div>
-            <div className="p-2 bg-background rounded border">
-              <p className="font-semibold">Rocha Pombo</p>
-              <p className="text-muted-foreground">{stats.rochaPombo.total.toLocaleString()} verbetes</p>
+
+            <div className="p-3 bg-background rounded border space-y-2">
+              <div className="flex justify-between items-center">
+                <div>
+                  <p className="font-semibold">Rocha Pombo</p>
+                  <p className="text-muted-foreground">{stats.rochaPombo.total.toLocaleString()} verbetes</p>
+                </div>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      disabled={clearingIndividual === 'rochaPombo' || stats.rochaPombo.total === 0}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Confirmar exclusão - Rocha Pombo</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Tem certeza que deseja excluir <strong>{stats.rochaPombo.total.toLocaleString()} verbetes</strong> do dicionário Rocha Pombo? Esta ação não pode ser desfeita.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={() => handleClearSingleDictionary('rochaPombo', 'Rocha Pombo')}
+                        className="bg-destructive hover:bg-destructive/90"
+                      >
+                        Sim, Excluir
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </div>
             </div>
-            <div className="p-2 bg-background rounded border">
-              <p className="font-semibold">Gutenberg</p>
-              <p className="text-muted-foreground">{stats.gutenberg.total.toLocaleString()} verbetes</p>
+
+            <div className="p-3 bg-background rounded border space-y-2">
+              <div className="flex justify-between items-center">
+                <div>
+                  <p className="font-semibold">Gutenberg</p>
+                  <p className="text-muted-foreground">{stats.gutenberg.total.toLocaleString()} verbetes</p>
+                </div>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      disabled={clearingIndividual === 'gutenberg' || stats.gutenberg.total === 0}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Confirmar exclusão - Gutenberg</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Tem certeza que deseja excluir <strong>{stats.gutenberg.total.toLocaleString()} verbetes</strong> do dicionário Gutenberg? Esta ação não pode ser desfeita.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={() => handleClearSingleDictionary('gutenberg', 'Gutenberg')}
+                        className="bg-destructive hover:bg-destructive/90"
+                      >
+                        Sim, Excluir
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </div>
             </div>
           </div>
         )}
