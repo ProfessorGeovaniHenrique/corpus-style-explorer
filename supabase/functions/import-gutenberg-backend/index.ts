@@ -1,4 +1,4 @@
-// 🔥 DEPLOY TIMESTAMP: 2025-01-20T18:30:00Z - v5.1: Rate Limiting Fixed (5 parallel + 1s delay)
+// 🔥 DEPLOY TIMESTAMP: 2025-01-20T19:00:00Z - v5.2: Hybrid Strategy (Regex First, AI Fallback)
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.81.1';
 import { withRetry } from '../_shared/retry.ts';
 
@@ -45,6 +45,87 @@ function normalizeText(text: string): string {
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .trim();
+}
+
+/**
+ * 🆕 v5.2: Parsing com REGEX (fallback para IA)
+ * Tenta extrair dados estruturados usando padrões regex
+ * Retorna null se não conseguir extrair dados mínimos
+ */
+function parseWithRegex(entryText: string): VerbeteGutenberg | null {
+  try {
+    // Extrair verbete (primeira linha entre asteriscos)
+    const verbeteMatch = entryText.match(/\*([^*]+)\*/);
+    if (!verbeteMatch) return null;
+    
+    const verbete = verbeteMatch[1].trim();
+    if (!verbete || verbete.length < 2) return null;
+
+    // Extrair classe gramatical (padrão _texto._ ou _texto_)
+    const classMatches = entryText.match(/_([^_]+)_/g);
+    let classeGramatical: string | null = null;
+    
+    if (classMatches && classMatches.length > 0) {
+      // Pegar a primeira classe encontrada e limpar
+      classeGramatical = classMatches[0]
+        .replace(/_/g, '')
+        .replace(/\./g, '')
+        .trim();
+    }
+
+    // Extrair definições (linhas que não são metadados)
+    const lines = entryText.split(/\r?\n/).filter(l => l.trim());
+    const definicoes: string[] = [];
+    
+    for (const line of lines) {
+      const cleaned = line
+        .replace(/\*[^*]+\*/g, '') // Remove verbetes
+        .replace(/_[^_]+_/g, '')   // Remove itálicos
+        .replace(/\([^)]+\)/g, '') // Remove parênteses
+        .trim();
+      
+      if (cleaned.length > 10 && !cleaned.match(/^[A-Z\s]+$/)) {
+        definicoes.push(cleaned);
+      }
+    }
+
+    // Validar se temos dados mínimos
+    if (definicoes.length === 0) return null;
+
+    // Extrair exemplos (textos entre aspas)
+    const exemplosMatch = entryText.match(/"([^"]+)"/g);
+    const exemplos = exemplosMatch 
+      ? exemplosMatch.map(e => e.replace(/"/g, '').trim()).filter(e => e.length > 5)
+      : [];
+
+    // Tentar extrair etimologia (texto entre parênteses no final)
+    const etimologiaMatch = entryText.match(/\(([^)]+)\)[^(]*$/);
+    const etimologia = etimologiaMatch ? etimologiaMatch[1].trim() : null;
+
+    return {
+      verbete,
+      verbete_normalizado: normalizeText(verbete),
+      classe_gramatical: classeGramatical || undefined,
+      definicoes: definicoes.slice(0, 3).map(texto => ({ texto })),
+      exemplos: exemplos.length > 0 ? exemplos : undefined,
+      etimologia: etimologia || undefined,
+      genero: undefined,
+      sinonimos: undefined,
+      antonimos: undefined,
+      derivados: undefined,
+      expressoes: undefined,
+      areas_conhecimento: undefined,
+      origem_lingua: undefined,
+      arcaico: false,
+      popular: false,
+      figurado: false,
+      regional: false,
+      confianca_extracao: 0.6 // Confiança média para regex
+    };
+  } catch (error) {
+    console.warn(`⚠️ Regex parsing failed: ${error instanceof Error ? error.message : 'Unknown'}`);
+    return null;
+  }
 }
 
 // ============= PARSING INTELIGENTE COM GEMINI FLASH =============
@@ -225,28 +306,71 @@ async function processChunk(
 
     let definicoesVazias = 0;
 
-    console.log(`🤖 Processando ${chunk.length} verbetes com IA (Gemini Flash v5.1)`);
-    console.log(`   Concorrência: 5 chamadas paralelas + 1s delay entre batches`);
-    console.log(`   Tempo estimado: ~${Math.ceil(chunk.length / 5 * 2)}s`);
+    console.log(`\n🔄 ESTRATÉGIA HÍBRIDA v5.2`);
+    console.log(`   Fase 1: Parsing com REGEX (rápido)`);
+    console.log(`   Fase 2: IA apenas para falhas (1 chamada/8s)`);
+    
+    // ========== FASE 1: REGEX PARSING (RÁPIDO) ==========
+    console.log(`\n📊 Fase 1/2: Tentando regex em ${chunk.length} verbetes...`);
+    const regexResults = chunk.map(v => parseWithRegex(v));
+    const regexSuccess = regexResults.filter((v): v is VerbeteGutenberg => v !== null);
+    const regexFailedIndices = regexResults
+      .map((result, idx) => result === null ? idx : -1)
+      .filter(idx => idx !== -1);
+    
+    console.log(`✅ Regex extraiu ${regexSuccess.length}/${chunk.length} verbetes (${Math.round(regexSuccess.length/chunk.length*100)}%)`);
+    console.log(`⚠️  ${regexFailedIndices.length} verbetes precisam de IA`);
 
-    const parsedBatch = await processBatchWithConcurrency(
-      chunk,
-      async (v) => {
-        const parsed = await parseWithGeminiRetry(v);
-        if (parsed && (!parsed.definicoes || parsed.definicoes.length === 0)) {
-          definicoesVazias++;
+    // ========== FASE 2: IA PARA FALHAS (LENTO MAS PRECISO) ==========
+    let aiParsed: VerbeteGutenberg[] = [];
+    
+    if (regexFailedIndices.length > 0) {
+      console.log(`\n🤖 Fase 2/2: Processando ${regexFailedIndices.length} verbetes com IA...`);
+      console.log(`   Taxa: 1 chamada a cada 8 segundos (rate limit safe)`);
+      console.log(`   Tempo estimado: ~${Math.ceil(regexFailedIndices.length * 8 / 60)} minutos`);
+      
+      for (let i = 0; i < regexFailedIndices.length; i++) {
+        const verbeteIdx = regexFailedIndices[i];
+        const verbete = chunk[verbeteIdx];
+        
+        try {
+          // Verificar cancelamento a cada 10 verbetes
+          if (i % 10 === 0) {
+            await checkCancellation(jobId, supabaseClient);
+          }
+          
+          const parsed = await parseWithGeminiRetry(verbete);
+          if (parsed) {
+            aiParsed.push(parsed);
+            if (!parsed.definicoes || parsed.definicoes.length === 0) {
+              definicoesVazias++;
+            }
+          }
+          
+          // Delay de 8s entre chamadas para respeitar rate limit
+          if (i < regexFailedIndices.length - 1) {
+            await new Promise(resolve => setTimeout(resolve, 8000));
+          }
+          
+          // Log de progresso a cada 5 verbetes
+          if ((i + 1) % 5 === 0 || i === regexFailedIndices.length - 1) {
+            console.log(`   IA: ${i + 1}/${regexFailedIndices.length} processados`);
+          }
+        } catch (error) {
+          console.error(`❌ Erro ao processar verbete ${verbeteIdx}:`, error);
         }
-        return parsed;
-      },
-      5 // Concorrência controlada para evitar rate limits
-    );
+      }
+    }
 
-    const validParsed = parsedBatch.filter((v): v is VerbeteGutenberg => v !== null);
-
-    console.log(`✅ IA processou ${parsedBatch.length} verbetes`);
-    console.log(`   Válidos: ${validParsed.length}`);
-    console.log(`   Rejeitados: ${parsedBatch.length - validParsed.length}`);
-    console.log(`   Definições vazias: ${definicoesVazias}`);
+    // ========== COMBINAR RESULTADOS ==========
+    const validParsed = [...regexSuccess, ...aiParsed];
+    
+    console.log(`\n📊 RESUMO DO CHUNK:`);
+    console.log(`   Total processado: ${chunk.length}`);
+    console.log(`   ✅ Regex: ${regexSuccess.length}`);
+    console.log(`   🤖 IA: ${aiParsed.length}`);
+    console.log(`   ❌ Rejeitados: ${chunk.length - validParsed.length}`);
+    console.log(`   ⚠️  Definições vazias: ${definicoesVazias}`);
 
     if (validParsed.length > 0) {
       await withRetry(
@@ -356,7 +480,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    console.log('🚀 VERSÃO 5.1 - Rate Limiting Fixed (5 parallel + 1s delay)');
+    console.log('🚀 VERSÃO 5.2 - Hybrid Strategy (Regex First, AI Fallback)');
     console.log(`📊 Request ID: ${requestId}`);
     
     const supabase = createClient(
