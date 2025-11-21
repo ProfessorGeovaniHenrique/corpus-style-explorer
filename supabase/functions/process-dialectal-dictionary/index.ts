@@ -764,23 +764,69 @@ serve(withInstrumentation('process-dialectal-dictionary', async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const { data: jobData, error: jobError } = await supabase
-      .from('dictionary_import_jobs')
-      .insert({
-        tipo_dicionario: `dialectal_${volumeNum}`,
-        status: 'iniciado',
-        total_verbetes: verbetes.length,
-        verbetes_processados: offsetInicial,
-        offset_inicial: offsetInicial,
-        tempo_inicio: new Date().toISOString(),
-        metadata: { volume: volumeNum, offset: offsetInicial }
-      })
-      .select()
-      .single();
+    let jobData;
 
-    if (jobError) throw jobError;
+    // ✅ Se jobId foi passado, usar job existente
+    if (jobId) {
+      const { data: existingJob, error: fetchError } = await supabase
+        .from('dictionary_import_jobs')
+        .select('*')
+        .eq('id', jobId)
+        .single();
+      
+      if (fetchError || !existingJob) {
+        throw new Error(`Job ${jobId} não encontrado: ${fetchError?.message}`);
+      }
+      
+      jobData = existingJob;
+      
+      console.log(`[JOB ${jobId}] Usando job existente - tipo: ${existingJob.tipo_dicionario}`);
+      
+      // Atualizar job com informações corretas
+      const { error: updateError } = await supabase
+        .from('dictionary_import_jobs')
+        .update({
+          tipo_dicionario: tipoDicionario, // ✅ Usar o tipo correto passado
+          status: 'processando',
+          total_verbetes: verbetes.length,
+          verbetes_processados: offsetInicial,
+          offset_inicial: offsetInicial,
+          tempo_inicio: new Date().toISOString(),
+          metadata: {
+            ...(existingJob.metadata || {}),
+            volume: volumeNum,
+            offset: offsetInicial
+          }
+        })
+        .eq('id', jobId);
+      
+      if (updateError) {
+        console.error(`❌ Erro ao atualizar job: ${updateError.message}`);
+        throw updateError;
+      }
+      
+      console.log(`[JOB ${jobId}] Atualizado com tipo_dicionario: ${tipoDicionario}`);
+    } else {
+      // ✅ Apenas criar novo job se jobId NÃO foi passado
+      const { data: newJob, error: jobError } = await supabase
+        .from('dictionary_import_jobs')
+        .insert({
+          tipo_dicionario: tipoDicionario, // ✅ Usar parâmetro correto
+          status: 'iniciado',
+          total_verbetes: verbetes.length,
+          verbetes_processados: offsetInicial,
+          offset_inicial: offsetInicial,
+          tempo_inicio: new Date().toISOString(),
+          metadata: { volume: volumeNum, offset: offsetInicial }
+        })
+        .select()
+        .single();
 
-    console.log(`[JOB ${jobData.id}] Criado para Volume ${volumeNum}`);
+      if (jobError) throw jobError;
+      
+      jobData = newJob;
+      console.log(`[JOB ${newJob.id}] Criado novo job - tipo: ${tipoDicionario}`);
+    }
 
     processInBackground(jobData.id, verbetes, volumeNum, tipoDicionario, offsetInicial);
 
