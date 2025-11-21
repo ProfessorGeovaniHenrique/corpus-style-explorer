@@ -117,6 +117,7 @@ export function useDialectalLexicon(filters?: DialectalFilters) {
     entries: queryResult.data || [],
     stats,
     isLoading: queryResult.isLoading,
+    isRefetching: queryResult.isRefetching,
     error: queryResult.error?.message || null,
     refetch: queryResult.refetch
   };

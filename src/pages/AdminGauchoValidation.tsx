@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { MVPHeader } from '@/components/mvp/MVPHeader';
 import { MVPFooter } from '@/components/mvp/MVPFooter';
 import { AdminBreadcrumb } from '@/components/AdminBreadcrumb';
@@ -36,18 +36,26 @@ export default function AdminGauchoValidation() {
   const ITEMS_PER_PAGE = 24;
 
   // Buscar dados do dicionário Gaúcho
-  const { entries: dialectalEntries, isLoading, refetch } = useDialectalLexicon({
+  const { entries: dialectalEntries, isLoading, isRefetching, refetch } = useDialectalLexicon({
     tipo_dicionario: 'dialectal_I',
     searchTerm: searchTerm || undefined,
   });
 
   const allEntries = dialectalEntries;
 
+  // Reset de paginação ao mudar filtros
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [posFilter, validationFilter, searchTerm]);
+
   // Filtros
   const filteredEntries = allEntries.filter((entry: any) => {
     if (posFilter !== 'all' && entry.classe_gramatical !== posFilter) return false;
-    if (validationFilter === 'validated' && (!entry.validation_status || entry.validation_status === 'pending')) return false;
-    if (validationFilter === 'pending' && (entry.validation_status && entry.validation_status !== 'pending')) return false;
+    
+    const isValidated = entry.validado_humanamente || entry.validation_status === 'approved';
+    if (validationFilter === 'validated' && !isValidated) return false;
+    if (validationFilter === 'pending' && isValidated) return false;
+    
     return true;
   });
 
@@ -74,8 +82,6 @@ export default function AdminGauchoValidation() {
     currentPage * ITEMS_PER_PAGE
   );
 
-  // Debug: Log total de entradas carregadas
-  console.log(`📊 [Debug] Total carregado: ${allEntries.length} | Filtrados: ${filteredEntries.length} | Paginados: ${paginatedEntries.length}`);
 
   // Handlers
   const handleValidate = (entry: any) => {
@@ -123,6 +129,7 @@ export default function AdminGauchoValidation() {
         .eq('id', id);
       
       toast.success('Verbete aprovado com sucesso');
+      setSelectedEntryId(null);
       refetch();
     } catch (error: any) {
       toast.error(`Erro ao aprovar: ${error.message}`);
@@ -142,6 +149,7 @@ export default function AdminGauchoValidation() {
         .eq('id', id);
       
       toast.success('Verbete rejeitado');
+      setSelectedEntryId(null);
       refetch();
     } catch (error: any) {
       toast.error(`Erro ao rejeitar: ${error.message}`);
@@ -154,7 +162,7 @@ export default function AdminGauchoValidation() {
     : -1;
 
   useValidationShortcuts({
-    enabled: !validationOpen,
+    enabled: !validationOpen && !editDialogOpen,
     onApprove: selectedEntryId ? () => handleApprove(selectedEntryId) : undefined,
     onReject: selectedEntryId ? () => handleReject(selectedEntryId) : undefined,
     onEdit: selectedEntryId 
@@ -434,6 +442,16 @@ export default function AdminGauchoValidation() {
           </Card>
         </div>
       </div>
+
+      {/* Indicador de Refetch */}
+      {isRefetching && (
+        <div className="fixed bottom-4 right-4 bg-background border rounded-lg p-3 shadow-lg z-50">
+          <div className="flex items-center gap-2">
+            <Loader2 className="h-4 w-4 animate-spin text-primary" />
+            <span className="text-sm">Atualizando dados...</span>
+          </div>
+        </div>
+      )}
 
       {/* Modal de Validação de Anotações */}
       {selectedEntry && (

@@ -77,7 +77,7 @@ export function VerbeteCard({ entry, onApprove, onReject, onEdit, isSelected }: 
           <div className="space-y-2">
             <div className="space-y-1">
               {displayDefinitions.map((def: any, idx: number) => (
-                <p key={idx} className="text-sm text-muted-foreground">
+                <p key={idx} className="text-sm text-muted-foreground line-clamp-2">
                   {idx + 1}. {def.texto}
                 </p>
               ))}
@@ -87,7 +87,10 @@ export function VerbeteCard({ entry, onApprove, onReject, onEdit, isSelected }: 
                 variant="ghost"
                 size="sm"
                 className="h-6 text-xs"
-                onClick={() => setIsExpanded(!isExpanded)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsExpanded(!isExpanded);
+                }}
               >
                 {isExpanded ? (
                   <>
