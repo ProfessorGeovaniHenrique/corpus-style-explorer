@@ -512,7 +512,7 @@ export default function AdminDictionaryImport() {
                     setImportingDict('nordestino_navarro');
                     try {
                       const { data, error } = await supabase.functions.invoke(
-                        'import-nordestino-navarro'
+                        'import-navarro-backend'
                       );
                       
                       if (error) throw error;
