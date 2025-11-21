@@ -48,7 +48,7 @@ const Header = () => {
   };
   return (
     <header className="fixed top-0 left-0 right-0 z-50 border-b-2 border-primary bg-background shadow-sm header-animated">
-      <div className="container mx-auto px-4 py-4 flex items-center justify-between gap-4">
+      <div className="px-6 py-4 flex items-center justify-between gap-4">
         <div className="hidden md:flex h-14 w-auto logo-animated">
           <img 
             src={logoUfrgs} 
