@@ -43,36 +43,53 @@ export default function AdminDictionaryImport() {
     ['concluido', 'erro', 'cancelado'].includes(j.status)
   ).slice(0, 5) || [];
 
-  const handleImport = async (dictId: string) => {
+  const handleImport = async (dictId: string, file?: File) => {
     setImportingDict(dictId);
     
     try {
       const config = Object.values(DICTIONARY_CONFIG).find(c => c.id === dictId);
       if (!config) throw new Error(`Dicionário ${dictId} não configurado`);
       
-      // Timeout de 30s para evitar travamento do frontend
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000);
-      
-      try {
-        const { data, error } = await supabase.functions.invoke(config.importEndpoint, {
-          signal: controller.signal,
-        });
+      // Se é Gutenberg e tem arquivo, fazer upload
+      if (dictId === 'gutenberg' && file) {
+        const formData = new FormData();
+        formData.append('file', file);
 
-        clearTimeout(timeoutId);
+        const { data, error } = await supabase.functions.invoke(config.importEndpoint, {
+          body: formData,
+        });
 
         if (error) throw error;
 
         notifications.success(
-          'Importação iniciada',
-          `${config.name}: ${data.message || 'Processando em background'}`
+          'Upload concluído',
+          `${config.name}: CSV processado com sucesso`
         );
-      } catch (err: any) {
-        clearTimeout(timeoutId);
-        if (err.name === 'AbortError') {
-          throw new Error('Timeout ao iniciar importação. A operação pode ainda estar sendo processada no servidor.');
+      } else {
+        // Timeout de 30s para evitar travamento do frontend
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000);
+        
+        try {
+          const { data, error } = await supabase.functions.invoke(config.importEndpoint, {
+            signal: controller.signal,
+          });
+
+          clearTimeout(timeoutId);
+
+          if (error) throw error;
+
+          notifications.success(
+            'Importação iniciada',
+            `${config.name}: ${data.message || 'Processando em background'}`
+          );
+        } catch (err: any) {
+          clearTimeout(timeoutId);
+          if (err.name === 'AbortError') {
+            throw new Error('Timeout ao iniciar importação. A operação pode ainda estar sendo processada no servidor.');
+          }
+          throw err;
         }
-        throw err;
       }
       
       await refetch();
@@ -81,6 +98,18 @@ export default function AdminDictionaryImport() {
     } finally {
       setImportingDict(null);
     }
+  };
+
+  const handleFileUpload = (dictId: string, event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.name.endsWith('.csv')) {
+      notifications.error('Formato inválido', 'Por favor, selecione um arquivo CSV');
+      return;
+    }
+
+    handleImport(dictId, file);
   };
 
   const handleClear = async (dictId: string) => {
@@ -192,18 +221,44 @@ export default function AdminDictionaryImport() {
                 <div className="flex gap-2">
                   {!activeJob && (
                     <>
-                      <Button
-                        size="sm"
-                        onClick={() => handleImport(dict.id)}
-                        disabled={isImporting || isClearing}
-                        className="flex-1"
-                      >
-                        {isImporting ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <><PlayCircle className="h-4 w-4 mr-1" /> Importar</>
-                        )}
-                      </Button>
+                      {dict.id === 'gutenberg' ? (
+                        <label className="flex-1">
+                          <input
+                            type="file"
+                            accept=".csv"
+                            className="hidden"
+                            onChange={(e) => handleFileUpload(dict.id, e)}
+                            disabled={isImporting || isClearing}
+                          />
+                          <Button
+                            size="sm"
+                            className="w-full"
+                            disabled={isImporting || isClearing}
+                            asChild
+                          >
+                            <span>
+                              {isImporting ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <><PlayCircle className="h-4 w-4 mr-1" /> Upload CSV</>
+                              )}
+                            </span>
+                          </Button>
+                        </label>
+                      ) : (
+                        <Button
+                          size="sm"
+                          onClick={() => handleImport(dict.id)}
+                          disabled={isImporting || isClearing}
+                          className="flex-1"
+                        >
+                          {isImporting ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <><PlayCircle className="h-4 w-4 mr-1" /> Importar</>
+                          )}
+                        </Button>
+                      )}
                       <Button
                         size="sm"
                         variant="outline"
