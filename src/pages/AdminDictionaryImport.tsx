@@ -378,7 +378,7 @@ export default function AdminDictionaryImport() {
                         </Button>
                         <BatchValidationDialog
                           batchSize={1000}
-                          dictionaryType="gaucho"
+                          dictionaryType="dialectal"
                           onSuccess={() => refetch()}
                         />
                       </>
@@ -391,7 +391,7 @@ export default function AdminDictionaryImport() {
                         />
                         <BatchValidationDialog
                           batchSize={1000}
-                          dictionaryType="gaucho"
+                          dictionaryType="dialectal"
                           onSuccess={() => refetch()}
                         />
                       </>
