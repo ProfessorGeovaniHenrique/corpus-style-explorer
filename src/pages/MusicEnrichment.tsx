@@ -1,7 +1,9 @@
-import { ProcessingProvider } from '@/contexts/ProcessingContext';
+import { useCallback, useEffect } from 'react';
+import { ProcessingProvider, useProcessing } from '@/contexts/ProcessingContext';
 import { BatchProcessingProvider } from '@/contexts/BatchProcessingContext';
 import { ResultsProvider } from '@/contexts/ResultsContext';
-import { WorkflowProvider, useWorkflow } from '@/contexts/WorkflowContext';
+import { WorkflowProvider, useWorkflow, WorkflowStep } from '@/contexts/WorkflowContext';
+import { toast } from 'sonner';
 import { 
   FileUpload, 
   ColumnMapper, 
@@ -20,7 +22,50 @@ import {
 } from '@/components/music';
 
 function MusicEnrichmentContent() {
-  const { currentStep, completedSteps, goToStep, canProceed } = useWorkflow();
+  const { uploadFile, uploadState, progress, error, parsedData, fileName } = useProcessing();
+  const { currentStep, completedSteps, goToStep, completeStep, canProceed, saveProgress } = useWorkflow();
+
+  const handleFileSelect = useCallback(async (file: File) => {
+    try {
+      await uploadFile(file);
+    } catch (err) {
+      toast.error('Erro ao processar arquivo');
+    }
+  }, [uploadFile]);
+
+  useEffect(() => {
+    if (uploadState === 'complete' && parsedData.length > 0 && !completedSteps.includes('upload')) {
+      completeStep('upload');
+      if (fileName) {
+        saveProgress({ uploadedFileName: fileName });
+      }
+      toast.success(`${parsedData.length} músicas encontradas!`);
+    }
+  }, [uploadState, parsedData, completedSteps, completeStep, saveProgress, fileName]);
+
+  const handleNext = useCallback(() => {
+    if (!canProceed) {
+      toast.error('Complete o passo atual antes de continuar');
+      return;
+    }
+    
+    const stepOrder: WorkflowStep[] = ['upload', 'mapping', 'processing', 'enrichment', 'results'];
+    const currentIndex = stepOrder.indexOf(currentStep);
+    const nextStep = stepOrder[currentIndex + 1];
+    
+    if (nextStep) {
+      goToStep(nextStep);
+    }
+  }, [canProceed, currentStep, goToStep]);
+
+  const handleBack = useCallback(() => {
+    const stepOrder: WorkflowStep[] = ['upload', 'mapping', 'processing', 'enrichment', 'results'];
+    const currentIndex = stepOrder.indexOf(currentStep);
+    
+    if (currentIndex > 0) {
+      goToStep(stepOrder[currentIndex - 1]);
+    }
+  }, [currentStep, goToStep]);
 
   return (
     <div className="container mx-auto py-8 space-y-6">
@@ -47,9 +92,10 @@ function MusicEnrichmentContent() {
         {currentStep === 'upload' && (
           <div className="space-y-4">
             <FileUpload 
-              onFileSelect={() => {}}
-              isUploading={false}
-              progress={0}
+              onFileSelect={handleFileSelect}
+              isUploading={uploadState === 'uploading'}
+              progress={progress}
+              error={error}
             />
           </div>
         )}
@@ -135,11 +181,12 @@ function MusicEnrichmentContent() {
 
       <ActionButtons 
         currentStep={currentStep}
-        onNext={() => {}}
-        onBack={() => {}}
+        onNext={handleNext}
+        onBack={handleBack}
         onCancel={() => {}}
         onExport={() => {}}
         onReset={() => {}}
+        isProcessing={uploadState === 'uploading' || uploadState === 'processing'}
       />
     </div>
   );
