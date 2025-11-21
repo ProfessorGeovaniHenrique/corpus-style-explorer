@@ -15,6 +15,8 @@ interface VerbeteGutenberg {
   classe_gramatical?: string;
   definicoes?: Array<{ texto: string }>;
   confianca_extracao: number;
+  validado?: boolean; // ✅ Adicionar campo de validação
+  validation_status?: string; // ✅ Adicionar campo de status
 }
 
 interface CSVRow {
@@ -355,7 +357,9 @@ Deno.serve(async (req) => {
         verbete_normalizado: normalizeText(row.verbete),
         classe_gramatical: row.classe_gramatical?.trim() || undefined,
         definicoes: row.definicao ? [{ texto: row.definicao.trim() }] : [],
-        confianca_extracao: 1.0 // Máxima confiança (CSV pré-processado)
+        confianca_extracao: 1.0, // Máxima confiança (CSV pré-processado)
+        validado: true, // ✅ Marcar como validado ao importar
+        validation_status: 'approved' // ✅ Definir status de validação
       }));
 
     console.log(`✅ Verbetes válidos extraídos do CSV: ${verbetesValidos.length}`);

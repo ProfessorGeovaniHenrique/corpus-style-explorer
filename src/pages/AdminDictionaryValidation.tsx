@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { MVPHeader } from '@/components/mvp/MVPHeader';
 import { MVPFooter } from '@/components/mvp/MVPFooter';
@@ -175,6 +175,24 @@ export default function AdminDictionaryValidation() {
   const validationRate = volumeEntries.length > 0 
     ? ((validatedCount / volumeEntries.length) * 100).toFixed(2) 
     : '0.00';
+
+  // 📊 DEBUG: Log sample data to verify validation_status
+  React.useEffect(() => {
+    if (volumeEntries.length > 0 && config.table === 'gutenberg') {
+      const sample = volumeEntries.slice(0, 5);
+      console.log('📊 AMOSTRA GUTENBERG:', {
+        total: volumeEntries.length,
+        validatedCount,
+        pendingCount,
+        validationRate: `${validationRate}%`,
+        sample: sample.map((e: any) => ({
+          verbete: e.verbete || e.palavra,
+          validado: e.validado,
+          validation_status: e.validation_status
+        }))
+      });
+    }
+  }, [volumeEntries.length, validatedCount, config.table, validationRate]);
 
   const pendingHighConfidenceCount = volumeEntries.filter((e: any) => 
     (!e.validation_status || e.validation_status === 'pending') &&
