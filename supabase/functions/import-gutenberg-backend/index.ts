@@ -1,4 +1,4 @@
-// 🔥 DEPLOY TIMESTAMP: 2025-01-20T20:00:00Z - v6.0: Radical Simplification (No AI, No Complex Regex)
+// 🔥 DEPLOY TIMESTAMP: 2025-01-20T21:30:00Z - v7.0: State Machine Parser (Line-by-Line)
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.81.1';
 import { withRetry } from '../_shared/retry.ts';
 
@@ -48,59 +48,57 @@ function normalizeText(text: string): string {
 }
 
 /**
- * 🆕 v6.0: Parser RADICAL SIMPLES
- * - Primeira linha: verbete + classe gramatical
- * - Resto do bloco: definições
- * - SEM IA, SEM REGEXES COMPLEXAS
+ * 🆕 v7.0: MÁQUINA DE ESTADOS - Parser linha por linha
+ * Único método confiável para arquivos inconsistentes
  */
-function parseVerbeteSimples(blocoTexto: string): VerbeteGutenberg | null {
-  try {
-    const linhas = blocoTexto.trim().split('\n').filter(l => l.trim());
+function parseLinhasPorMaquinaDeEstados(fileContent: string): VerbeteGutenberg[] {
+  console.log('🤖 Iniciando parser de Máquina de Estados (linha por linha)...');
+  
+  const lines = fileContent.split('\n');
+  const verbetesFinais: VerbeteGutenberg[] = [];
+  let verbeteAtual: Partial<VerbeteGutenberg> | null = null;
+  
+  console.log(`📄 Total de linhas no arquivo: ${lines.length}`);
+  
+  for (let line of lines) {
+    line = line.trim();
+    if (line.length === 0) continue; // Ignora linhas vazias
     
-    if (linhas.length === 0) return null;
+    // Regex para identificar o início de um novo verbete: *Palavra*, opcional classe
+    const inicioVerbeteMatch = line.match(/^\*([^*]+)\*(?:,\s*(.*))?/);
     
-    // ============ PRIMEIRA LINHA: VERBETE + CLASSE ============
-    const primeiraLinha = linhas[0];
-    
-    // Regex simples: /^\*([^*]+)\*(?:,\s*(.*))?/
-    // Captura: *VERBETE*, CLASSE_GRAMATICAL (opcional)
-    const match = primeiraLinha.match(/^\*([^*]+)\*(?:,\s*(.*))?/);
-    
-    if (!match) {
-      return null;
+    if (inicioVerbeteMatch) {
+      // SE JÁ TÍNHAMOS UM VERBETE SENDO CONSTRUÍDO, SALVA ELE
+      if (verbeteAtual && verbeteAtual.verbete && verbeteAtual.definicoes && verbeteAtual.definicoes.length > 0) {
+        verbetesFinais.push(verbeteAtual as VerbeteGutenberg);
+      }
+      
+      // INICIA UM NOVO VERBETE
+      const verbete = inicioVerbeteMatch[1].trim();
+      const classeGramatical = inicioVerbeteMatch[2]?.trim() || undefined;
+      
+      verbeteAtual = {
+        verbete,
+        verbete_normalizado: normalizeText(verbete),
+        classe_gramatical: classeGramatical,
+        definicoes: [],
+        confianca_extracao: 0.98, // Alta confiança (máquina de estados)
+      };
+    } else if (verbeteAtual) {
+      // SE NÃO É INÍCIO DE VERBETE, É LINHA DE DEFINIÇÃO
+      if (line.length > 3) { // Ignora linhas muito curtas
+        verbeteAtual.definicoes!.push({ texto: line });
+      }
     }
-    
-    const verbete = match[1].trim();
-    const classeGramatical = match[2]?.trim() || undefined;
-    
-    if (!verbete || verbete.length < 2) {
-      return null;
-    }
-    
-    // ============ RESTO DAS LINHAS: DEFINIÇÕES ============
-    const definicoes = linhas.slice(1) // Pula primeira linha
-      .filter(linha => linha.trim().length > 5) // Ignora linhas muito curtas
-      .map(linha => ({
-        texto: linha.trim()
-      }));
-    
-    // Validar se tem pelo menos 1 definição
-    if (definicoes.length === 0) {
-      return null;
-    }
-    
-    return {
-      verbete,
-      verbete_normalizado: normalizeText(verbete),
-      classe_gramatical: classeGramatical,
-      definicoes,
-      confianca_extracao: 0.95, // Alta confiança (formato esperado)
-    };
-    
-  } catch (error) {
-    console.error('❌ Erro ao parsear bloco:', error);
-    return null;
   }
+  
+  // NÃO ESQUEÇA DE SALVAR O ÚLTIMO VERBETE APÓS O LOOP
+  if (verbeteAtual && verbeteAtual.verbete && verbeteAtual.definicoes && verbeteAtual.definicoes.length > 0) {
+    verbetesFinais.push(verbeteAtual as VerbeteGutenberg);
+  }
+  
+  console.log(`✅ Parser finalizou: ${verbetesFinais.length} verbetes válidos extraídos`);
+  return verbetesFinais;
 }
 
 async function checkCancellation(jobId: string, supabaseClient: any): Promise<void> {
@@ -131,7 +129,7 @@ async function checkCancellation(jobId: string, supabaseClient: any): Promise<vo
 
 async function processChunk(
   jobId: string,
-  verbetes: string[],
+  verbetes: VerbeteGutenberg[],
   startIndex: number,
   supabaseClient: any
 ): Promise<void> {
@@ -143,12 +141,12 @@ async function processChunk(
     const endIndex = Math.min(startIndex + CHUNK_SIZE, verbetes.length);
     const chunk = verbetes.slice(startIndex, endIndex);
 
-    // ✨ NOVO: Parser simples e direto
-    console.log(`🔄 v6.0: Parsing SIMPLES (sem IA, sem regex complexa)`);
-    console.log(`   Processando ${chunk.length} verbetes...`);
+    // ✨ v7.0: Verbetes já parseados, apenas validação extra
+    console.log(`🔄 v7.0: Validando ${chunk.length} verbetes já parseados...`);
     
-    const parsedResults = chunk.map(v => parseVerbeteSimples(v));
-    const validParsed = parsedResults.filter((v): v is VerbeteGutenberg => v !== null);
+    const validParsed = chunk.filter(v => 
+      v && v.verbete && v.definicoes && v.definicoes.length > 0
+    );
     
     console.log(`\n📊 RESUMO DO CHUNK:`);
     console.log(`   Total: ${chunk.length}`);
@@ -264,11 +262,11 @@ Deno.serve(async (req) => {
   }
 
   try {
-    console.log('🚀 VERSÃO 6.0 - Radical Simplification');
-    console.log('   ✨ Split por linhas vazias');
-    console.log('   ✨ Filtro simples por asterisco');
-    console.log('   ✨ Parser de 2 linhas de código');
-    console.log('   ⚡ Execução em segundos (não minutos)');
+    console.log('🚀 VERSÃO 7.0 - State Machine Parser');
+    console.log('   🤖 Máquina de estados linha por linha');
+    console.log('   ✨ Único método confiável para arquivos inconsistentes');
+    console.log('   ✅ Usa início de verbete para delimitar o fim do anterior');
+    console.log('   ⚡ Processamento robusto e preciso');
     console.log(`📊 Request ID: ${requestId}`);
     
     const supabase = createClient(
@@ -302,7 +300,7 @@ Deno.serve(async (req) => {
       }
 
       const fileContent = await fileData.text();
-      const verbetes = JSON.parse(fileContent);
+      const verbetes: VerbeteGutenberg[] = JSON.parse(fileContent);
       
       console.log(`📋 Verbetes carregados do Storage: ${verbetes.length}`);
       console.log(`🎯 Processando a partir do índice: ${startIndex}`);
@@ -342,19 +340,11 @@ Deno.serve(async (req) => {
     const fileContent = await response.text();
     console.log(`📄 Arquivo baixado: ${fileContent.length} caracteres`);
 
-    // ✨ NOVO: Split simples por linhas vazias
-    console.log('\n🔍 Aplicando split SIMPLES por linhas vazias...');
-    const blocosBrutos = fileContent.split(/\n\s*\n+/);
-    console.log(`📦 Total de blocos brutos encontrados: ${blocosBrutos.length}`);
-
-    // ✨ NOVO: Filtrar apenas blocos que começam com *
-    const verbetesValidos = blocosBrutos.filter(bloco => {
-      const primeiraLinha = bloco.trim().split('\n')[0];
-      return primeiraLinha && primeiraLinha.startsWith('*');
-    });
-
-    console.log(`✅ Verbetes válidos (começam com *): ${verbetesValidos.length}`);
-    console.log(`❌ Blocos rejeitados: ${blocosBrutos.length - verbetesValidos.length}`);
+    // ✨ v7.0: MÁQUINA DE ESTADOS - Parser linha por linha
+    console.log('\n🤖 Aplicando parser de Máquina de Estados...');
+    const verbetesValidos = parseLinhasPorMaquinaDeEstados(fileContent);
+    
+    console.log(`✅ Verbetes parseados com sucesso: ${verbetesValidos.length}`);
 
     // Criar job de importação
     const { data: job, error: jobError } = await supabase
@@ -368,10 +358,9 @@ Deno.serve(async (req) => {
         progresso: 0,
         tempo_inicio: new Date().toISOString(),
         metadata: {
-          blocos_totais: blocosBrutos.length,
-          blocos_rejeitados: blocosBrutos.length - verbetesValidos.length,
-          versao: 'v6.0-radical-simplification',
-          estrategia: 'split-linhas-vazias + filtro-asterisco + parser-simples'
+          versao: 'v7.0-state-machine',
+          estrategia: 'linha-por-linha + maquina-de-estados',
+          descricao: 'Usa início de verbete para delimitar o fim do anterior'
         }
       })
       .select()
@@ -424,9 +413,8 @@ Deno.serve(async (req) => {
         jobId: jobId,
         totalVerbetes: verbetesValidos.length,
         metadata: {
-          blocos_totais: blocosBrutos.length,
-          blocos_rejeitados: blocosBrutos.length - verbetesValidos.length,
-          taxa_rejeicao: `${Math.round((blocosBrutos.length - verbetesValidos.length) / blocosBrutos.length * 100)}%`
+          versao: 'v7.0-state-machine',
+          estrategia: 'linha-por-linha'
         }
       }),
       { 
