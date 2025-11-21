@@ -14,7 +14,18 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { LayoutGrid, LayoutList, Search, Sparkles, AlertCircle, Download, Filter, RefreshCw } from 'lucide-react';
+import { 
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import { LayoutGrid, LayoutList, Search, Sparkles, AlertCircle, Download, Filter, RefreshCw, Trash2, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 export default function MusicCatalog() {
@@ -37,6 +48,7 @@ export default function MusicCatalog() {
   const [metricsData, setMetricsData] = useState<any>(null);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [selectedArtistId, setSelectedArtistId] = useState<string | null>(null);
+  const [isClearingCatalog, setIsClearingCatalog] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -336,6 +348,32 @@ export default function MusicCatalog() {
     });
   };
 
+  const handleClearCatalog = async () => {
+    setIsClearingCatalog(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('clear-music-catalog');
+      
+      if (error) throw error;
+      
+      if (data?.success) {
+        toast({
+          title: "🧹 Catálogo limpo!",
+          description: `${data.deleted.songs} músicas, ${data.deleted.artists} artistas e ${data.deleted.uploads} uploads foram removidos.`
+        });
+        await loadData();
+      }
+    } catch (error: any) {
+      console.error('Erro ao limpar catálogo:', error);
+      toast({
+        title: "Erro",
+        description: error.message || "Falha ao limpar o catálogo.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsClearingCatalog(false);
+    }
+  };
+
   const filteredSongs = songs.filter(song => {
     if (!searchQuery) return true;
     const query = searchQuery.toLowerCase();
@@ -410,6 +448,44 @@ export default function MusicCatalog() {
                   });
                 }}
               />
+
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-9 gap-2 text-destructive hover:text-destructive"
+                    disabled={isClearingCatalog}
+                  >
+                    {isClearingCatalog ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="h-4 w-4" />
+                    )}
+                    <span className="hidden sm:inline">Limpar Catálogo</span>
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Isso irá excluir permanentemente <strong>todas as {stats.totalSongs} músicas</strong>, 
+                      <strong> todos os {stats.totalArtists} artistas</strong> e seus uploads do catálogo. 
+                      Esta ação não pode ser desfeita.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={handleClearCatalog}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Excluir Tudo
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </div>
           </div>
         </div>
