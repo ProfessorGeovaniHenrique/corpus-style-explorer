@@ -44,7 +44,7 @@ export default function AdminGauchoValidation() {
 
   // Buscar dados do dicionário Gaúcho
   const { entries: dialectalEntries, isLoading, isRefetching, refetch } = useDialectalLexicon({
-    tipo_dicionario: 'dialectal_I',
+    tipo_dicionario: 'gaucho_unificado_v2', // ✅ FASE 1: Corrigido!
     searchTerm: searchTerm || undefined,
   });
 
@@ -207,10 +207,24 @@ export default function AdminGauchoValidation() {
     },
   });
 
+  // ✅ FASE 3: Feedback de carregamento profissional
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <Card className="p-8 max-w-md w-full mx-4">
+          <div className="flex flex-col items-center gap-6">
+            <Loader2 className="h-16 w-16 animate-spin text-primary" />
+            <div className="text-center space-y-2">
+              <h3 className="font-semibold text-xl">Carregando verbetes...</h3>
+              <p className="text-sm text-muted-foreground">
+                Buscando todos os verbetes do Dicionário Gaúcho
+              </p>
+              <p className="text-xs text-muted-foreground/70">
+                Isso pode levar alguns segundos na primeira vez
+              </p>
+            </div>
+          </div>
+        </Card>
       </div>
     );
   }

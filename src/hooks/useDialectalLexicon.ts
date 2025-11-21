@@ -59,33 +59,48 @@ export function useDialectalLexicon(filters?: DialectalFilters) {
     queryKey: ['dialectal-lexicon', filters],
     queryFn: async () => {
       return retrySupabaseOperation(async () => {
-        let query = supabase
-          .from('dialectal_lexicon')
-          .select('*')
-          .order('verbete', { ascending: true });
+        // ✅ FASE 2: Paginação automática para remover limite de 1000 linhas
+        const PAGE_SIZE = 1000;
+        let allData: any[] = [];
+        let page = 0;
+        let hasMore = true;
 
-        // ✅ NOVO: Filtrar por tipo de dicionário
-        if (filters?.tipo_dicionario) {
-          query = query.eq('tipo_dicionario', filters.tipo_dicionario);
+        while (hasMore) {
+          let query = supabase
+            .from('dialectal_lexicon')
+            .select('*', { count: 'exact' })
+            .order('verbete', { ascending: true })
+            .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+
+          // Aplicar filtros
+          if (filters?.tipo_dicionario) {
+            query = query.eq('tipo_dicionario', filters.tipo_dicionario);
+          }
+          if (filters?.origem) {
+            query = query.eq('origem_primaria', filters.origem);
+          }
+          if (filters?.categoria) {
+            query = query.contains('categorias_tematicas', [filters.categoria]);
+          }
+          if (filters?.searchTerm) {
+            query = query.ilike('verbete_normalizado', `%${filters.searchTerm.toLowerCase()}%`);
+          }
+
+          const { data, error } = await query;
+          
+          if (error) throw error;
+          
+          allData = [...allData, ...(data || [])];
+          
+          // Verificar se há mais páginas
+          hasMore = data && data.length === PAGE_SIZE;
+          page++;
+          
+          // Segurança: limite de 20 páginas (20.000 registros)
+          if (page >= 20) break;
         }
 
-        if (filters?.origem) {
-          query = query.eq('origem_primaria', filters.origem);
-        }
-
-        if (filters?.categoria) {
-          query = query.contains('categorias_tematicas', [filters.categoria]);
-        }
-
-        if (filters?.searchTerm) {
-          query = query.ilike('verbete_normalizado', `%${filters.searchTerm.toLowerCase()}%`);
-        }
-
-        const { data, error } = await query;
-
-        if (error) throw error;
-
-        return (data || []) as unknown as DialectalEntry[];
+        return allData as unknown as DialectalEntry[];
       }, {
         maxRetries: 5,
         baseDelay: 500,
