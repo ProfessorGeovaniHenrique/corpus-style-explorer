@@ -16,6 +16,11 @@ export interface LexiconEntry {
   contexto_exemplo: string | null;
   criado_em: string;
   atualizado_em: string;
+  // Campos opcionais para Gutenberg e Dialectal
+  definicoes?: Array<{ texto: string }>;
+  classe_gramatical?: string;
+  verbete?: string;
+  volume_fonte?: string;
 }
 
 interface Filters {
@@ -95,11 +100,22 @@ export function useBackendLexicon(filters?: Filters) {
           fonte: 'gutenberg',
           contexto_exemplo: entry.definicoes?.[0]?.texto || null,
           criado_em: entry.criado_em,
-          atualizado_em: entry.atualizado_em
+          atualizado_em: entry.atualizado_em,
+          // Campos específicos do Gutenberg
+          definicoes: entry.definicoes || [],
+          classe_gramatical: entry.classe_gramatical,
+          verbete: entry.verbete,
         })) as LexiconEntry[];
       }
 
-      return (data || []) as LexiconEntry[];
+      // Para semantic_lexicon e dialectal_lexicon
+      return (data || []).map((entry: any) => ({
+        ...entry,
+        definicoes: entry.definicoes || [],
+        classe_gramatical: entry.classe_gramatical,
+        verbete: entry.verbete,
+        volume_fonte: entry.volume_fonte,
+      })) as LexiconEntry[];
     },
     // ✅ CACHE TTL: Dados de léxico mudam raramente
     staleTime: 24 * 60 * 60 * 1000, // 24 horas
