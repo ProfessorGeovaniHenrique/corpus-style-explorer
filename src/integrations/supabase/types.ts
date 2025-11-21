@@ -533,6 +533,33 @@ export type Database = {
         }
         Relationships: []
       }
+      artists: {
+        Row: {
+          created_at: string | null
+          genre: string | null
+          id: string
+          name: string
+          normalized_name: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          genre?: string | null
+          id?: string
+          name: string
+          normalized_name?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          genre?: string | null
+          id?: string
+          name?: string
+          normalized_name?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       code_scan_history: {
         Row: {
           comparison_baseline: string | null
@@ -1692,6 +1719,72 @@ export type Database = {
           },
         ]
       }
+      songs: {
+        Row: {
+          artist_id: string
+          composer: string | null
+          confidence_score: number | null
+          created_at: string | null
+          enrichment_source: string | null
+          id: string
+          lyrics: string | null
+          normalized_title: string | null
+          raw_data: Json | null
+          release_year: string | null
+          status: string | null
+          title: string
+          updated_at: string | null
+          upload_id: string | null
+        }
+        Insert: {
+          artist_id: string
+          composer?: string | null
+          confidence_score?: number | null
+          created_at?: string | null
+          enrichment_source?: string | null
+          id?: string
+          lyrics?: string | null
+          normalized_title?: string | null
+          raw_data?: Json | null
+          release_year?: string | null
+          status?: string | null
+          title: string
+          updated_at?: string | null
+          upload_id?: string | null
+        }
+        Update: {
+          artist_id?: string
+          composer?: string | null
+          confidence_score?: number | null
+          created_at?: string | null
+          enrichment_source?: string | null
+          id?: string
+          lyrics?: string | null
+          normalized_title?: string | null
+          raw_data?: Json | null
+          release_year?: string | null
+          status?: string | null
+          title?: string
+          updated_at?: string | null
+          upload_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "songs_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "artists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "songs_upload_id_fkey"
+            columns: ["upload_id"]
+            isOneToOne: false
+            referencedRelation: "uploads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sync_metadata: {
         Row: {
           created_at: string | null
@@ -1840,6 +1933,33 @@ export type Database = {
           },
         ]
       }
+      uploads: {
+        Row: {
+          created_at: string | null
+          filename: string
+          id: string
+          processed_rows: number | null
+          status: string | null
+          total_rows: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          filename: string
+          id?: string
+          processed_rows?: number | null
+          status?: string | null
+          total_rows?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          filename?: string
+          id?: string
+          processed_rows?: number | null
+          status?: string | null
+          total_rows?: number | null
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string | null
@@ -1885,6 +2005,45 @@ export type Database = {
           mostrar_hierarquia_completa?: boolean | null
           nivel_detalhamento?: number | null
           user_id?: string
+        }
+        Relationships: []
+      }
+      youtube_cache: {
+        Row: {
+          channel_title: string
+          created_at: string | null
+          description: string | null
+          hits_count: number | null
+          id: string
+          publish_date: string
+          search_query: string
+          updated_at: string | null
+          video_id: string
+          video_title: string
+        }
+        Insert: {
+          channel_title: string
+          created_at?: string | null
+          description?: string | null
+          hits_count?: number | null
+          id?: string
+          publish_date: string
+          search_query: string
+          updated_at?: string | null
+          video_id: string
+          video_title: string
+        }
+        Update: {
+          channel_title?: string
+          created_at?: string | null
+          description?: string | null
+          hits_count?: number | null
+          id?: string
+          publish_date?: string
+          search_query?: string
+          updated_at?: string | null
+          video_id?: string
+          video_title?: string
         }
         Relationships: []
       }
@@ -1967,7 +2126,9 @@ export type Database = {
         Args: { _feature_name: string; _user_id: string }
         Returns: undefined
       }
+      normalize_text: { Args: { "": string }; Returns: string }
       truncate_gutenberg_table: { Args: never; Returns: undefined }
+      unaccent: { Args: { "": string }; Returns: string }
     }
     Enums: {
       app_role: "admin" | "evaluator" | "user"
