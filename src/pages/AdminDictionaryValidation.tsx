@@ -80,7 +80,7 @@ export default function AdminDictionaryValidation() {
   const { lexicon: synonymEntries, isLoading: synonymLoading, refetch: synonymRefetch } = useBackendLexicon({
     table: 'lexical_synonyms',
     searchTerm: searchTerm || undefined,
-    fonte: 'houaiss',
+    fonte: 'rocha_pombo',
   });
 
   if (!config) {
@@ -127,7 +127,7 @@ export default function AdminDictionaryValidation() {
         const { data, error, count } = await supabase
           .from('lexical_synonyms')
           .select('id, palavra, pos, sinonimos', { count: 'exact' })
-          .eq('fonte', 'houaiss')
+          .eq('fonte', 'rocha_pombo')
           .limit(5);
 
         if (error) throw error;
