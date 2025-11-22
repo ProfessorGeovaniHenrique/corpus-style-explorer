@@ -83,7 +83,7 @@ export function SemanticConsultantChat({ totalDomains }: SemanticConsultantChatP
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-primary" />
-            <CardTitle className="text-lg">Consultor Semântico IA</CardTitle>
+            <CardTitle className="text-lg">Assistente Blau Nunes</CardTitle>
           </div>
           <Button
             variant="ghost"
@@ -114,7 +114,7 @@ export function SemanticConsultantChat({ totalDomains }: SemanticConsultantChatP
         {messages.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
             <Sparkles className="h-12 w-12 text-muted-foreground mb-4" />
-            <h3 className="font-semibold mb-2">Como posso ajudar?</h3>
+            <h3 className="font-semibold mb-2">Saudações, tchê!</h3>
             <p className="text-sm text-muted-foreground mb-6">
               Faça perguntas sobre a taxonomia, peça análises ou valide mudanças estruturais.
             </p>
