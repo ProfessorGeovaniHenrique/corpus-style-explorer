@@ -8,11 +8,17 @@ import { toast } from 'sonner';
 import { EmptyStateMusicEnrichment } from '@/components/music/EmptyStateMusicEnrichment';
 import { MusicAnalysisResult } from '@/components/music/MusicAnalysisResult';
 import { MusicUploadDialog } from '@/components/music/MusicUploadDialog';
+import { MusicImportProgressModal } from '@/components/music/MusicImportProgressModal';
 import { ingestionService } from '@/services/ingestionService';
 
 function MusicEnrichmentContent() {
   const { uploadFile, uploadState, progress, error, parsedData, fileName, resetProcessing } = useProcessing();
   const [showUploadDialog, setShowUploadDialog] = useState(false);
+  const [showImportProgress, setShowImportProgress] = useState(false);
+  const [importTotal, setImportTotal] = useState(0);
+  const [importResult, setImportResult] = useState<{ songsCreated: number; artistsCreated: number } | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [isImporting, setIsImporting] = useState(false);
   const navigate = useNavigate();
 
   const handleFileSelect = useCallback(async (file: File) => {
@@ -41,13 +47,20 @@ function MusicEnrichmentContent() {
         return;
       }
       
+      // Resetar estados e mostrar modal de progresso
+      setImportTotal(validSongs.length);
+      setImportResult(null);
+      setImportError(null);
+      setIsImporting(true);
+      setShowImportProgress(true);
+      
       const result = await ingestionService.extractTitles(
         validSongs.map(song => ({
           titulo: song.titulo,
           artista: song.artista!,
           compositor: song.compositor,
           ano: song.ano,
-          letra: song.letra,  // ✅ FASE 0: Incluir letra no fluxo de importação
+          letra: song.letra,
           album: undefined,
           genero: undefined
         })),
@@ -55,11 +68,28 @@ function MusicEnrichmentContent() {
         corpusId
       );
       
+      // Atualizar com resultado real
+      setIsImporting(false);
+      setImportResult(result);
+      
+      // Aguardar um pouco para mostrar o resultado final
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      setShowImportProgress(false);
+      
       toast.success(
         `${result.songsCreated} músicas importadas ${corpusId ? 'no corpus selecionado' : 'no catálogo geral'}! ${result.artistsCreated} artistas criados.`
       );
+      
       navigate('/music-catalog');
     } catch (error) {
+      setIsImporting(false);
+      setImportError(error instanceof Error ? error.message : 'Erro desconhecido');
+      
+      // Aguardar antes de fechar
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      
+      setShowImportProgress(false);
       toast.error('Erro ao importar dados');
       console.error('Import error:', error);
     }
@@ -68,13 +98,22 @@ function MusicEnrichmentContent() {
   // Estado: Análise completa (arquivo processado)
   if (uploadState === 'complete' && parsedData.length > 0) {
     return (
-      <MusicAnalysisResult
-        fileName={fileName || 'arquivo.xlsx'}
-        totalSongs={parsedData.length}
-        previewData={parsedData}
-        onCancel={handleCancel}
-        onImport={handleImport}
-      />
+      <>
+        <MusicAnalysisResult
+          fileName={fileName || 'arquivo.xlsx'}
+          totalSongs={parsedData.length}
+          previewData={parsedData}
+          onCancel={handleCancel}
+          onImport={handleImport}
+        />
+        <MusicImportProgressModal
+          open={showImportProgress}
+          totalSongs={importTotal}
+          isProcessing={isImporting}
+          result={importResult}
+          error={importError}
+        />
+      </>
     );
   }
 
