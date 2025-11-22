@@ -1,7 +1,7 @@
 import { 
   Key, Users, BarChart3, Database,
   BookOpen, Telescope, History, CircuitBoard, Activity, Upload,
-  Music, Library
+  Music, Library, Tags
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import {
@@ -31,6 +31,7 @@ const adminItems: NavItem[] = [
 
 const devItems: NavItem[] = [
   { title: "Importação de Dicionários", url: "/admin/dictionary-import", icon: Upload },
+  { title: "Validação de Domínios Semânticos", url: "/admin/semantic-tagset-validation", icon: Tags },
   { title: "Enriquecimento Musical", url: "/music-enrichment", icon: Music },
   { title: "Catálogo de Músicas", url: "/music-catalog", icon: Library },
   { title: "Métricas Tempo Real", url: "/admin/metrics-realtime", icon: Activity },

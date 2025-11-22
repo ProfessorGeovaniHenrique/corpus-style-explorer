@@ -4,7 +4,7 @@ import { useAuthContext } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { User, LogOut, Users, Key, BarChart3, Database, BookOpen, CircuitBoard, History, Telescope, Moon, Sun, Music, Library } from "lucide-react";
+import { User, LogOut, Users, Key, BarChart3, Database, BookOpen, CircuitBoard, History, Telescope, Moon, Sun, Music, Library, Tags } from "lucide-react";
 import logoVersoAustral from "@/assets/logo-versoaustral-completo.png";
 import logoUfrgs from "@/assets/logo-ufrgs-oficial.png";
 import logoPpglet from "@/assets/logo-ppglet.png";
@@ -114,6 +114,12 @@ const Header = () => {
                     <Library className="mr-2 h-4 w-4" />
                     <span>Catálogo de Músicas</span>
                     {isActiveRoute("/music-catalog") && <span className="ml-auto text-xs">●</span>}
+                  </DropdownMenuItem>
+                  
+                  <DropdownMenuItem onClick={() => navigate("/admin/semantic-tagset-validation")} className={isActiveRoute("/admin/semantic-tagset-validation") ? "bg-accent text-accent-foreground" : ""}>
+                    <Tags className="mr-2 h-4 w-4" />
+                    <span>Validação de Domínios</span>
+                    {isActiveRoute("/admin/semantic-tagset-validation") && <span className="ml-auto text-xs">●</span>}
                   </DropdownMenuItem>
                   
                   <DropdownMenuSeparator />

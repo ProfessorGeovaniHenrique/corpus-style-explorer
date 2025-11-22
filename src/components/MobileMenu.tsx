@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Menu, Moon, Sun, Home, Wrench, Sparkles, Shield, Users, BarChart3, Database, BookOpen, CircuitBoard, History, LogOut, Music, Library } from 'lucide-react';
+import { Menu, Moon, Sun, Home, Wrench, Sparkles, Shield, Users, BarChart3, Database, BookOpen, CircuitBoard, History, LogOut, Music, Library, Tags } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -161,6 +161,15 @@ export function MobileMenu() {
               >
                 <Library className="h-4 w-4" />
                 <span>Catálogo de Músicas</span>
+              </Button>
+              
+              <Button 
+                variant="ghost" 
+                onClick={() => handleNavigate('/admin/semantic-tagset-validation')}
+                className="justify-start gap-2"
+              >
+                <Tags className="h-4 w-4" />
+                <span>Validação de Domínios</span>
               </Button>
               
               <Separator />
