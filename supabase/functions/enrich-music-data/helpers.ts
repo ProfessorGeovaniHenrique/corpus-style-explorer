@@ -65,42 +65,41 @@ export class RateLimiter {
   }
 }
 
-async function searchYouTubeWithPerplexity(
+async function searchYouTubeWithLovableAI(
   titulo: string,
   artista: string,
   apiKey: string
 ): Promise<YouTubeSearchResult | null> {
-  const searchQuery = `site:youtube.com "${titulo}" "${artista}" official audio`;
-  
-  console.log(`[Perplexity] Searching for YouTube link: "${searchQuery}"`);
+  console.log(`[Lovable AI] Searching for YouTube link: "${titulo}" by "${artista}"`);
 
   try {
-    const response = await fetch('https://api.perplexity.ai/chat/completions', {
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'llama-3.1-sonar-small-128k-online',
+        model: 'google/gemini-2.5-flash',
         messages: [
           {
             role: 'system',
-            content: 'You are a YouTube search assistant. Return ONLY a valid JSON object with the YouTube video data. No additional text.'
+            content: 'You are a YouTube search assistant. Search for the official YouTube video and return ONLY valid JSON. No explanations.'
           },
           {
             role: 'user',
-            content: `Find the official YouTube video for the song "${titulo}" by "${artista}". 
-Return JSON with this exact structure:
+            content: `Find the official YouTube video for: "${titulo}" by ${artista}
+
+Return this exact JSON format:
 {
-  "videoId": "the_video_id",
+  "videoId": "video_id_here",
   "videoTitle": "title",
-  "channelTitle": "channel name",
+  "channelTitle": "channel",
   "publishDate": "YYYY-MM-DD",
-  "description": "brief description"
+  "description": "description"
 }
 
-If not found, return: {"videoId": null}`
+If not found: {"videoId": null}`
           }
         ],
         temperature: 0.2,
@@ -109,7 +108,9 @@ If not found, return: {"videoId": null}`
     });
 
     if (!response.ok) {
-      console.error(`[Perplexity] API error: ${response.status}`);
+      const errorBody = await response.text();
+      console.error(`[Lovable AI] API error: ${response.status}`);
+      console.error(`[Lovable AI] Error details: ${errorBody}`);
       return null;
     }
 
@@ -117,25 +118,25 @@ If not found, return: {"videoId": null}`
     const content = data.choices?.[0]?.message?.content;
 
     if (!content) {
-      console.warn('[Perplexity] No content returned');
+      console.warn('[Lovable AI] No content returned');
       return null;
     }
 
     // Extract JSON from response
     const jsonMatch = content.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
-      console.warn('[Perplexity] Could not extract JSON');
+      console.warn('[Lovable AI] Could not extract JSON from response');
       return null;
     }
 
     const parsed = JSON.parse(jsonMatch[0]);
 
     if (!parsed.videoId) {
-      console.log(`[Perplexity] No video found for: "${searchQuery}"`);
+      console.log(`[Lovable AI] No video found for: "${titulo}" by ${artista}`);
       return null;
     }
 
-    console.log(`[Perplexity] Found: "${parsed.videoTitle}" (${parsed.channelTitle})`);
+    console.log(`[Lovable AI] Found: "${parsed.videoTitle}" (${parsed.channelTitle})`);
 
     return {
       videoId: parsed.videoId,
@@ -146,7 +147,7 @@ If not found, return: {"videoId": null}`
     };
 
   } catch (error) {
-    console.error('[Perplexity] Search error:', error);
+    console.error('[Lovable AI] Search error:', error);
     return null;
   }
 }
@@ -187,22 +188,22 @@ export async function searchYouTube(
     if (response.status === 403) {
       const errorData = await response.json().catch(() => ({}));
       if (errorData?.error?.errors?.[0]?.reason === 'quotaExceeded') {
-        console.error('[YouTube] Daily quota exceeded - Trying Perplexity fallback...');
+        console.error('[YouTube] Daily quota exceeded - Trying Lovable AI fallback...');
         
-        // 🔄 FALLBACK: Try Perplexity
-        const perplexityKey = Deno.env.get('PERPLEXITY_API_KEY');
-        if (perplexityKey) {
-          const perplexityResult = await searchYouTubeWithPerplexity(titulo, artista, perplexityKey);
+        // 🔄 FALLBACK: Try Lovable AI
+        const lovableKey = Deno.env.get('LOVABLE_API_KEY');
+        if (lovableKey) {
+          const lovableResult = await searchYouTubeWithLovableAI(titulo, artista, lovableKey);
           
-          if (perplexityResult) {
-            // Cache the Perplexity result
+          if (lovableResult) {
+            // Cache the Lovable AI result
             await supabase.from('youtube_cache').insert({
               search_query: searchQuery,
-              video_id: perplexityResult.videoId,
-              video_title: perplexityResult.videoTitle,
-              channel_title: perplexityResult.channelTitle,
-              publish_date: perplexityResult.publishDate,
-              description: perplexityResult.description || '',
+              video_id: lovableResult.videoId,
+              video_title: lovableResult.videoTitle,
+              channel_title: lovableResult.channelTitle,
+              publish_date: lovableResult.publishDate,
+              description: lovableResult.description || '',
               hits_count: 0
             }).catch((err: any) => {
               if (!err?.message?.includes('duplicate')) {
@@ -210,7 +211,7 @@ export async function searchYouTube(
               }
             });
 
-            return perplexityResult;
+            return lovableResult;
           }
         }
         
