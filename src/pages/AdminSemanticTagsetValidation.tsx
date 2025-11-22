@@ -20,6 +20,7 @@ import { useTagsetCuration, CurationSuggestion } from '@/hooks/useTagsetCuration
 import { useTagsets } from '@/hooks/useTagsets';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { SemanticConsultantChat } from '@/components/admin/SemanticConsultantChat';
+import { ValidatedTagsetsList } from '@/components/admin/ValidatedTagsetsList';
 
 interface SemanticTagset {
   id: string;
@@ -151,6 +152,35 @@ export default function AdminSemanticTagsetValidation() {
     } catch (error) {
       console.error('Erro ao rejeitar:', error);
       toast.error('Erro ao rejeitar domínio semântico');
+    }
+  };
+
+  const handleRevertValidation = async (tagset: SemanticTagset) => {
+    try {
+      const { error } = await supabase
+        .from('semantic_tagset')
+        .update({ 
+          status: 'proposto',
+          aprovado_em: null,
+          aprovado_por: null
+        })
+        .eq('id', tagset.id);
+
+      if (error) throw error;
+
+      // Recalcular hierarquia após reversão
+      console.log('[Revert] Recalculando hierarquia...');
+      const { error: hierarchyError } = await supabase.rpc('calculate_tagset_hierarchy');
+      
+      if (hierarchyError) {
+        console.error('[Revert] Erro ao recalcular hierarquia:', hierarchyError);
+      }
+
+      toast.success(`Validação revertida: "${tagset.nome}" retornou para pendentes`);
+      fetchTagsets();
+    } catch (error) {
+      console.error('Erro ao reverter validação:', error);
+      toast.error('Erro ao reverter a validação');
     }
   };
 
@@ -297,12 +327,16 @@ export default function AdminSemanticTagsetValidation() {
           </Card>
         </div>
 
-        {/* Tabs para alternar entre Validação e Hierarquia */}
+        {/* Tabs para alternar entre Validação, Validados e Hierarquia */}
         <Tabs defaultValue="validation" className="mt-6">
-          <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsList className="grid w-full max-w-3xl grid-cols-3">
             <TabsTrigger value="validation" className="flex items-center gap-2">
               <Filter className="h-4 w-4" />
               Validação
+            </TabsTrigger>
+            <TabsTrigger value="validated" className="flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4" />
+              Validados
             </TabsTrigger>
             <TabsTrigger value="hierarchy" className="flex items-center gap-2">
               <TreePine className="h-4 w-4" />
@@ -540,6 +574,15 @@ export default function AdminSemanticTagsetValidation() {
             )}
           </CardContent>
         </Card>
+          </TabsContent>
+
+          <TabsContent value="validated" className="mt-6">
+            <ValidatedTagsetsList 
+              tagsets={tagsets}
+              onEdit={handleEditClick}
+              onRevert={handleRevertValidation}
+              onRefresh={fetchTagsets}
+            />
           </TabsContent>
 
           <TabsContent value="hierarchy" className="mt-6">
