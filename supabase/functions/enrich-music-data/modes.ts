@@ -1,0 +1,573 @@
+// Mode handlers for different enrichment workflows
+import { searchYouTube, searchWithAI, RateLimiter } from "./helpers.ts";
+
+const geminiLimiter = new RateLimiter(3, 500);
+const youtubeLimiter = new RateLimiter(2, 1000);
+const webSearchLimiter = new RateLimiter(2, 800);
+
+interface EnrichmentResult {
+  songId: string;
+  success: boolean;
+  enrichedData?: {
+    composer?: string;
+    releaseYear?: string;
+    youtubeVideoId?: string;
+  };
+  confidenceScore: number;
+  sources: string[];
+  error?: string;
+}
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+// Single mode: Enrich one song by ID
+export async function handleSingleMode(body: any, supabase: any) {
+  const songId = body.songId;
+  
+  if (!songId) {
+    return new Response(
+      JSON.stringify({ error: 'songId is required' }),
+      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
+  console.log(`[Single Mode] Enriching song ${songId}`);
+
+  const result = await enrichSingleSong(songId, supabase);
+
+  return new Response(
+    JSON.stringify(result),
+    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+  );
+}
+
+// Database mode: Enrich pending songs for an artist
+export async function handleDatabaseMode(body: any, supabase: any) {
+  const { artistId } = body;
+  
+  if (!artistId) {
+    return new Response(
+      JSON.stringify({ error: 'artistId is required for database mode' }),
+      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
+  console.log(`[Database Mode] Enriching songs for artist ID: ${artistId}`);
+
+  // Fetch artist name
+  const { data: artistData, error: artistError } = await supabase
+    .from('artists')
+    .select('name')
+    .eq('id', artistId)
+    .single();
+
+  if (artistError) {
+    return new Response(
+      JSON.stringify({ error: `Artist not found: ${artistError.message}` }),
+      { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
+  // Fetch pending songs
+  const { data: songsData, error: songsError } = await supabase
+    .from('songs')
+    .select('id, title')
+    .eq('artist_id', artistId)
+    .eq('status', 'pending')
+    .limit(20);
+
+  if (songsError) {
+    return new Response(
+      JSON.stringify({ error: `Error fetching songs: ${songsError.message}` }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
+  if (!songsData || songsData.length === 0) {
+    return new Response(
+      JSON.stringify({ 
+        success: true,
+        message: 'No pending songs found',
+        processed: 0,
+        successCount: 0
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
+  console.log(`[Database Mode] Found ${songsData.length} pending songs`);
+
+  let successCount = 0;
+  let failureCount = 0;
+
+  // Enrich each song
+  for (const song of songsData) {
+    try {
+      const result = await enrichSingleSong(song.id, supabase);
+      if (result.success) {
+        successCount++;
+      } else {
+        failureCount++;
+      }
+    } catch (error) {
+      console.error(`[Database Mode] Error enriching song ${song.id}:`, error);
+      failureCount++;
+    }
+  }
+
+  return new Response(
+    JSON.stringify({ 
+      success: true,
+      message: 'Enrichment completed',
+      processed: songsData.length,
+      successCount,
+      failed: failureCount
+    }),
+    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+  );
+}
+
+// Legacy mode: Batch enrichment from array of titles
+export async function handleLegacyMode(body: any) {
+  const { titles, musics } = body;
+  
+  let musicsToProcess: Array<{ id?: string; titulo: string; artista?: string }> = [];
+  
+  if (titles && Array.isArray(titles)) {
+    musicsToProcess = titles.map((titulo: string, index: number) => ({
+      id: `legacy-${index}`,
+      titulo,
+      artista: undefined
+    }));
+  } else if (musics && Array.isArray(musics)) {
+    musicsToProcess = musics.map((m: any) => ({
+      id: m.id || `unknown-${Math.random()}`,
+      titulo: m.titulo,
+      artista: m.artista_contexto || m.artista
+    }));
+  } else {
+    return new Response(
+      JSON.stringify({ error: 'titles or musics array is required for legacy mode' }),
+      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
+  console.log(`[Legacy Mode] Processing ${musicsToProcess.length} items`);
+
+  const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
+  const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+  
+  if (!GEMINI_API_KEY && !LOVABLE_API_KEY) {
+    return new Response(
+      JSON.stringify({ error: 'No AI API keys configured' }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
+  const enrichedData = [];
+  let successCount = 0;
+
+  for (const music of musicsToProcess) {
+    try {
+      // YouTube search
+      let youtubeData = null;
+      const youtubeApiKey = Deno.env.get('YOUTUBE_API_KEY');
+      if (youtubeApiKey) {
+        try {
+          youtubeData = await youtubeLimiter.schedule(() =>
+            searchYouTube(music.titulo, music.artista || '', youtubeApiKey, null)
+          );
+        } catch (ytError) {
+          console.error(`[Legacy Mode] YouTube error for "${music.titulo}":`, ytError);
+        }
+      }
+
+      // Enrich with AI
+      const metadata = await enrichWithAI(
+        music.titulo,
+        music.artista,
+        youtubeData,
+        GEMINI_API_KEY,
+        LOVABLE_API_KEY
+      );
+
+      let result = {
+        id: music.id,
+        titulo_original: music.titulo,
+        artista_encontrado: metadata.artista || 'Não Identificado',
+        compositor_encontrado: metadata.compositor || 'Não Identificado',
+        ano_lancamento: metadata.ano || '0000',
+        youtube_url: youtubeData?.videoId 
+          ? `https://www.youtube.com/watch?v=${youtubeData.videoId}`
+          : null,
+        status_pesquisa: metadata.compositor !== 'Não Identificado' && metadata.ano !== '0000' 
+          ? 'Sucesso' 
+          : 'Parcial',
+        observacoes: metadata.observacoes || '',
+        enriched_by_web: false
+      };
+
+      // Web search fallback if needed
+      const needsWebSearch = 
+        result.compositor_encontrado === 'Não Identificado' ||
+        result.ano_lancamento === '0000';
+
+      if (needsWebSearch && LOVABLE_API_KEY) {
+        try {
+          const webData = await webSearchLimiter.schedule(() =>
+            searchWithAI(music.titulo, music.artista || '', LOVABLE_API_KEY)
+          );
+
+          if (webData.compositor && webData.compositor !== 'Não Identificado') {
+            result.compositor_encontrado = webData.compositor;
+          }
+          if (webData.ano && webData.ano !== '0000') {
+            result.ano_lancamento = webData.ano;
+          }
+
+          if (webData.compositor !== 'Não Identificado' || webData.ano !== '0000') {
+            result.status_pesquisa = 'Sucesso (Web)';
+            result.enriched_by_web = true;
+          }
+        } catch (webError) {
+          console.error(`[Legacy Mode] Web search error for "${music.titulo}":`, webError);
+        }
+      }
+
+      enrichedData.push(result);
+      if (result.status_pesquisa.includes('Sucesso')) successCount++;
+
+    } catch (error) {
+      console.error(`[Legacy Mode] Error enriching "${music.titulo}":`, error);
+      enrichedData.push({
+        id: music.id,
+        titulo_original: music.titulo,
+        artista_encontrado: 'Não Identificado',
+        compositor_encontrado: 'Não Identificado',
+        ano_lancamento: '0000',
+        status_pesquisa: 'Falha',
+        observacoes: `Error: ${error instanceof Error ? error.message : 'Unknown'}`
+      });
+    }
+  }
+
+  return new Response(
+    JSON.stringify({ 
+      success: true,
+      results: enrichedData,
+      processedCount: enrichedData.length,
+      successCount
+    }),
+    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+  );
+}
+
+// Core enrichment function for a single song
+async function enrichSingleSong(songId: string, supabase: any): Promise<EnrichmentResult> {
+  try {
+    // Fetch song data
+    const { data: song, error: fetchError } = await supabase
+      .from('songs')
+      .select(`
+        id,
+        title,
+        normalized_title,
+        composer,
+        release_year,
+        artists (
+          name
+        )
+      `)
+      .eq('id', songId)
+      .single();
+
+    if (fetchError || !song) {
+      return {
+        songId,
+        success: false,
+        confidenceScore: 0,
+        sources: [],
+        error: 'Song not found'
+      };
+    }
+
+    const artistName = (song.artists as any)?.name || 'Unknown Artist';
+    const enrichedData: any = {};
+    const sources: string[] = [];
+    let confidenceScore = 0;
+
+    // 1. YouTube search
+    let youtubeContext = null;
+    const youtubeApiKey = Deno.env.get('YOUTUBE_API_KEY');
+    if (youtubeApiKey) {
+      try {
+        youtubeContext = await youtubeLimiter.schedule(() =>
+          searchYouTube(song.title, artistName, youtubeApiKey, supabase)
+        );
+        if (youtubeContext) {
+          enrichedData.youtubeVideoId = youtubeContext.videoId;
+          sources.push('youtube');
+          confidenceScore += 30;
+        }
+      } catch (error) {
+        console.error('[enrichSingleSong] YouTube error:', error);
+      }
+    }
+
+    // 2. Enrich with AI
+    const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
+    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+    
+    if (!song.composer && (GEMINI_API_KEY || LOVABLE_API_KEY)) {
+      const metadata = await enrichWithAI(
+        song.title,
+        artistName,
+        youtubeContext,
+        GEMINI_API_KEY,
+        LOVABLE_API_KEY
+      );
+
+      if (metadata.composer || metadata.compositor) {
+        enrichedData.composer = metadata.composer || metadata.compositor;
+        confidenceScore += 40;
+      }
+      if (metadata.releaseYear || metadata.ano) {
+        enrichedData.releaseYear = metadata.releaseYear || metadata.ano;
+        confidenceScore += 20;
+      }
+
+      sources.push(metadata.source || 'ai');
+    }
+
+    // 3. Web search fallback
+    const needsWebSearch = !enrichedData.composer || !enrichedData.releaseYear;
+    if (needsWebSearch && LOVABLE_API_KEY) {
+      try {
+        const webData = await webSearchLimiter.schedule(() =>
+          searchWithAI(song.title, artistName, LOVABLE_API_KEY)
+        );
+
+        if (!enrichedData.composer && webData.compositor !== 'Não Identificado') {
+          enrichedData.composer = webData.compositor;
+          confidenceScore += 20;
+          sources.push('web_search_ai');
+        }
+
+        if (!enrichedData.releaseYear && webData.ano !== '0000') {
+          enrichedData.releaseYear = webData.ano;
+          confidenceScore += 15;
+          if (!sources.includes('web_search_ai')) sources.push('web_search_ai');
+        }
+      } catch (error) {
+        console.error('[enrichSingleSong] Web search error:', error);
+      }
+    }
+
+    confidenceScore = Math.min(confidenceScore, 100);
+
+    // Update song in database
+    const updateData: any = {
+      status: 'enriched',
+      confidence_score: confidenceScore,
+      enrichment_source: sources.join(','),
+      updated_at: new Date().toISOString(),
+    };
+
+    if (enrichedData.composer) updateData.composer = enrichedData.composer;
+    if (enrichedData.releaseYear) updateData.release_year = enrichedData.releaseYear;
+    if (enrichedData.youtubeVideoId) {
+      updateData.youtube_url = `https://www.youtube.com/watch?v=${enrichedData.youtubeVideoId}`;
+    }
+
+    const { error: updateError } = await supabase
+      .from('songs')
+      .update(updateData)
+      .eq('id', songId);
+
+    if (updateError) {
+      throw updateError;
+    }
+
+    console.log(`[enrichSingleSong] Success: ${songId} (confidence: ${confidenceScore}%)`);
+
+    return {
+      songId,
+      success: true,
+      enrichedData,
+      confidenceScore,
+      sources
+    };
+
+  } catch (error) {
+    console.error('[enrichSingleSong] Error:', error);
+    return {
+      songId,
+      success: false,
+      confidenceScore: 0,
+      sources: [],
+      error: error instanceof Error ? error.message : String(error)
+    };
+  }
+}
+
+// AI enrichment with Gemini → Lovable AI fallback
+async function enrichWithAI(
+  titulo: string,
+  artista: string | undefined,
+  youtubeContext: any,
+  geminiApiKey: string | undefined,
+  lovableApiKey: string | undefined
+): Promise<{ 
+  artista?: string; 
+  composer?: string;
+  compositor?: string; 
+  ano?: string; 
+  releaseYear?: string; 
+  observacoes?: string; 
+  source?: string;
+}> {
+  
+  let youtubeContextText = 'Nenhum vídeo do YouTube encontrado';
+  if (youtubeContext) {
+    const publishYear = new Date(youtubeContext.publishDate).getFullYear();
+    youtubeContextText = `
+🎬 CONTEXTO DO YOUTUBE:
+- Vídeo: "${youtubeContext.videoTitle}"
+- Canal: ${youtubeContext.channelTitle}
+- Data: ${youtubeContext.publishDate} (Ano: ${publishYear})
+
+DESCRIÇÃO DO VÍDEO (busque créditos aqui):
+${youtubeContext.description.substring(0, 800)}${youtubeContext.description.length > 800 ? '...' : ''}
+
+Procure por: "Composer:", "Compositor:", "℗ [ano]", "Written by:", "Provided to YouTube by"`;
+  }
+
+  const systemPrompt = `Você é um especialista em metadados musicais.
+Sua tarefa é identificar o Compositor e o Ano de Lançamento da música.
+
+Entrada:
+Artista: ${artista || 'Desconhecido'}
+Música: ${titulo}
+
+${youtubeContextText}
+
+Saída Obrigatória (JSON):
+{
+  "composer": "Nome do Compositor (ou null)",
+  "release_year": "Ano YYYY (ou null)",
+  "confidence": "high/medium/low"
+}
+Não adicione markdown \`\`\`json ou explicações. Apenas o objeto JSON cru.`;
+
+  // Try Gemini 2.5 Pro first
+  if (geminiApiKey) {
+    try {
+      console.log('[AI] Trying Gemini 2.5 Pro...');
+      const geminiResponse = await geminiLimiter.schedule(() =>
+        fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${geminiApiKey}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: systemPrompt }] }],
+              generationConfig: {
+                temperature: 0.1,
+                maxOutputTokens: 200,
+                responseMimeType: "application/json"
+              }
+            }),
+          }
+        )
+      );
+
+      if (geminiResponse.ok) {
+        const geminiData = await geminiResponse.json();
+        const rawText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        
+        if (rawText) {
+          const metadata = JSON.parse(rawText);
+          console.log('[AI] Gemini 2.5 Pro success');
+          return {
+            artista: artista,
+            composer: metadata.composer !== 'null' ? metadata.composer : undefined,
+            compositor: metadata.composer !== 'null' ? metadata.composer : undefined,
+            releaseYear: metadata.release_year !== 'null' ? metadata.release_year : undefined,
+            ano: metadata.release_year !== 'null' ? metadata.release_year : undefined,
+            observacoes: '',
+            source: 'gemini_pro'
+          };
+        }
+      }
+    } catch (geminiError) {
+      console.error('[AI] Gemini error, falling back to Lovable AI:', geminiError);
+    }
+  }
+
+  // Fallback to Lovable AI
+  if (lovableApiKey) {
+    try {
+      console.log('[AI] Falling back to Lovable AI...');
+      const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${lovableApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'google/gemini-2.5-flash',
+          messages: [{ role: 'user', content: systemPrompt }],
+          tools: [
+            {
+              type: 'function',
+              function: {
+                name: 'enrich_music_info',
+                description: 'Return structured music metadata',
+                parameters: {
+                  type: 'object',
+                  properties: {
+                    composer: { type: 'string' },
+                    release_year: { type: 'string' },
+                    confidence: { type: 'string' }
+                  },
+                  required: ['composer', 'release_year']
+                }
+              }
+            }
+          ],
+          tool_choice: { type: 'function', function: { name: 'enrich_music_info' } }
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
+        if (toolCall?.function?.arguments) {
+          const metadata = JSON.parse(toolCall.function.arguments);
+          console.log('[AI] Lovable AI success');
+          return {
+            artista: artista,
+            composer: metadata.composer !== 'null' ? metadata.composer : undefined,
+            compositor: metadata.composer !== 'null' ? metadata.composer : undefined,
+            releaseYear: metadata.release_year !== 'null' ? metadata.release_year : undefined,
+            ano: metadata.release_year !== 'null' ? metadata.release_year : undefined,
+            observacoes: '',
+            source: 'lovable_ai'
+          };
+        }
+      }
+    } catch (lovableError) {
+      console.error('[AI] Lovable AI error:', lovableError);
+    }
+  }
+
+  console.warn('[AI] All AI sources failed');
+  return {
+    compositor: 'Não Identificado',
+    ano: '0000',
+    observacoes: 'AI enrichment failed'
+  };
+}

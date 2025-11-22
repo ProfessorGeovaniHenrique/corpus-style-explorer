@@ -1,39 +1,11 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.81.1";
-import { searchYouTube, searchWithAI, RateLimiter } from "./helpers.ts";
-
-// Global rate limiter instances
-const geminiLimiter = new RateLimiter(3, 500); // 3 concurrent, 500ms between requests
-const youtubeLimiter = new RateLimiter(2, 1000); // 2 concurrent, 1s between requests
-const webSearchLimiter = new RateLimiter(2, 800); // 2 concurrent, 800ms between requests
+import { handleSingleMode, handleDatabaseMode, handleLegacyMode } from "./modes.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
-
-interface EnrichmentResult {
-  songId: string;
-  success: boolean;
-  enrichedData?: {
-    composer?: string;
-    releaseYear?: string;
-    album?: string;
-    genre?: string;
-    youtubeVideoId?: string;
-  };
-  confidenceScore: number;
-  sources: string[];
-  error?: string;
-}
-
-interface YouTubeSearchResult {
-  videoTitle: string;
-  channelTitle: string;
-  publishDate: string;
-  description: string;
-  videoId: string;
-}
 
 serve(async (req) => {
   console.log(`[enrich-music-data] 🚀 REQUEST RECEIVED - Method: ${req.method}`);
@@ -42,9 +14,6 @@ serve(async (req) => {
     console.log(`[enrich-music-data] ✅ CORS preflight handled`);
     return new Response(null, { headers: corsHeaders });
   }
-
-  // ✅ FASE 0: Guardar songId antes do try para evitar bug no catch
-  let songId: string | null = null;
 
   try {
     console.log(`[enrich-music-data] 🔧 Initializing Supabase client...`);
@@ -56,386 +25,30 @@ serve(async (req) => {
 
     console.log(`[enrich-music-data] 📦 Parsing request body...`);
     const body = await req.json();
-    songId = body.songId;
-    console.log(`[enrich-music-data] 📝 Received songId: ${songId}`);
     
-    if (!songId) {
-      console.error(`[enrich-music-data] ❌ Missing songId in request`);
-      return new Response(
-        JSON.stringify({ error: 'songId is required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    console.log(`[enrich-music-data] 🎵 Starting enrichment for song ${songId}`);
-
-    // Fetch song data
-    const { data: song, error: fetchError } = await supabase
-      .from('songs')
-      .select(`
-        id,
-        title,
-        normalized_title,
-        composer,
-        release_year,
-        artists (
-          name
-        )
-      `)
-      .eq('id', songId)
-      .single();
-
-    if (fetchError || !song) {
-      return new Response(
-        JSON.stringify({ error: 'Song not found' }),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const artistName = (song.artists as any)?.name || 'Unknown Artist';
-    const searchQuery = `${song.title} ${artistName}`;
+    // Determine operation mode
+    const mode = body.mode || 'single'; // 'single', 'database', 'legacy'
+    console.log(`[enrich-music-data] Mode: ${mode}`);
     
-    console.log(`[enrich-music-data] Searching for: ${searchQuery}`);
-
-    const enrichedData: EnrichmentResult['enrichedData'] = {};
-    const sources: string[] = [];
-    let confidenceScore = 0;
-
-    // 1. YouTube API - Search for video with description (with rate limiting)
-    let youtubeContext: YouTubeSearchResult | null = null;
-    const youtubeApiKey = Deno.env.get('YOUTUBE_API_KEY');
-    if (youtubeApiKey) {
-      try {
-        console.log(`[Rate Limiter] YouTube queue: ${youtubeLimiter.getQueueSize()}, running: ${youtubeLimiter.getRunningCount()}`);
-        youtubeContext = await youtubeLimiter.schedule(() => 
-          searchYouTube(song.title, artistName, youtubeApiKey, supabase)
-        );
-        if (youtubeContext) {
-          enrichedData.youtubeVideoId = youtubeContext.videoId;
-          sources.push('youtube');
-          confidenceScore += 30;
-        }
-      } catch (error) {
-        console.error('[enrich-music-data] YouTube API error:', error);
-      }
+    if (mode === 'database') {
+      // Database mode: enrich pending songs for an artist
+      return await handleDatabaseMode(body, supabase);
+    } else if (mode === 'legacy') {
+      // Legacy mode: batch enrichment from array of titles
+      return await handleLegacyMode(body);
+    } else {
+      // Single mode: enrich one song by ID
+      return await handleSingleMode(body, supabase);
     }
-
-    // 2. Gemini API - Extract metadata (PRIMARY SOURCE)
-    const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
-    if (geminiApiKey && !song.composer) {
-      try {
-        // Criar cache key (hash simples do artista + música)
-        const cacheKey = `${artistName.toLowerCase().trim()}:${song.title.toLowerCase().trim()}`;
-        console.log(`[enrich-music-data] Checking cache for key: ${cacheKey}`);
-        
-        // Verificar cache primeiro
-        const { data: cached, error: cacheError } = await supabase
-          .from('gemini_cache')
-          .select('*')
-          .eq('cache_key', cacheKey)
-          .gt('expires_at', new Date().toISOString())
-          .maybeSingle();
-        
-        if (cached && !cacheError) {
-          console.log(`[enrich-music-data] Cache HIT for ${artistName} - ${song.title}`);
-          
-          // Usar dados do cache
-          if (cached.composer) enrichedData.composer = cached.composer;
-          if (cached.release_year) enrichedData.releaseYear = cached.release_year;
-          
-          const confidenceMap = { high: 40, medium: 25, low: 15 };
-          confidenceScore += confidenceMap[cached.confidence as keyof typeof confidenceMap] || 25;
-          if (cached.release_year) confidenceScore += 20;
-          
-          sources.push('gemini_cache');
-          
-          // Incrementar hit counter
-          await supabase
-            .from('gemini_cache')
-            .update({ 
-              hits_count: (cached.hits_count || 0) + 1,
-              last_hit_at: new Date().toISOString()
-            })
-            .eq('id', cached.id);
-          
-          // Log cache hit (sem tokens usados)
-          await supabase.from("gemini_api_usage").insert({
-            function_name: "enrich-music-data",
-            model_used: "gemini-1.5-flash",
-            request_type: "enrich_song_cache_hit",
-            tokens_input: 0,
-            tokens_output: 0,
-            success: true,
-            metadata: {
-              song_id: songId,
-              artist: artistName,
-              title: song.title,
-              cache_hit: true,
-              cache_id: cached.id,
-            },
-          });
-          
-        } else {
-          console.log(`[enrich-music-data] Cache MISS - Querying Gemini API for metadata`);
-        
-          // Contexto enriquecido do YouTube se disponível
-          let youtubeContextText = 'Nenhum vídeo do YouTube encontrado';
-          if (youtubeContext) {
-            const publishYear = new Date(youtubeContext.publishDate).getFullYear();
-            youtubeContextText = `
-🎬 CONTEXTO DO YOUTUBE:
-- Vídeo: "${youtubeContext.videoTitle}"
-- Canal: ${youtubeContext.channelTitle}
-- Data: ${youtubeContext.publishDate} (Ano: ${publishYear})
-
-DESCRIÇÃO DO VÍDEO (busque créditos aqui):
-${youtubeContext.description.substring(0, 800)}${youtubeContext.description.length > 800 ? '...' : ''}
-
-Procure por: "Composer:", "Compositor:", "℗ [ano]", "Written by:", "Provided to YouTube by"`;
-          }
-
-          const startTime = Date.now();
-          let tokensInput = 0;
-          let tokensOutput = 0;
-        
-          const systemPrompt = `Você é um especialista em metadados musicais.
-Sua tarefa é identificar o Compositor e o Ano de Lançamento da música.
-
-Entrada:
-Artista: ${artistName}
-Música: ${song.title}
-
-${youtubeContextText}
-
-Saída Obrigatória (JSON):
-{
-  "composer": "Nome do Compositor (ou null)",
-  "release_year": "Ano YYYY (ou null)",
-  "confidence": "high/medium/low"
-}
-Não adicione markdown \`\`\`json ou explicações. Apenas o objeto JSON cru.`;
-
-          console.log(`[Rate Limiter] Gemini queue: ${geminiLimiter.getQueueSize()}, running: ${geminiLimiter.getRunningCount()}`);
-          const geminiResponse = await geminiLimiter.schedule(() =>
-            fetch(
-              `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`,
-              {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  contents: [
-                    {
-                      parts: [{ text: systemPrompt }]
-                    }
-                  ],
-                  generationConfig: {
-                    temperature: 0.1,
-                    maxOutputTokens: 200,
-                    responseMimeType: "application/json"
-                  }
-                }),
-              }
-            )
-          );
-
-          if (!geminiResponse.ok) {
-            const errorText = await geminiResponse.text();
-            console.error(`[enrich-music-data] Gemini API HTTP Error ${geminiResponse.status}:`, errorText);
-            throw new Error(`Gemini API returned ${geminiResponse.status}`);
-          }
-
-          const geminiData = await geminiResponse.json();
-          console.log('[enrich-music-data] Gemini raw response:', JSON.stringify(geminiData));
-        
-          // Extrair usage metadata
-          if (geminiData.usageMetadata) {
-            tokensInput = geminiData.usageMetadata.promptTokenCount || 0;
-            tokensOutput = geminiData.usageMetadata.candidatesTokenCount || 0;
-          }
-        
-          const rawText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || '';
-          console.log('[enrich-music-data] Gemini text extracted:', rawText);
-        
-          if (!rawText) {
-            throw new Error('Gemini retornou resposta vazia');
-          }
-
-          // Parse JSON response
-          let metadata;
-          try {
-            // Tentar parse direto (JSON mode)
-            metadata = JSON.parse(rawText);
-          } catch (parseError) {
-            // Fallback: extrair JSON de texto com markdown
-            const jsonMatch = rawText.match(/\{[\s\S]*\}/);
-            if (jsonMatch) {
-              metadata = JSON.parse(jsonMatch[0]);
-            } else {
-              throw new Error('Não foi possível extrair JSON da resposta do Gemini');
-            }
-          }
-
-          console.log('[enrich-music-data] Gemini parsed metadata:', metadata);
-
-          // Processar resultados
-          if (metadata.composer && metadata.composer !== 'null') {
-            enrichedData.composer = metadata.composer;
-          
-            // Ajustar confidence baseado na resposta do Gemini
-            const confidenceMap = { high: 40, medium: 25, low: 15 };
-            confidenceScore += confidenceMap[metadata.confidence as keyof typeof confidenceMap] || 25;
-          }
-
-          if (metadata.release_year && metadata.release_year !== 'null') {
-            enrichedData.releaseYear = metadata.release_year;
-            confidenceScore += 20;
-          }
-
-          sources.push('gemini');
-          console.log(`[enrich-music-data] Gemini enrichment successful: composer=${metadata.composer}, year=${metadata.release_year}`);
-        
-          // Salvar no cache
-          await supabase.from('gemini_cache').insert({
-            cache_key: cacheKey,
-            artist: artistName,
-            title: song.title,
-            composer: metadata.composer !== 'null' ? metadata.composer : null,
-            release_year: metadata.release_year !== 'null' ? metadata.release_year : null,
-            confidence: metadata.confidence,
-            tokens_used: tokensInput + tokensOutput,
-          });
-        
-          // Log API usage
-          await supabase.from("gemini_api_usage").insert({
-            function_name: "enrich-music-data",
-            model_used: "gemini-1.5-flash",
-            request_type: "enrich_song",
-            tokens_input: tokensInput,
-            tokens_output: tokensOutput,
-            success: true,
-            metadata: {
-              song_id: songId,
-              artist: artistName,
-              title: song.title,
-              processing_time_ms: Date.now() - startTime,
-              cache_miss: true,
-            },
-          });
-        }
-
-      } catch (error) {
-        console.error('[enrich-music-data] Gemini API error:', error);
-        console.error('[enrich-music-data] Error details:', error instanceof Error ? error.message : String(error));
-        
-        // Log failed API call
-        try {
-          await supabase.from("gemini_api_usage").insert({
-            function_name: "enrich-music-data",
-            model_used: "gemini-1.5-flash",
-            request_type: "enrich_song",
-            success: false,
-            error_message: error instanceof Error ? error.message : String(error),
-            metadata: { song_id: songId, artist: artistName, title: song.title },
-          });
-        } catch (logError) {
-          console.error("Failed to log API error:", logError);
-        }
-      }
-    }
-
-    // 3. Web Search AI Fallback - for missing composer or year (with rate limiting)
-    const needsWebSearch = !enrichedData.composer || !enrichedData.releaseYear;
-    if (needsWebSearch) {
-      console.log(`[enrich-music-data] Web Search AI Fallback triggered for missing data`);
-      try {
-        const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-        if (LOVABLE_API_KEY) {
-          console.log(`[Rate Limiter] Web Search queue: ${webSearchLimiter.getQueueSize()}, running: ${webSearchLimiter.getRunningCount()}`);
-          const webData = await webSearchLimiter.schedule(() =>
-            searchWithAI(song.title, artistName, LOVABLE_API_KEY)
-          );
-          
-          if (!enrichedData.composer && webData.compositor !== 'Não Identificado') {
-            enrichedData.composer = webData.compositor;
-            confidenceScore += 20;
-            sources.push('web_search_ai');
-            console.log(`[enrich-music-data] Composer found via web search: ${webData.compositor}`);
-          }
-          
-          if (!enrichedData.releaseYear && webData.ano !== '0000') {
-            enrichedData.releaseYear = webData.ano;
-            confidenceScore += 15;
-            if (!sources.includes('web_search_ai')) sources.push('web_search_ai');
-            console.log(`[enrich-music-data] Year found via web search: ${webData.ano}`);
-          }
-        }
-      } catch (webError) {
-        console.error('[enrich-music-data] Web search fallback error:', webError);
-      }
-    }
-
-    // Cap confidence score at 100
-    confidenceScore = Math.min(confidenceScore, 100);
-
-    // Update song in database
-    const updateData: any = {
-      status: 'enriched',
-      confidence_score: confidenceScore,
-      enrichment_source: sources.join(','),
-      updated_at: new Date().toISOString(),
-    };
-
-    if (enrichedData.composer) updateData.composer = enrichedData.composer;
-    if (enrichedData.releaseYear) updateData.release_year = enrichedData.releaseYear;
-    if (enrichedData.youtubeVideoId) {
-      updateData.youtube_url = `https://www.youtube.com/watch?v=${enrichedData.youtubeVideoId}`;
-    }
-    if (enrichedData.album || enrichedData.genre) {
-      updateData.raw_data = {
-        ...(song as any).raw_data,
-        album: enrichedData.album,
-        genre: enrichedData.genre,
-      };
-    }
-
-    const { error: updateError } = await supabase
-      .from('songs')
-      .update(updateData)
-      .eq('id', songId);
-
-    if (updateError) {
-      throw updateError;
-    }
-
-    console.log(`[enrich-music-data] Successfully enriched song ${songId} with confidence ${confidenceScore}%`);
-
-    const result: EnrichmentResult = {
-      songId,
-      success: true,
-      enrichedData,
-      confidenceScore,
-      sources,
-    };
-
-    return new Response(
-      JSON.stringify(result),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
 
   } catch (error) {
     console.error('[enrich-music-data] Error:', error);
     
-    // ✅ FASE 0: Usar songId salvo ao invés de tentar parsear body novamente
-    const result: EnrichmentResult = {
-      songId: songId || 'unknown',
-      success: false,
-      confidenceScore: 0,
-      sources: [],
-      error: error instanceof Error ? error.message : String(error),
-    };
-
     return new Response(
-      JSON.stringify(result),
+      JSON.stringify({
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
