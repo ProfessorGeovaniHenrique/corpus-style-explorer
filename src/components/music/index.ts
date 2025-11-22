@@ -45,3 +45,4 @@ export { ActionButtons } from './ActionButtons';
 export { EmptyStateMusicEnrichment } from './EmptyStateMusicEnrichment';
 export { MusicAnalysisResult } from './MusicAnalysisResult';
 export { MusicUploadDialog } from './MusicUploadDialog';
+export { MusicImportProgressModal } from './MusicImportProgressModal';
