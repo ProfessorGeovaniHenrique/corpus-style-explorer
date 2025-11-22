@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.81.1";
+import { searchYouTube, searchWithAI } from "./helpers.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -19,6 +20,14 @@ interface EnrichmentResult {
   confidenceScore: number;
   sources: string[];
   error?: string;
+}
+
+interface YouTubeSearchResult {
+  videoTitle: string;
+  channelTitle: string;
+  publishDate: string;
+  description: string;
+  videoId: string;
 }
 
 serve(async (req) => {
@@ -87,47 +96,16 @@ serve(async (req) => {
     const sources: string[] = [];
     let confidenceScore = 0;
 
-    // 1. YouTube API - Search for video and cache
+    // 1. YouTube API - Search for video with description
+    let youtubeContext: YouTubeSearchResult | null = null;
     const youtubeApiKey = Deno.env.get('YOUTUBE_API_KEY');
     if (youtubeApiKey) {
       try {
-        // Check cache first
-        const { data: cached } = await supabase
-          .from('youtube_cache')
-          .select('video_id, metadata')
-          .eq('artist', artistName)
-          .eq('title', song.title)
-          .maybeSingle();
-
-        if (cached) {
-          console.log(`[enrich-music-data] YouTube cache hit for ${searchQuery}`);
-          enrichedData.youtubeVideoId = cached.video_id;
-          sources.push('youtube_cache');
-          confidenceScore += 20;
-        } else {
-          // Search YouTube
-          console.log(`[enrich-music-data] Searching YouTube for ${searchQuery}`);
-          const youtubeResponse = await fetch(
-            `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(searchQuery)}&type=video&maxResults=1&key=${youtubeApiKey}`
-          );
-
-          if (youtubeResponse.ok) {
-            const youtubeData = await youtubeResponse.json();
-            if (youtubeData.items && youtubeData.items.length > 0) {
-              const videoId = youtubeData.items[0].id.videoId;
-              enrichedData.youtubeVideoId = videoId;
-              sources.push('youtube');
-              confidenceScore += 30;
-
-              // Cache the result
-              await supabase.from('youtube_cache').insert({
-                artist: artistName,
-                title: song.title,
-                video_id: videoId,
-                metadata: youtubeData.items[0],
-              });
-            }
-          }
+        youtubeContext = await searchYouTube(song.title, artistName, youtubeApiKey, supabase);
+        if (youtubeContext) {
+          enrichedData.youtubeVideoId = youtubeContext.videoId;
+          sources.push('youtube');
+          confidenceScore += 30;
         }
       } catch (error) {
         console.error('[enrich-music-data] YouTube API error:', error);
@@ -192,10 +170,21 @@ serve(async (req) => {
         } else {
           console.log(`[enrich-music-data] Cache MISS - Querying Gemini API for metadata`);
         
-          // Contexto adicional do YouTube se disponível
-          const youtubeContext = enrichedData.youtubeVideoId 
-            ? `YouTube Video ID encontrado: ${enrichedData.youtubeVideoId}` 
-            : 'Nenhum vídeo do YouTube encontrado';
+          // Contexto enriquecido do YouTube se disponível
+          let youtubeContextText = 'Nenhum vídeo do YouTube encontrado';
+          if (youtubeContext) {
+            const publishYear = new Date(youtubeContext.publishDate).getFullYear();
+            youtubeContextText = `
+🎬 CONTEXTO DO YOUTUBE:
+- Vídeo: "${youtubeContext.videoTitle}"
+- Canal: ${youtubeContext.channelTitle}
+- Data: ${youtubeContext.publishDate} (Ano: ${publishYear})
+
+DESCRIÇÃO DO VÍDEO (busque créditos aqui):
+${youtubeContext.description.substring(0, 800)}${youtubeContext.description.length > 800 ? '...' : ''}
+
+Procure por: "Composer:", "Compositor:", "℗ [ano]", "Written by:", "Provided to YouTube by"`;
+          }
 
           const startTime = Date.now();
           let tokensInput = 0;
@@ -207,7 +196,8 @@ Sua tarefa é identificar o Compositor e o Ano de Lançamento da música.
 Entrada:
 Artista: ${artistName}
 Música: ${song.title}
-Contexto Extra (YouTube): ${youtubeContext}
+
+${youtubeContextText}
 
 Saída Obrigatória (JSON):
 {
@@ -342,7 +332,33 @@ Não adicione markdown \`\`\`json ou explicações. Apenas o objeto JSON cru.`;
       }
     }
 
-    // Perplexity removido - usando apenas Gemini para todas as validações
+    // 3. Web Search AI Fallback - for missing composer or year
+    const needsWebSearch = !enrichedData.composer || !enrichedData.releaseYear;
+    if (needsWebSearch) {
+      console.log(`[enrich-music-data] Web Search AI Fallback triggered for missing data`);
+      try {
+        const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+        if (LOVABLE_API_KEY) {
+          const webData = await searchWithAI(song.title, artistName, LOVABLE_API_KEY);
+          
+          if (!enrichedData.composer && webData.compositor !== 'Não Identificado') {
+            enrichedData.composer = webData.compositor;
+            confidenceScore += 20;
+            sources.push('web_search_ai');
+            console.log(`[enrich-music-data] Composer found via web search: ${webData.compositor}`);
+          }
+          
+          if (!enrichedData.releaseYear && webData.ano !== '0000') {
+            enrichedData.releaseYear = webData.ano;
+            confidenceScore += 15;
+            if (!sources.includes('web_search_ai')) sources.push('web_search_ai');
+            console.log(`[enrich-music-data] Year found via web search: ${webData.ano}`);
+          }
+        }
+      } catch (webError) {
+        console.error('[enrich-music-data] Web search fallback error:', webError);
+      }
+    }
 
     // Cap confidence score at 100
     confidenceScore = Math.min(confidenceScore, 100);
