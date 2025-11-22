@@ -23,7 +23,8 @@ serve(async (req) => {
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const geminiApiKey = Deno.env.get('GEMINI_API_KEY')!;
+    const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
+    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
     
     const supabase = createClient(supabaseUrl, supabaseKey);
 
@@ -40,7 +41,7 @@ serve(async (req) => {
     let source: string;
 
     if (cachedBio) {
-      console.log(`Cache hit for artist: ${artistName}`);
+      console.log(`[generate-artist-bio] Cache hit for artist: ${artistName}`);
       biography = cachedBio.composer || '';
       source = 'cache';
       
@@ -53,46 +54,85 @@ serve(async (req) => {
         })
         .eq('id', cachedBio.id);
     } else {
-      console.log(`Cache miss for artist: ${artistName}. Calling Gemini API...`);
+      console.log(`[generate-artist-bio] Cache miss for artist: ${artistName}`);
       
-      const prompt = `Escreva uma biografia resumida, envolvente e informativa (máximo de 3 parágrafos) para o artista musical "${artistName}".
+      // Step 1: Try Wikipedia first
+      console.log(`[generate-artist-bio] Attempting Wikipedia search...`);
+      const wikipediaBio = await fetchWikipediaBio(artistName);
+
+      if (wikipediaBio) {
+        biography = wikipediaBio;
+        source = 'wikipedia';
+        console.log(`[generate-artist-bio] ✅ Wikipedia biography found`);
+      } else {
+        // Step 2: Try Gemini 2.5 Pro
+        if (geminiApiKey) {
+          try {
+            console.log(`[generate-artist-bio] Wikipedia not found, trying Gemini 2.5 Pro...`);
+            
+            const prompt = `Escreva uma biografia resumida, envolvente e informativa (máximo de 3 parágrafos) para o artista musical "${artistName}".
 Foque no estilo musical, principais sucessos e importância histórica, especialmente no contexto da música gaúcha se aplicável.
 Responda em Português do Brasil.
 Retorne APENAS o texto da biografia, sem aspas ou formatação JSON.`;
 
-      const geminiResponse = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{
-              parts: [{ text: prompt }]
-            }]
-          })
+            const geminiResponse = await fetch(
+              `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${geminiApiKey}`,
+              {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  contents: [{
+                    parts: [{ text: prompt }]
+                  }],
+                  generationConfig: {
+                    temperature: 0.3,
+                    maxOutputTokens: 800
+                  }
+                })
+              }
+            );
+
+            if (geminiResponse.ok) {
+              const geminiData = await geminiResponse.json();
+              biography = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || '';
+              source = 'gemini_pro';
+              console.log(`[generate-artist-bio] ✅ Gemini 2.5 Pro biography generated`);
+
+              // Log API usage
+              await supabase.from('gemini_api_usage').insert({
+                function_name: 'generate-artist-bio',
+                request_type: 'biography_generation',
+                model_used: 'gemini-2.5-pro',
+                success: true,
+                tokens_input: geminiData.usageMetadata?.promptTokenCount || 0,
+                tokens_output: geminiData.usageMetadata?.candidatesTokenCount || 0,
+                metadata: { artist_name: artistName }
+              });
+            } else {
+              throw new Error('Gemini API error');
+            }
+          } catch (geminiError) {
+            console.error(`[generate-artist-bio] Gemini error, falling back to Lovable AI:`, geminiError);
+            
+            // Step 3: Fallback to Lovable AI
+            if (lovableApiKey) {
+              biography = await fetchAIBiography(artistName, lovableApiKey);
+              source = 'lovable_ai';
+              console.log(`[generate-artist-bio] ✅ Lovable AI biography generated`);
+            } else {
+              throw new Error('No AI API keys configured');
+            }
+          }
+        } else if (lovableApiKey) {
+          // No Gemini key, use Lovable AI directly
+          console.log(`[generate-artist-bio] No Gemini key, using Lovable AI...`);
+          biography = await fetchAIBiography(artistName, lovableApiKey);
+          source = 'lovable_ai';
+          console.log(`[generate-artist-bio] ✅ Lovable AI biography generated`);
+        } else {
+          throw new Error('No API keys configured for biography generation');
         }
-      );
-
-      if (!geminiResponse.ok) {
-        const errorText = await geminiResponse.text();
-        console.error('Gemini API error:', errorText);
-        throw new Error('Falha ao gerar biografia via Gemini');
       }
-
-      const geminiData = await geminiResponse.json();
-      biography = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || '';
-      source = 'gemini';
-
-      // Log API usage
-      await supabase.from('gemini_api_usage').insert({
-        function_name: 'generate-artist-bio',
-        request_type: 'biography_generation',
-        model_used: 'gemini-2.5-flash',
-        success: true,
-        tokens_input: geminiData.usageMetadata?.promptTokenCount || 0,
-        tokens_output: geminiData.usageMetadata?.candidatesTokenCount || 0,
-        metadata: { artist_name: artistName }
-      });
 
       // Cache the result
       await supabase.from('gemini_cache').insert({
@@ -101,8 +141,7 @@ Retorne APENAS o texto da biografia, sem aspas ou formatação JSON.`;
         title: artistName,
         composer: biography,
         confidence: 'high',
-        tokens_used: (geminiData.usageMetadata?.promptTokenCount || 0) + 
-                     (geminiData.usageMetadata?.candidatesTokenCount || 0),
+        tokens_used: biography.length,
         expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
       });
     }
@@ -118,7 +157,7 @@ Retorne APENAS o texto da biografia, sem aspas ou formatação JSON.`;
       .eq('id', artistId);
 
     if (updateError) {
-      console.error('Error updating artist:', updateError);
+      console.error('[generate-artist-bio] Error updating artist:', updateError);
       throw updateError;
     }
 
@@ -132,7 +171,7 @@ Retorne APENAS o texto da biografia, sem aspas ou formatação JSON.`;
     );
 
   } catch (error) {
-    console.error('Error in generate-artist-bio:', error);
+    console.error('[generate-artist-bio] Error:', error);
     return new Response(
       JSON.stringify({ 
         error: error instanceof Error ? error.message : 'Erro desconhecido',
@@ -142,3 +181,100 @@ Retorne APENAS o texto da biografia, sem aspas ou formatação JSON.`;
     );
   }
 });
+
+async function fetchWikipediaBio(artistName: string): Promise<string | null> {
+  try {
+    const encodedName = encodeURIComponent(artistName);
+    const url = `https://pt.wikipedia.org/api/rest_v1/page/summary/${encodedName}`;
+
+    console.log(`[Wikipedia] Fetching: ${url}`);
+
+    const response = await fetch(url, {
+      headers: {
+        'Accept': 'application/json',
+        'User-Agent': 'MusicEnrichmentBot/1.0'
+      }
+    });
+
+    if (response.status === 404) {
+      console.log(`[Wikipedia] Page not found for "${artistName}"`);
+      return null;
+    }
+
+    if (!response.ok) {
+      console.error(`[Wikipedia] API error: ${response.status}`);
+      return null;
+    }
+
+    const data = await response.json();
+
+    if (data.extract && data.extract.trim()) {
+      console.log(`[Wikipedia] Extract found (${data.extract.length} chars)`);
+      return `${data.extract}\n\n(Fonte: Wikipédia)`;
+    }
+
+    return null;
+
+  } catch (error) {
+    console.error('[Wikipedia] Error:', error);
+    return null;
+  }
+}
+
+async function fetchAIBiography(artistName: string, apiKey: string): Promise<string> {
+  const prompt = `Você é uma enciclopédia factual especializada em música brasileira.
+
+Resuma a carreira do artista musical "${artistName}".
+
+REGRAS CRÍTICAS:
+1. Se você NÃO tiver informações CONFIÁVEIS e VERIFICADAS sobre este artista específico, responda APENAS: "Biografia não disponível no momento"
+2. NÃO invente fatos, datas, álbuns, prêmios ou colaborações
+3. NÃO confunda com outros artistas de nome similar
+4. Se tiver dúvida, seja conservador e admita a falta de informação
+5. Foque em fatos verificáveis: carreira musical, gênero, período de atividade
+6. Máximo de 3-4 parágrafos
+
+Retorne APENAS o texto da biografia, sem introduções ou explicações adicionais.`;
+
+  try {
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-2.5-flash',
+        messages: [
+          { role: 'user', content: prompt }
+        ],
+        temperature: 0.3,
+        max_tokens: 800
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('[Lovable AI] Error:', response.status, errorText);
+
+      if (response.status === 429) {
+        return 'Biografia temporariamente indisponível (limite de requisições atingido). Tente novamente em alguns instantes.';
+      }
+
+      if (response.status === 402) {
+        return 'Biografia temporariamente indisponível (créditos insuficientes).';
+      }
+
+      return 'Biografia não disponível no momento.';
+    }
+
+    const data = await response.json();
+    const biography = data.choices?.[0]?.message?.content || 'Biografia não disponível no momento.';
+
+    return `${biography.trim()}\n\n(Fonte: IA Generativa)`;
+
+  } catch (error) {
+    console.error('[Lovable AI] Error:', error);
+    return 'Biografia não disponível no momento.';
+  }
+}
