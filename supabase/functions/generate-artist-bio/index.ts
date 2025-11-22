@@ -61,7 +61,7 @@ Responda em Português do Brasil.
 Retorne APENAS o texto da biografia, sem aspas ou formatação JSON.`;
 
       const geminiResponse = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -87,7 +87,7 @@ Retorne APENAS o texto da biografia, sem aspas ou formatação JSON.`;
       await supabase.from('gemini_api_usage').insert({
         function_name: 'generate-artist-bio',
         request_type: 'biography_generation',
-        model_used: 'gemini-1.5-flash',
+        model_used: 'gemini-2.5-flash',
         success: true,
         tokens_input: geminiData.usageMetadata?.promptTokenCount || 0,
         tokens_output: geminiData.usageMetadata?.candidatesTokenCount || 0,
