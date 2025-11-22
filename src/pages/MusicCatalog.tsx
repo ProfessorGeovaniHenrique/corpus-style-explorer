@@ -61,7 +61,8 @@ export default function MusicCatalog() {
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
   const [searchQuery, setSearchQuery] = useState('');
   const [songs, setSongs] = useState<Song[]>([]);
-  const [allSongs, setAllSongs] = useState<Song[]>([]); // Todas as músicas sem filtro
+  const [allSongs, setAllSongs] = useState<Song[]>([]); // Músicas filtradas por corpus
+  const [allSongsForStats, setAllSongsForStats] = useState<any[]>([]); // TODAS as músicas sem filtro (para estatísticas)
   const [artists, setArtists] = useState<LocalArtist[]>([]);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
@@ -108,7 +109,23 @@ export default function MusicCatalog() {
     try {
       setLoading(true);
 
-      // Carregar todas as músicas para estatísticas completas
+      // Carregar TODAS as músicas SEM filtros para estatísticas dos artistas
+      const { data: songsForStats, error: statsError } = await supabase
+        .from('songs')
+        .select(`
+          id,
+          artist_id,
+          status,
+          confidence_score,
+          youtube_url,
+          updated_at,
+          enrichment_source
+        `)
+        .order('created_at', { ascending: false });
+
+      if (statsError) throw statsError;
+
+      // Carregar músicas para exibição (com filtros aplicados)
       let query = supabase
         .from('songs')
         .select(`
@@ -141,9 +158,13 @@ export default function MusicCatalog() {
       if (allSongsError) throw allSongsError;
 
       const allSongs = allSongsData || [];
+      const statsData = songsForStats || [];
       
-      // Salvar todas as músicas no estado
+      // Salvar músicas filtradas para exibição
       setAllSongs(allSongs);
+      
+      // Salvar TODAS as músicas para estatísticas (sem filtros)
+      setAllSongsForStats(statsData);
 
       // Filtrar músicas baseado no filtro de status
       const displayedSongs = statusFilter === 'all' 
@@ -168,34 +189,34 @@ export default function MusicCatalog() {
       if (artistsError) throw artistsError;
       setArtists(artistsData || []);
 
-      // Calcular estatísticas
-      const enrichedCount = allSongs.filter(s => s.status === 'enriched').length;
-      const pendingCount = allSongs.filter(s => s.status === 'pending').length;
-      const errorCount = allSongs.filter(s => s.status === 'error').length;
-      const withoutYouTubeCount = allSongs.filter(s => !s.youtube_url).length;
+      // Calcular estatísticas usando TODAS as músicas (sem filtros)
+      const enrichedCount = statsData.filter(s => s.status === 'enriched').length;
+      const pendingCount = statsData.filter(s => s.status === 'pending').length;
+      const errorCount = statsData.filter(s => s.status === 'error').length;
+      const withoutYouTubeCount = statsData.filter(s => !s.youtube_url).length;
 
       const avgConfidence = enrichedCount > 0
-        ? allSongs
+        ? statsData
             .filter(s => s.status === 'enriched')
             .reduce((acc, s) => acc + (s.confidence_score || 0), 0) / enrichedCount
         : 0;
 
       setStats({ 
-        totalSongs: allSongs.length, 
+        totalSongs: statsData.length, 
         totalArtists: artistsData?.length || 0, 
         avgConfidence, 
         pendingSongs: pendingCount 
       });
 
-      // Armazenar músicas sem YouTube para o modal
-      setSongsWithoutYouTube(allSongs.filter(s => !s.youtube_url));
+      // Armazenar músicas sem YouTube para o modal (todas, sem filtro)
+      setSongsWithoutYouTube(statsData.filter(s => !s.youtube_url));
 
       // Calcular métricas para o dashboard
       const successRate = allSongs.length > 0 
         ? (enrichedCount / allSongs.length) * 100 
         : 0;
 
-      // Histórico dos últimos 30 dias
+      // Histórico dos últimos 30 dias (usando todas as músicas)
       const last30Days = Array.from({ length: 30 }, (_, i) => {
         const date = new Date();
         date.setDate(date.getDate() - (29 - i));
@@ -207,14 +228,14 @@ export default function MusicCatalog() {
         const dayEnd = new Date(date);
         dayEnd.setDate(dayEnd.getDate() + 1);
 
-        const enrichedOnDay = allSongs.filter(s => 
+        const enrichedOnDay = statsData.filter(s => 
           s.updated_at && 
           new Date(s.updated_at) >= dayStart && 
           new Date(s.updated_at) < dayEnd &&
           s.status === 'enriched'
         ).length;
 
-        const errorsOnDay = allSongs.filter(s => 
+        const errorsOnDay = statsData.filter(s => 
           s.updated_at && 
           new Date(s.updated_at) >= dayStart && 
           new Date(s.updated_at) < dayEnd &&
@@ -228,8 +249,8 @@ export default function MusicCatalog() {
         };
       });
 
-      // Distribuição por fonte
-      const enrichedSongs = allSongs.filter(s => s.status === 'enriched');
+      // Distribuição por fonte (usando todas as músicas)
+      const enrichedSongs = statsData.filter(s => s.status === 'enriched');
       const sourceMap = new Map<string, { count: number; totalConfidence: number }>();
       
       enrichedSongs.forEach(song => {
@@ -944,7 +965,8 @@ export default function MusicCatalog() {
         <TabsContent value="artists" className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {artists.map((artist) => {
-              const artistSongs = allSongs.filter(s => s.artist_id === artist.id);
+              // Usar allSongsForStats para estatísticas corretas (sem filtros)
+              const artistSongs = allSongsForStats.filter(s => s.artist_id === artist.id);
               const pendingSongs = artistSongs.filter(s => s.status === 'pending').length;
               const enrichedSongs = artistSongs.filter(s => s.status === 'enriched').length;
               const enrichedPercentage = artistSongs.length > 0
