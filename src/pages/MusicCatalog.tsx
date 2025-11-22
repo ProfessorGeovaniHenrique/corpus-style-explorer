@@ -7,6 +7,7 @@ import {
   StatsCard,
   AdvancedExportMenu 
 } from '@/components/music';
+import { useEnrichment } from '@/hooks/useEnrichment';
 import { ArtistDetailsSheet } from '@/components/music/ArtistDetailsSheet';
 import { EnrichmentBatchModal } from '@/components/music/EnrichmentBatchModal';
 import { EnrichmentMetricsDashboard } from '@/components/music/EnrichmentMetricsDashboard';
@@ -53,6 +54,7 @@ interface LocalArtist {
 }
 
 export default function MusicCatalog() {
+  const { enrichBatch } = useEnrichment();
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
   const [searchQuery, setSearchQuery] = useState('');
   const [songs, setSongs] = useState<Song[]>([]);
@@ -920,17 +922,25 @@ export default function MusicCatalog() {
                   }}
                   onEnrich={async () => {
                     try {
+                      const pendingSongIds = artistSongs
+                        .filter(s => s.status === 'pending')
+                        .map(s => s.id);
+                      
+                      if (pendingSongIds.length === 0) {
+                        toast({
+                          title: "Nenhuma música pendente",
+                          description: `Todas as músicas de ${artist.name} já estão enriquecidas.`,
+                        });
+                        return;
+                      }
+
                       toast({
                         title: "Enriquecendo músicas",
-                        description: `Iniciando enriquecimento de ${pendingSongs} músicas de ${artist.name}...`,
+                        description: `Iniciando enriquecimento de ${pendingSongIds.length} músicas de ${artist.name}...`,
                       });
-                      // Implementar lógica de enriquecimento em lote
-                      await new Promise(resolve => setTimeout(resolve, 2000));
+                      
+                      await enrichBatch(pendingSongIds);
                       await loadData();
-                      toast({
-                        title: "Sucesso!",
-                        description: `Músicas de ${artist.name} enriquecidas com sucesso!`,
-                      });
                     } catch (error) {
                       toast({
                         title: "Erro",
