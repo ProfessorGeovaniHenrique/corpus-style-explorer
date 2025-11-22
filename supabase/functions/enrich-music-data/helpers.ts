@@ -77,19 +77,17 @@ export async function searchYouTube(
     // Check cache first
     const { data: cached, error: cacheError } = await supabase
       .from('youtube_cache')
-      .select('video_id, metadata')
-      .eq('artist', artista)
-      .eq('title', titulo)
+      .select('video_id, video_title, channel_title, publish_date, description')
+      .eq('search_query', searchQuery)
       .maybeSingle();
 
     if (cached && !cacheError) {
       console.log(`[YouTube] Cache HIT: "${searchQuery}"`);
-      const metadata = cached.metadata as any;
       return {
-        videoTitle: metadata.snippet?.title || '',
-        channelTitle: metadata.snippet?.channelTitle || '',
-        publishDate: metadata.snippet?.publishedAt || '',
-        description: metadata.snippet?.description || '',
+        videoTitle: cached.video_title || '',
+        channelTitle: cached.channel_title || '',
+        publishDate: cached.publish_date || '',
+        description: cached.description || '',
         videoId: cached.video_id
       };
     }
@@ -134,10 +132,13 @@ export async function searchYouTube(
 
     // Cache the result
     await supabase.from('youtube_cache').insert({
-      artist: artista,
-      title: titulo,
+      search_query: searchQuery,
       video_id: result.videoId,
-      metadata: firstResult,
+      video_title: result.videoTitle,
+      channel_title: result.channelTitle,
+      publish_date: result.publishDate,
+      description: result.description || '',
+      hits_count: 0
     }).catch((err: any) => {
       if (!err?.message?.includes('duplicate')) {
         console.error('[YouTube] Cache save error:', err);
