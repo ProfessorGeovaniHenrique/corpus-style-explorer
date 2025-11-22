@@ -25,7 +25,8 @@ import {
   Moon,
   Sun,
   Music,
-  Library
+  Library,
+  Tags
 } from "lucide-react";
 import logoVersoAustral from "@/assets/logo-versoaustral-completo.png";
 import logoUfrgs from "@/assets/logo-ufrgs-oficial.png";
@@ -188,6 +189,15 @@ const AppHeader = () => {
                             <Library className="mr-2 h-4 w-4" />
                             <span>Catálogo de Músicas</span>
                             {isActiveRoute("/music-catalog") && <span className="ml-auto text-xs">●</span>}
+                          </DropdownMenuItem>
+                          
+                          <DropdownMenuItem 
+                            onClick={() => navigate("/admin/semantic-tagset-validation")}
+                            className={isActiveRoute("/admin/semantic-tagset-validation") ? "bg-accent text-accent-foreground" : ""}
+                          >
+                            <Tags className="mr-2 h-4 w-4" />
+                            <span>Validação de Domínios</span>
+                            {isActiveRoute("/admin/semantic-tagset-validation") && <span className="ml-auto text-xs">●</span>}
                           </DropdownMenuItem>
                           
                           <DropdownMenuSeparator />

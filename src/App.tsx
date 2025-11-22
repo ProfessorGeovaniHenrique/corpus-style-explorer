@@ -35,6 +35,7 @@ import DeveloperHistory from "./pages/DeveloperHistory";
 import AdminMetricsRealtime from "./pages/AdminMetricsRealtime";
 import MusicEnrichment from "./pages/MusicEnrichment";
 import MusicCatalog from "./pages/MusicCatalog";
+import AdminSemanticTagsetValidation from "./pages/AdminSemanticTagsetValidation";
 import ApiUsage from "./pages/ApiUsage";
 import NotFound from "./pages/NotFound";
 import { lazy, Suspense } from "react";
@@ -136,6 +137,14 @@ const RouterContent = () => {
             element={
               <ProtectedRoute requiredRole="admin">
                 <AdminDictionaryImport />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/admin/semantic-tagset-validation" 
+            element={
+              <ProtectedRoute requiredRole="admin">
+                <AdminSemanticTagsetValidation />
               </ProtectedRoute>
             } 
           />
