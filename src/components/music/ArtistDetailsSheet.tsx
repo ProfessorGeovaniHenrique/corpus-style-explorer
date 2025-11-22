@@ -150,17 +150,17 @@ export function ArtistDetailsSheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full sm:max-w-2xl overflow-y-auto">
-        <SheetHeader>
+      <SheetContent className="w-full sm:max-w-2xl flex flex-col overflow-hidden">
+        <SheetHeader className="flex-shrink-0">
           <SheetTitle className="text-2xl">{artist.name}</SheetTitle>
           <SheetDescription>
             {songs.length} {songs.length === 1 ? 'música' : 'músicas'} no catálogo
           </SheetDescription>
         </SheetHeader>
 
-        <div className="space-y-6 mt-6">
+        <div className="flex-1 flex flex-col space-y-6 mt-6 overflow-hidden">
           {/* Seção de Biografia */}
-          <Card>
+          <Card className="flex-shrink-0">
             <CardContent className="pt-6">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
@@ -248,8 +248,8 @@ export function ArtistDetailsSheet({
           </Card>
 
           {/* Tabs: Lista vs Linha do Tempo */}
-          <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'list' | 'timeline')}>
-            <TabsList className="grid w-full grid-cols-2">
+          <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'list' | 'timeline')} className="flex-1 flex flex-col overflow-hidden">
+            <TabsList className="grid w-full grid-cols-2 flex-shrink-0">
               <TabsTrigger value="list" className="flex items-center gap-2">
                 <List className="h-4 w-4" />
                 Lista
@@ -261,8 +261,8 @@ export function ArtistDetailsSheet({
             </TabsList>
 
             {/* Tab: Lista */}
-            <TabsContent value="list" className="space-y-2 mt-4">
-              <ScrollArea className="h-[400px] pr-4">
+            <TabsContent value="list" className="space-y-2 mt-4 flex-1 overflow-hidden">
+              <ScrollArea className="h-full pr-4">
                 {songs.map((song) => (
                   <SongCard
                     key={song.id}
@@ -279,8 +279,8 @@ export function ArtistDetailsSheet({
             </TabsContent>
 
             {/* Tab: Linha do Tempo */}
-            <TabsContent value="timeline" className="space-y-4 mt-4">
-              <ScrollArea className="h-[400px] pr-4">
+            <TabsContent value="timeline" className="space-y-4 mt-4 flex-1 overflow-hidden">
+              <ScrollArea className="h-full pr-4">
                 {/* Anos conhecidos */}
                 {songsByYear.years.map(({ year, songs: yearSongs }) => (
                   <div key={year} className="mb-6">
