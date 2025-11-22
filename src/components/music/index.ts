@@ -23,6 +23,7 @@ export type { ErrorEntry } from './ErrorLog';
 export { EnrichedDataTable } from './EnrichedDataTable';
 export type { EnrichedSong } from './EnrichedDataTable';
 export { EnrichmentBatchModal } from './EnrichmentBatchModal';
+export { YouTubeEnrichmentModal } from './YouTubeEnrichmentModal';
 export { EnrichmentMetricsDashboard } from './EnrichmentMetricsDashboard';
 export { DataTable } from './DataTable';
 export type { ColumnDef } from './DataTable';

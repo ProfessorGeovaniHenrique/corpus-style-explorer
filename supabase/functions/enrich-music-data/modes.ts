@@ -26,6 +26,7 @@ const corsHeaders = {
 // Single mode: Enrich one song by ID
 export async function handleSingleMode(body: any, supabase: any) {
   const songId = body.songId;
+  const enrichmentMode = body.mode || 'full'; // 'metadata-only', 'youtube-only', 'full'
   
   if (!songId) {
     return new Response(
@@ -34,9 +35,9 @@ export async function handleSingleMode(body: any, supabase: any) {
     );
   }
 
-  console.log(`[Single Mode] Enriching song ${songId}`);
+  console.log(`[Single Mode] Enriching song ${songId} with mode: ${enrichmentMode}`);
 
-  const result = await enrichSingleSong(songId, supabase);
+  const result = await enrichSingleSong(songId, supabase, enrichmentMode);
 
   return new Response(
     JSON.stringify(result),
@@ -272,7 +273,11 @@ function extractVideoId(youtubeUrl: string): string | undefined {
 }
 
 // Core enrichment function for a single song
-async function enrichSingleSong(songId: string, supabase: any): Promise<EnrichmentResult> {
+async function enrichSingleSong(
+  songId: string, 
+  supabase: any,
+  enrichmentMode: 'full' | 'metadata-only' | 'youtube-only' = 'full'
+): Promise<EnrichmentResult> {
   try {
     // Fetch song data (including current enrichment status)
     const { data: song, error: fetchError } = await supabase
@@ -319,10 +324,10 @@ async function enrichSingleSong(songId: string, supabase: any): Promise<Enrichme
     const sources: string[] = [];
     let confidenceScore = 0;
 
-    // 1. YouTube search
+    // 1. YouTube search (skip if mode is metadata-only)
     let youtubeContext = null;
     const youtubeApiKey = Deno.env.get('YOUTUBE_API_KEY');
-    if (youtubeApiKey) {
+    if (youtubeApiKey && enrichmentMode !== 'metadata-only') {
       try {
         youtubeContext = await youtubeLimiter.schedule(() =>
           searchYouTube(song.title, artistName, youtubeApiKey, supabase)
@@ -337,11 +342,11 @@ async function enrichSingleSong(songId: string, supabase: any): Promise<Enrichme
       }
     }
 
-    // 2. Enrich with AI
+    // 2. Enrich with AI (skip if mode is youtube-only)
     const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     
-    if (!song.composer && (GEMINI_API_KEY || LOVABLE_API_KEY)) {
+    if (enrichmentMode !== 'youtube-only' && !song.composer && (GEMINI_API_KEY || LOVABLE_API_KEY)) {
       const metadata = await enrichWithAI(
         song.title,
         artistName,
@@ -362,8 +367,8 @@ async function enrichSingleSong(songId: string, supabase: any): Promise<Enrichme
       sources.push(metadata.source || 'ai');
     }
 
-    // 3. Web search fallback
-    const needsWebSearch = !enrichedData.composer || !enrichedData.releaseYear;
+    // 3. Web search fallback (skip if mode is youtube-only)
+    const needsWebSearch = enrichmentMode !== 'youtube-only' && (!enrichedData.composer || !enrichedData.releaseYear);
     if (needsWebSearch && LOVABLE_API_KEY) {
       try {
         const webData = await webSearchLimiter.schedule(() =>

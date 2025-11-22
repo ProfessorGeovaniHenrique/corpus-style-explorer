@@ -74,6 +74,25 @@ export async function searchYouTube(
   supabase: any
 ): Promise<YouTubeSearchResult | null> {
   const searchQuery = `${titulo} ${artista} official audio`;
+  console.log(`[YouTube] Searching for: "${searchQuery}"`);
+
+  // Track quota usage BEFORE making API call
+  if (supabase) {
+    try {
+      const { data: quotaData, error: quotaError } = await supabase.rpc('increment_youtube_quota');
+      
+      if (quotaError) {
+        console.error('[YouTube] Error tracking quota:', quotaError);
+      } else if (quotaData && quotaData > 10000) {
+        console.error('[YouTube] Daily quota exceeded (10,000 queries)');
+        return null;
+      } else {
+        console.log(`[YouTube] Quota usage: ${quotaData}/10,000 queries today`);
+      }
+    } catch (error) {
+      console.error('[YouTube] Error checking quota:', error);
+    }
+  }
 
   try {
     // Check cache first

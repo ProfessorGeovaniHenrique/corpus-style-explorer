@@ -16,15 +16,15 @@ export function useEnrichment() {
   } | null>(null);
 
   const enrichSong = async (songId: string) => {
-    console.log(`[useEnrichment] Enriching song ${songId}`);
+    console.log(`[useEnrichment] Enriching song metadata ${songId}`);
     
     setEnrichingIds(prev => new Set(prev).add(songId));
     
     try {
-      const result = await enrichmentService.enrichSong(songId);
+      const result = await enrichmentService.enrichSong(songId, 'metadata-only');
       
       if (result.success) {
-        toast.success('Música enriquecida com sucesso!');
+        toast.success('Metadados enriquecidos com sucesso!');
       } else {
         toast.error(`Erro ao enriquecer: ${result.error}`);
       }
@@ -40,7 +40,7 @@ export function useEnrichment() {
   };
 
   const enrichBatch = async (songIds: string[]) => {
-    console.log(`[useEnrichment] Starting batch enrichment of ${songIds.length} songs`);
+    console.log(`[useEnrichment] Starting batch metadata enrichment of ${songIds.length} songs`);
     
     setBatchProgress({ current: 0, total: songIds.length, currentSongId: null });
     
@@ -49,7 +49,8 @@ export function useEnrichment() {
         songIds,
         (current, total, currentSongId) => {
           setBatchProgress({ current, total, currentSongId });
-        }
+        },
+        'metadata-only'
       );
       
       const successCount = results.filter(r => r.success).length;

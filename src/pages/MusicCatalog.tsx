@@ -8,8 +8,10 @@ import {
   AdvancedExportMenu 
 } from '@/components/music';
 import { useEnrichment } from '@/hooks/useEnrichment';
+import { useYouTubeEnrichment } from '@/hooks/useYouTubeEnrichment';
 import { ArtistDetailsSheet } from '@/components/music/ArtistDetailsSheet';
 import { EnrichmentBatchModal } from '@/components/music/EnrichmentBatchModal';
+import { YouTubeEnrichmentModal } from '@/components/music/YouTubeEnrichmentModal';
 import { EnrichmentMetricsDashboard } from '@/components/music/EnrichmentMetricsDashboard';
 import { Song } from '@/components/music/SongCard';
 import { Button } from '@/components/ui/button';
@@ -27,7 +29,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { LayoutGrid, LayoutList, Search, Sparkles, AlertCircle, Download, Filter, RefreshCw, Trash2, Loader2, Folder } from 'lucide-react';
+import { LayoutGrid, LayoutList, Search, Sparkles, AlertCircle, Download, Filter, RefreshCw, Trash2, Loader2, Folder, Youtube } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { 
   Select,
@@ -55,6 +57,7 @@ interface LocalArtist {
 
 export default function MusicCatalog() {
   const { enrichBatch } = useEnrichment();
+  const { enrichYouTubeUI } = useYouTubeEnrichment();
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
   const [searchQuery, setSearchQuery] = useState('');
   const [songs, setSongs] = useState<Song[]>([]);
@@ -71,7 +74,9 @@ export default function MusicCatalog() {
   const [corpora, setCorpora] = useState<any[]>([]);
   const [enrichingIds, setEnrichingIds] = useState<Set<string>>(new Set());
   const [batchModalOpen, setBatchModalOpen] = useState(false);
+  const [youtubeModalOpen, setYoutubeModalOpen] = useState(false);
   const [pendingSongsForBatch, setPendingSongsForBatch] = useState<any[]>([]);
+  const [songsWithoutYouTube, setSongsWithoutYouTube] = useState<any[]>([]);
   const [showMetricsDashboard, setShowMetricsDashboard] = useState(false);
   const [metricsData, setMetricsData] = useState<any>(null);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
@@ -163,6 +168,7 @@ export default function MusicCatalog() {
       const enrichedCount = allSongs.filter(s => s.status === 'enriched').length;
       const pendingCount = allSongs.filter(s => s.status === 'pending').length;
       const errorCount = allSongs.filter(s => s.status === 'error').length;
+      const withoutYouTubeCount = allSongs.filter(s => !s.youtube_url).length;
 
       const avgConfidence = enrichedCount > 0
         ? allSongs
@@ -176,6 +182,9 @@ export default function MusicCatalog() {
         avgConfidence, 
         pendingSongs: pendingCount 
       });
+
+      // Armazenar músicas sem YouTube para o modal
+      setSongsWithoutYouTube(allSongs.filter(s => !s.youtube_url));
 
       // Calcular métricas para o dashboard
       const successRate = allSongs.length > 0 
@@ -399,6 +408,12 @@ export default function MusicCatalog() {
     if ('Notification' in window && Notification.permission === 'default') {
       Notification.requestPermission();
     }
+  };
+
+  const handleBatchEnrichYouTube = () => {
+    const withoutYouTube = songs.filter(s => !s.youtube_url);
+    setSongsWithoutYouTube(withoutYouTube);
+    setYoutubeModalOpen(true);
   };
 
   const handleBatchComplete = async () => {
@@ -792,12 +807,12 @@ export default function MusicCatalog() {
       {stats.pendingSongs > 0 && (
         <Alert className="border-primary/50 bg-primary/5">
           <AlertCircle className="h-4 w-4 text-primary" />
-          <AlertTitle>Músicas Aguardando Enriquecimento</AlertTitle>
+          <AlertTitle>Músicas Aguardando Enriquecimento de Metadados</AlertTitle>
           <AlertDescription>
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <span>
                 {stats.pendingSongs} música{stats.pendingSongs > 1 ? 's' : ''} precisa
-                {stats.pendingSongs > 1 ? 'm' : ''} ser enriquecida{stats.pendingSongs > 1 ? 's' : ''} com metadados externos.
+                {stats.pendingSongs > 1 ? 'm' : ''} ser enriquecida{stats.pendingSongs > 1 ? 's' : ''} com compositor e ano.
               </span>
               <Button 
                 size="sm" 
@@ -805,7 +820,34 @@ export default function MusicCatalog() {
                 className="w-full sm:w-auto"
               >
                 <Sparkles className="h-4 w-4 mr-2" />
-                Enriquecer Todas ({stats.pendingSongs})
+                Enriquecer Metadados ({stats.pendingSongs})
+              </Button>
+            </div>
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* YouTube Enrichment Alert */}
+      {songsWithoutYouTube.length > 0 && (
+        <Alert className="border-red-500/50 bg-red-50/50 dark:bg-red-950/20">
+          <Youtube className="h-4 w-4 text-red-500" />
+          <AlertTitle>Músicas sem Link do YouTube</AlertTitle>
+          <AlertDescription>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <span>
+                {songsWithoutYouTube.length} música{songsWithoutYouTube.length > 1 ? 's' : ''} sem link do YouTube.
+                <span className="text-xs block mt-1 text-muted-foreground">
+                  ⚠️ Limite diário: 10.000 consultas
+                </span>
+              </span>
+              <Button 
+                size="sm" 
+                onClick={handleBatchEnrichYouTube}
+                variant="outline"
+                className="w-full sm:w-auto border-red-500 text-red-600 hover:bg-red-50 dark:hover:bg-red-950"
+              >
+                <Youtube className="h-4 w-4 mr-2" />
+                Enriquecer YouTube ({songsWithoutYouTube.length})
               </Button>
             </div>
           </AlertDescription>
@@ -1026,6 +1068,14 @@ export default function MusicCatalog() {
           artist: s.artists?.name || 'Desconhecido'
         }))}
         onEnrich={handleEnrichSong}
+        onComplete={handleBatchComplete}
+      />
+
+      {/* YouTube Enrichment Modal */}
+      <YouTubeEnrichmentModal
+        open={youtubeModalOpen}
+        onOpenChange={setYoutubeModalOpen}
+        pendingSongs={songsWithoutYouTube}
         onComplete={handleBatchComplete}
       />
 

@@ -27,7 +27,7 @@ serve(async (req) => {
     const body = await req.json();
     
     // Determine operation mode
-    const mode = body.mode || 'single'; // 'single', 'database', 'legacy'
+    const mode = body.mode || 'single'; // 'single', 'database', 'legacy', 'metadata-only', 'youtube-only'
     console.log(`[enrich-music-data] Mode: ${mode}`);
     
     if (mode === 'database') {
@@ -37,7 +37,7 @@ serve(async (req) => {
       // Legacy mode: batch enrichment from array of titles
       return await handleLegacyMode(body);
     } else {
-      // Single mode: enrich one song by ID
+      // Single mode: enrich one song by ID (supports metadata-only, youtube-only, full)
       return await handleSingleMode(body, supabase);
     }
 

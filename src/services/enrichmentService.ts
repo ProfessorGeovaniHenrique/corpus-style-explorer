@@ -8,14 +8,14 @@ import type { EnrichmentResult } from '@/types/music';
 
 export const enrichmentService = {
   /**
-   * Enriquece uma música individual
+   * Enriquece uma música individual com modo específico
    */
-  async enrichSong(songId: string): Promise<EnrichmentResult> {
-    console.log(`[enrichmentService] Starting enrichment for song ${songId}`);
+  async enrichSong(songId: string, mode: 'full' | 'metadata-only' | 'youtube-only' = 'full'): Promise<EnrichmentResult> {
+    console.log(`[enrichmentService] Starting enrichment for song ${songId} with mode: ${mode}`);
     
     try {
       const { data, error } = await supabase.functions.invoke('enrich-music-data', {
-        body: { songId }
+        body: { songId, mode }
       });
       
       if (error) {
@@ -49,13 +49,14 @@ export const enrichmentService = {
   },
 
   /**
-   * Enriquece múltiplas músicas em lote com rate limiting
+   * Enriquece múltiplas músicas em lote com rate limiting e modo específico
    */
   async enrichBatch(
     songIds: string[],
-    onProgress?: (current: number, total: number, currentSongId: string) => void
+    onProgress?: (current: number, total: number, currentSongId: string) => void,
+    mode: 'full' | 'metadata-only' | 'youtube-only' = 'metadata-only'
   ): Promise<EnrichmentResult[]> {
-    console.log(`[enrichmentService] Starting batch enrichment for ${songIds.length} songs`);
+    console.log(`[enrichmentService] Starting batch enrichment for ${songIds.length} songs with mode: ${mode}`);
     
     const results: EnrichmentResult[] = [];
     
@@ -67,7 +68,7 @@ export const enrichmentService = {
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
       
-      const result = await this.enrichSong(songId);
+      const result = await this.enrichSong(songId, mode);
       results.push(result);
       
       onProgress?.(i + 1, songIds.length, songId);

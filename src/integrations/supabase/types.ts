@@ -2170,6 +2170,33 @@ export type Database = {
         }
         Relationships: []
       }
+      youtube_api_usage: {
+        Row: {
+          created_at: string | null
+          date: string
+          id: string
+          queries_count: number
+          quota_limit: number
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          date?: string
+          id?: string
+          queries_count?: number
+          quota_limit?: number
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          date?: string
+          id?: string
+          queries_count?: number
+          quota_limit?: number
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       youtube_cache: {
         Row: {
           channel_title: string
@@ -2278,6 +2305,15 @@ export type Database = {
           role: Database["public"]["Enums"]["app_role"]
         }[]
       }
+      get_youtube_quota_usage: {
+        Args: never
+        Returns: {
+          queries_remaining: number
+          queries_used: number
+          quota_limit: number
+          usage_percentage: number
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -2289,6 +2325,7 @@ export type Database = {
         Args: { _feature_name: string; _user_id: string }
         Returns: undefined
       }
+      increment_youtube_quota: { Args: never; Returns: number }
       normalize_text: { Args: { "": string }; Returns: string }
       truncate_gutenberg_table: { Args: never; Returns: undefined }
       unaccent: { Args: { "": string }; Returns: string }
