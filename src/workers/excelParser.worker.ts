@@ -30,25 +30,79 @@ function normalizeText(text: string): string {
 function detectColumns(headers: string[]): Record<string, number> {
   const normalized = headers.map(h => normalizeText(h));
   
-  const titlePatterns = ['titulo', 'title', 'musica', 'song', 'nome'];
-  const artistPatterns = ['artista', 'artist', 'cantor', 'interprete', 'banda'];
+  const titlePatterns = [
+    'titulo',
+    'title',
+    'musica',
+    'song',
+    'nome da musica',
+    'cancao',
+    'faixa',
+    'track'
+  ];
+  
+  const artistPatterns = [
+    'artista',
+    'artist',
+    'interprete',
+    'cantor',
+    'banda',
+    'grupo',
+    'nome do artista',
+    'nome'
+  ];
+  
   const composerPatterns = ['compositor', 'composer', 'autor'];
   const yearPatterns = ['ano', 'year', 'lancamento'];
   const lyricsPatterns = ['letra', 'lyrics', 'texto'];
 
   const findColumn = (patterns: string[]) => {
+    let exactMatchIndex = normalized.findIndex(h => 
+      patterns.some(p => h === p)
+    );
+    if (exactMatchIndex !== -1) return exactMatchIndex;
+    
     return normalized.findIndex(h => 
       patterns.some(p => h.includes(p))
     );
   };
 
-  return {
+  const columnMap = {
     titulo: findColumn(titlePatterns),
     artista: findColumn(artistPatterns),
     compositor: findColumn(composerPatterns),
     ano: findColumn(yearPatterns),
     letra: findColumn(lyricsPatterns),
   };
+
+  const detectedIndices = Object.values(columnMap).filter(idx => idx !== -1);
+  const hasDuplicates = new Set(detectedIndices).size !== detectedIndices.length;
+  
+  if (hasDuplicates) {
+    console.warn('[Parser] ALERTA: Mesma coluna detectada para múltiplos campos!', {
+      headers,
+      columnMap
+    });
+  }
+
+  if (columnMap.titulo === -1 && columnMap.artista !== -1) {
+    for (let i = 0; i < headers.length; i++) {
+      if (i !== columnMap.artista && i !== columnMap.compositor && i !== columnMap.ano && i !== columnMap.letra) {
+        columnMap.titulo = i;
+        console.log('[Parser] Fallback: Título assumido como coluna', i, ':', headers[i]);
+        break;
+      }
+    }
+  }
+
+  console.log('[Parser] Cabeçalhos detectados:', headers);
+  console.log('[Parser] Mapeamento:', {
+    titulo: columnMap.titulo >= 0 ? headers[columnMap.titulo] : 'NÃO DETECTADO',
+    artista: columnMap.artista >= 0 ? headers[columnMap.artista] : 'NÃO DETECTADO',
+    compositor: columnMap.compositor >= 0 ? headers[columnMap.compositor] : 'NÃO DETECTADO'
+  });
+
+  return columnMap;
 }
 
 self.onmessage = async (e: MessageEvent<WorkerMessage>) => {
@@ -108,6 +162,8 @@ self.onmessage = async (e: MessageEvent<WorkerMessage>) => {
         fonte: file.name,
       });
     }
+
+    console.log('[Parser] Primeiras 3 músicas parseadas:', parsedData.slice(0, 3));
 
     const response: WorkerResponse = {
       success: true,
