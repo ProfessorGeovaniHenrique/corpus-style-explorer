@@ -284,7 +284,11 @@ export default function AdminSemanticTagsetValidation() {
   // Filtros
   const filteredTagsets = tagsets.filter((tagset) => {
     if (statusFilter !== 'all' && tagset.status !== STATUS_MAP[statusFilter as keyof typeof STATUS_MAP]) return false;
-    if (nivelFilter !== 'all' && tagset.nivel_profundidade?.toString() !== nivelFilter) return false;
+    // ✅ FASE 1: Trata null/undefined explicitamente para funcionar com "Sem Nível"
+    if (nivelFilter !== 'all') {
+      const tagsetLevel = tagset.nivel_profundidade?.toString() ?? 'null';
+      if (tagsetLevel !== nivelFilter) return false;
+    }
     if (searchTerm && !tagset.nome.toLowerCase().includes(searchTerm.toLowerCase()) 
         && !tagset.codigo.toLowerCase().includes(searchTerm.toLowerCase())) {
       return false;
@@ -304,6 +308,9 @@ export default function AdminSemanticTagsetValidation() {
   const pendingCount = tagsets.filter(t => t.status === 'proposto' || !t.status).length;
   const rejectedCount = tagsets.filter(t => t.status === 'rejeitado').length;
   const validationRate = tagsets.length > 0 ? ((approvedCount / tagsets.length) * 100).toFixed(2) : '0';
+  
+  // ✅ FASE 3: Contador de tagsets sem nível definido
+  const withoutLevelCount = tagsets.filter(t => !t.nivel_profundidade).length;
 
   return (
     <div className="min-h-screen bg-background">
@@ -406,6 +413,31 @@ export default function AdminSemanticTagsetValidation() {
             </TabsTrigger>
           </TabsList>
 
+          {/* ✅ FASE 3: Alert para tagsets sem nível definido */}
+          {withoutLevelCount > 0 && (
+            <Alert className="mt-6 border-amber-500/50 bg-amber-50/50 dark:bg-amber-950/20">
+              <Clock className="h-4 w-4 text-amber-500" />
+              <AlertTitle>Atenção: Hierarquia Incompleta</AlertTitle>
+              <AlertDescription>
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                  <span className="text-sm">
+                    <strong>{withoutLevelCount} domínios semânticos</strong> ainda não têm nível hierárquico definido.
+                    Isso pode impactar a organização e análise dos dados.
+                  </span>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => setNivelFilter('null')}
+                    className="w-full sm:w-auto border-amber-500/50 hover:bg-amber-50 dark:hover:bg-amber-950/40"
+                  >
+                    <TreePine className="h-4 w-4 mr-2" />
+                    Ver Domínios Sem Nível
+                  </Button>
+                </div>
+              </AlertDescription>
+            </Alert>
+          )}
+
           <TabsContent value="validation" className="mt-6 space-y-0">
             {/* Filtros e Busca */}
             <Card>
@@ -459,6 +491,11 @@ export default function AdminSemanticTagsetValidation() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos os Níveis</SelectItem>
+                  <SelectItem value="null">
+                    <Badge variant="outline" className="bg-muted">
+                      Sem Nível Definido
+                    </Badge>
+                  </SelectItem>
                   <SelectItem value="1">Nível 1</SelectItem>
                   <SelectItem value="2">Nível 2</SelectItem>
                   <SelectItem value="3">Nível 3</SelectItem>
