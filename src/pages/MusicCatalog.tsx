@@ -130,12 +130,37 @@ export default function MusicCatalog() {
           )
         `)
         .not('artist_id', 'is', null)
+        .limit(35000)
         .order('created_at', { ascending: false });
 
       if (allSongsError) throw allSongsError;
 
       const allSongsComplete = allSongsData || [];
-      console.log(`✅ [MusicCatalog] ${allSongsComplete.length} músicas carregadas`);
+      
+      // Performance warning for large datasets
+      if (allSongsComplete.length >= 30000) {
+        toast({
+          title: "⚠️ Grande Volume de Dados",
+          description: `Carregando ${allSongsComplete.length.toLocaleString()} músicas. Isso pode levar alguns segundos...`,
+          duration: 5000
+        });
+      }
+
+      // Detailed logging
+      console.log('🔍 [MusicCatalog] Detalhes do carregamento:', {
+        totalSongs: allSongsComplete.length,
+        limitAtingido: allSongsComplete.length >= 1000,
+        avisoPerformance: allSongsComplete.length >= 30000,
+        primeiras5Musicas: allSongsComplete.slice(0, 5).map(s => ({
+          title: s.title,
+          artist: s.artists?.name,
+          status: s.status
+        }))
+      });
+
+      if (allSongsComplete.length === 1000) {
+        console.warn('⚠️ ATENÇÃO: Query retornou exatamente 1000 registros. Possível limitação do Supabase!');
+      }
 
       // Aplicar filtro de corpus se necessário (apenas para exibição)
       let filteredByCorpus = allSongsComplete;
@@ -163,6 +188,7 @@ export default function MusicCatalog() {
             color
           )
         `)
+        .limit(1000)
         .order('name');
 
       if (artistsError) throw artistsError;
