@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { DataTable, ColumnDef } from './DataTable';
+import { ColumnDef } from './DataTable';
+import { VirtualizedSongTable } from './VirtualizedSongTable';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -228,11 +229,10 @@ export function EnrichedDataTable({ songs, onView, onEdit, onDelete, onExport, o
         </div>
       )}
 
-      {/* Table */}
-      <DataTable
+      {/* Virtualized Table */}
+      <VirtualizedSongTable
         columns={columns}
         data={songs}
-        pageSize={20}
         searchPlaceholder="Buscar por título, artista ou compositor..."
         getRowId={(row) => row.id}
       />
