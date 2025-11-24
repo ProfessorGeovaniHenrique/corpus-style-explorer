@@ -6,6 +6,8 @@ import { validateDialectalFile, logValidationResult } from "../_shared/validatio
 import { logJobStart, logJobProgress, logJobComplete, logJobError } from "../_shared/logging.ts";
 import { withInstrumentation } from "../_shared/instrumentation.ts";
 import { createHealthCheck } from "../_shared/health-check.ts";
+import { createEdgeLogger } from "../_shared/unified-logger.ts";
+import { captureException } from "../_shared/sentry.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -339,6 +341,7 @@ function parseVerbeteSingle(normalizedText: string, volumeNum: string, tipoDicio
 
 async function processInBackground(jobId: string, verbetes: string[], volumeNum: string, tipoDicionario: string, offsetInicial: number) {
   const MAX_PROCESSING_TIME = 30 * 60 * 1000;
+  const log = createEdgeLogger('process-dialectal-dictionary', jobId);
   const timeoutPromise = new Promise((_, reject) => 
     setTimeout(() => reject(new Error('Timeout: 30 minutos excedidos')), MAX_PROCESSING_TIME)
   );
@@ -349,7 +352,13 @@ async function processInBackground(jobId: string, verbetes: string[], volumeNum:
       timeoutPromise
     ]);
   } catch (error: any) {
-    console.error(`[JOB ${jobId}] Erro fatal:`, error);
+    log.fatal('Background job error', error, { jobId });
+    await captureException(error, {
+      functionName: 'process-dialectal-dictionary',
+      requestId: jobId,
+      extra: { tipoDicionario, offsetInicial }
+    });
+    
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
@@ -826,10 +835,12 @@ serve(withInstrumentation('process-dialectal-dictionary', async (req) => {
       if (jobError) throw jobError;
       
       jobData = newJob;
-      console.log(`[JOB ${newJob.id}] Criado novo job - tipo: ${tipoDicionario}`);
+      console.log(`[JOB ${newJob.id}] Created - type: ${tipoDicionario}`);
     }
 
     processInBackground(jobData.id, verbetes, volumeNum, tipoDicionario, offsetInicial);
+
+    console.log(`[JOB ${jobData.id}] Background processing started`);
 
     return new Response(
       JSON.stringify({ 
@@ -842,7 +853,8 @@ serve(withInstrumentation('process-dialectal-dictionary', async (req) => {
     );
 
   } catch (error: any) {
-    console.error('Erro ao processar requisição:', error);
+    console.error('Failed to start import:', error);
+    
     return new Response(
       JSON.stringify({ error: error.message }),
       { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }

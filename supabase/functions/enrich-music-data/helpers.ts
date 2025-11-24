@@ -74,6 +74,7 @@ export async function searchYouTube(
   supabase: any
 ): Promise<YouTubeSearchResult | null> {
   const searchQuery = `${titulo} ${artista} official audio`;
+  // Internal debug log - kept for ROI optimization
   console.log(`[YouTube] Searching for: "${searchQuery}"`);
 
   // Track quota usage BEFORE making API call

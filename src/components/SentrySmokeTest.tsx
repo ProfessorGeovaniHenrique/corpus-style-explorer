@@ -1,0 +1,64 @@
+import { Button } from "@/components/ui/button";
+import { AlertTriangle, Bug } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+
+/**
+ * Component for testing Sentry integration in development
+ * Provides buttons to force frontend and backend errors
+ */
+export const SentrySmokeTest = () => {
+  if (import.meta.env.PROD) return null;
+
+  const testFrontendError = () => {
+    throw new Error('🧪 Sentry Frontend Smoke Test - This is a deliberate error');
+  };
+
+  const testBackendError = async () => {
+    try {
+      const { error } = await supabase.functions.invoke('test-sentry-error', {
+        body: { test: true }
+      });
+      
+      if (error) {
+        console.error('Backend test error captured:', error);
+      }
+    } catch (err) {
+      console.error('Error calling test function:', err);
+    }
+  };
+
+  return (
+    <div className="fixed bottom-4 left-4 z-50 p-4 bg-destructive/10 border border-destructive/30 rounded-lg backdrop-blur-sm">
+      <div className="flex items-center gap-2 mb-2">
+        <AlertTriangle className="h-4 w-4 text-destructive" />
+        <span className="text-xs font-mono text-destructive">DEV MODE - Sentry Tests</span>
+      </div>
+      
+      <div className="flex gap-2">
+        <Button
+          size="sm"
+          variant="destructive"
+          onClick={testFrontendError}
+          className="text-xs"
+        >
+          <Bug className="h-3 w-3 mr-1" />
+          Force Frontend Error
+        </Button>
+        
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={testBackendError}
+          className="text-xs"
+        >
+          <Bug className="h-3 w-3 mr-1" />
+          Force Backend Error
+        </Button>
+      </div>
+      
+      <p className="text-xs text-muted-foreground mt-2">
+        Check Sentry dashboard after clicking
+      </p>
+    </div>
+  );
+};

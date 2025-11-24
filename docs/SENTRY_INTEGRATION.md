@@ -171,12 +171,91 @@ log.fatal('Critical system failure', error);
 1. **Recurring Errors**: Same error >100 times in 24 hours
 2. **New Error Types**: First-seen errors
 
-### **How to Configure**
+### **Step-by-Step: How to Configure Alerts in Sentry Dashboard**
 
-1. Go to Sentry dashboard → Alerts → Create Alert Rule
-2. Select conditions from above
-3. Configure notification channels (email, Slack, webhook)
-4. Set frequency limits to avoid alert fatigue
+#### **1. Access Sentry Dashboard**
+1. Login to https://sentry.io
+2. Select your **Verso Austral** project
+3. Navigate to **Alerts** tab in left sidebar
+
+#### **2. Create Critical Alert Rule (Error Rate Spike)**
+1. Click **"Create Alert Rule"**
+2. Select **"Issues"** alert type
+3. Configure conditions:
+   - **Trigger**: "The issue is seen more than X times in Y minutes"
+   - **X**: `10` times
+   - **Y**: `5` minutes
+   - **Filter by**: `level:error OR level:fatal`
+4. Add action:
+   - **Action**: "Send a notification via Email"
+   - **Recipients**: Your email
+   - **(Optional)** Add Slack webhook for instant notifications
+5. **Name**: "Critical Error Rate Spike"
+6. **Environment**: Select "production" only
+7. Click **"Save Rule"**
+
+#### **3. Create Auth Failure Alert**
+1. Create new alert rule
+2. Configure:
+   - **Trigger**: "The issue is seen more than 10 times in 10 minutes"
+   - **Filter by**: `category:auth`
+3. Action: Email + Slack
+4. Name: "Auth System Failures"
+5. Save
+
+#### **4. Create Database Error Alert**
+1. Create new alert rule
+2. Configure:
+   - **Trigger**: "The issue is first seen" (immediate notification)
+   - **Filter by**: `category:database AND level:fatal`
+3. Action: Email (immediate)
+4. Name: "Critical Database Errors"
+5. Save
+
+#### **5. Create Edge Function Monitoring Alert**
+1. Create new alert rule
+2. Configure:
+   - **Trigger**: "The issue is seen more than 20 times in 5 minutes"
+   - **Filter by**: `edge_function:true`
+3. Action: Email
+4. Name: "Edge Function Failures"
+5. Save
+
+#### **6. Create Performance Degradation Alert**
+1. Go to **Performance** tab
+2. Click **"Create Alert"**
+3. Configure:
+   - **Metric**: "Duration (p95)"
+   - **Threshold**: `> 3000ms`
+   - **Filter by**: `performance:slow`
+4. Action: Email (daily digest at 9AM)
+5. Name: "Slow Operations Detected"
+6. Save
+
+#### **7. Configure Alert Frequency Limits**
+1. For each alert rule, click **"Edit"**
+2. Scroll to **"Rate Limit"** section
+3. Set:
+   - **Limit**: "Send this alert at most once every 15 minutes"
+   - This prevents alert fatigue from rapid-fire notifications
+4. Save changes
+
+#### **8. Setup Slack Integration (Optional but Recommended)**
+1. Go to **Settings** → **Integrations**
+2. Search for **"Slack"**
+3. Click **"Install"**
+4. Authorize Slack workspace
+5. Select channel for notifications (e.g., `#verso-austral-alerts`)
+6. Go back to alert rules and add Slack action
+
+### **Smoke Test Your Alerts**
+
+After configuration, trigger test errors:
+1. Click **"Force Frontend Error"** button in dev app
+2. Wait 30 seconds
+3. Check email/Slack for notification
+4. If received → ✅ Alerts working
+5. If not received → Check alert rule conditions and email settings
 
 ---
 
