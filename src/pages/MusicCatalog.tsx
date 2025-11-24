@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useCatalogData } from '@/hooks/useCatalogData';
 import { useArtistSongs } from '@/hooks/useArtistSongs';
@@ -40,6 +40,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { debounce } from '@/lib/performanceUtils';
 
 interface LocalArtist {
   id: string;
@@ -65,9 +66,26 @@ export default function MusicCatalog() {
   const [view, setView] = useState<'songs' | 'artists' | 'stats' | 'metrics'>('songs');
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [selectedLetter, setSelectedLetter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedCorpusFilter, setSelectedCorpusFilter] = useState<string>('all');
+  
+  // Pagination state for artists
+  const [currentArtistPage, setCurrentArtistPage] = useState(1);
+  const ARTISTS_PER_PAGE = 24;
+
+  // ✅ Debounce search query para performance
+  const debouncedSetSearch = useCallback(
+    debounce((value: string) => {
+      setDebouncedSearchQuery(value);
+    }, 300),
+    []
+  );
+
+  useEffect(() => {
+    debouncedSetSearch(searchQuery);
+  }, [searchQuery, debouncedSetSearch]);
   const [selectedArtistId, setSelectedArtistId] = useState<string | null>(null);
   
   // ✅ Hook carrega artistas e stats (sempre)
@@ -479,8 +497,8 @@ export default function MusicCatalog() {
   };
 
   const filteredSongs = songs.filter(song => {
-    if (!searchQuery) return true;
-    const query = searchQuery.toLowerCase();
+    if (!debouncedSearchQuery) return true;
+    const query = debouncedSearchQuery.toLowerCase();
     return (
       song.title?.toLowerCase().includes(query) ||
       song.artists?.name?.toLowerCase().includes(query) ||
@@ -488,7 +506,7 @@ export default function MusicCatalog() {
     );
   });
 
-  // ✅ Filtrar artistas por letra
+  // ✅ Filtrar artistas por letra e busca
   const filteredArtists = useMemo(() => {
     let filtered = artistsWithStats;
     
@@ -499,16 +517,30 @@ export default function MusicCatalog() {
       );
     }
     
-    // Filtrar por busca
-    if (searchQuery) {
+    // Filtrar por busca (usando debounced query)
+    if (debouncedSearchQuery) {
       filtered = filtered.filter(artist =>
-        artist.name.toLowerCase().includes(searchQuery.toLowerCase())
+        artist.name.toLowerCase().includes(debouncedSearchQuery.toLowerCase())
       );
     }
     
     console.log(`📊 [filteredArtists] ${filtered.length} artistas após filtros (letra: ${selectedLetter})`);
     return filtered;
-  }, [artistsWithStats, selectedLetter, searchQuery]);
+  }, [artistsWithStats, selectedLetter, debouncedSearchQuery]);
+
+  // ✅ Paginated artists
+  const paginatedArtists = useMemo(() => {
+    const startIndex = (currentArtistPage - 1) * ARTISTS_PER_PAGE;
+    const endIndex = startIndex + ARTISTS_PER_PAGE;
+    return filteredArtists.slice(startIndex, endIndex);
+  }, [filteredArtists, currentArtistPage, ARTISTS_PER_PAGE]);
+
+  const totalArtistPages = Math.ceil(filteredArtists.length / ARTISTS_PER_PAGE);
+
+  // ✅ Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentArtistPage(1);
+  }, [selectedLetter, debouncedSearchQuery]);
 
   // Função auxiliar: conta músicas pendentes dos artistas filtrados
   const getPendingSongsCountForLetter = () => {
@@ -1000,7 +1032,7 @@ export default function MusicCatalog() {
               </div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredArtists.map((artist) => {
+                {paginatedArtists.map((artist) => {
                   const artistSongs = allSongs.filter(s => s.artist_id === artist.id);
                   
                   return (
@@ -1112,6 +1144,36 @@ export default function MusicCatalog() {
                   );
                 })}
               </div>
+
+              {/* ✅ Pagination Controls */}
+              {totalArtistPages > 1 && filteredArtists.length > 0 && (
+                <div className="flex justify-center items-center gap-4 mt-8 pb-4">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentArtistPage(p => Math.max(1, p - 1))}
+                    disabled={currentArtistPage === 1}
+                  >
+                    ← Anterior
+                  </Button>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground">
+                      Página {currentArtistPage} de {totalArtistPages}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      ({filteredArtists.length} artistas)
+                    </span>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentArtistPage(p => Math.min(totalArtistPages, p + 1))}
+                    disabled={currentArtistPage === totalArtistPages}
+                  >
+                    Próxima →
+                  </Button>
+                </div>
+              )}
               
               {/* ✅ FASE 6: Estado vazio */}
               {artistsWithStats.length === 0 && (
