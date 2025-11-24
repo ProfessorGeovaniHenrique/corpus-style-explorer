@@ -25,7 +25,8 @@ serve(withInstrumentation('cancel-dictionary-job', async (req) => {
   let user: any = null;
   
   // Health check endpoint
-  if (req.method === 'GET' && new URL(req.url).pathname.endsWith('/health')) {
+  const url = new URL(req.url);
+  if (req.method === 'GET' && url.searchParams.get('health') === 'true') {
     const health = await createHealthCheck('cancel-dictionary-job', '1.0.0');
     return new Response(JSON.stringify(health), {
       status: health.status === 'healthy' ? 200 : 503,

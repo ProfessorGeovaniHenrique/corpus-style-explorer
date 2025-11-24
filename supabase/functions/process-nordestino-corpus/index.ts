@@ -13,7 +13,8 @@ serve(withInstrumentation('process-nordestino-corpus', async (req) => {
   const log = createEdgeLogger('process-nordestino-corpus', requestId);
 
   // Health check endpoint
-  if (req.method === 'GET' && new URL(req.url).pathname.endsWith('/health')) {
+  const url = new URL(req.url);
+  if (req.method === 'GET' && url.searchParams.get('health') === 'true') {
     const health = await createHealthCheck('process-nordestino-corpus', '1.0.0');
     return new Response(JSON.stringify(health), {
       status: health.status === 'healthy' ? 200 : 503,

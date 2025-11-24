@@ -174,7 +174,8 @@ serve(withInstrumentation('sync-construction-log', async (req) => {
   const log = createEdgeLogger('sync-construction-log', requestId);
 
   // Health check endpoint
-  if (req.method === 'GET' && new URL(req.url).pathname.endsWith('/health')) {
+  const url = new URL(req.url);
+  if (req.method === 'GET' && url.searchParams.get('health') === 'true') {
     const health = await createHealthCheck('sync-construction-log', '1.0.0');
     return new Response(JSON.stringify(health), {
       status: health.status === 'healthy' ? 200 : 503,
