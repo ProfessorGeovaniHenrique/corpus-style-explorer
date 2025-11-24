@@ -271,7 +271,7 @@ Retorne APENAS o texto da biografia, sem introduções ou explicações adiciona
     const data = await response.json();
     const biography = data.choices?.[0]?.message?.content || 'Biografia não disponível no momento.';
 
-    return `${biography.trim()}\n\n(Fonte: IA Generativa)`;
+    return `${biography.trim()}\n\n(Fonte: Base de Conhecimento Digital)`;
 
   } catch (error) {
     console.error('[Lovable AI] Error:', error);

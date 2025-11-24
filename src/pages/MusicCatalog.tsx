@@ -11,6 +11,7 @@ import {
 } from '@/components/music';
 import { useEnrichment } from '@/hooks/useEnrichment';
 import { useYouTubeEnrichment } from '@/hooks/useYouTubeEnrichment';
+import { enrichmentService } from '@/services/enrichmentService';
 import { ArtistDetailsSheet } from '@/components/music/ArtistDetailsSheet';
 import { EnrichmentBatchModal } from '@/components/music/EnrichmentBatchModal';
 import { YouTubeEnrichmentModal } from '@/components/music/YouTubeEnrichmentModal';
@@ -116,6 +117,11 @@ export default function MusicCatalog() {
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [isClearingCatalog, setIsClearingCatalog] = useState(false);
   const [enrichingByLetter, setEnrichingByLetter] = useState(false);
+  
+  // State for Artist-specific EnrichmentBatchModal
+  const [isEnrichmentModalOpen, setIsEnrichmentModalOpen] = useState(false);
+  const [songsToEnrich, setSongsToEnrich] = useState<Array<{ id: string; title: string; artist: string }>>([]);
+  
   const [artistStatsOverrides, setArtistStatsOverrides] = useState<Map<string, {
     pendingSongs: number;
     enrichedPercentage: number;
@@ -1202,75 +1208,42 @@ export default function MusicCatalog() {
                         setIsSheetOpen(true);
                         console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
                       }}
-                      onEnrich={async () => {
-                        try {
-                          toast({
-                            title: "Buscando músicas pendentes...",
-                            description: `Consultando banco de dados para ${artist.name}...`,
-                          });
+                onEnrich={async () => {
+                  try {
+                    // Query músicas pendentes do artista
+                    const { data: pendingSongsData, error } = await supabase
+                      .from('songs')
+                      .select('id, title')
+                      .eq('artist_id', artist.id)
+                      .eq('status', 'pending')
+                      .order('created_at', { ascending: false });
 
-                          // ✅ Query direta ao Supabase: busca TODAS as músicas pendentes deste artista (sem limite)
-                          const { data: pendingSongsData, error } = await supabase
-                            .from('songs')
-                            .select('id, title')
-                            .eq('artist_id', artist.id)
-                            .eq('status', 'pending')
-                            .order('created_at', { ascending: false });
+                    if (error) throw error;
 
-                          if (error) throw error;
+                    if (!pendingSongsData || pendingSongsData.length === 0) {
+                      toast({
+                        title: "Nenhuma música pendente",
+                        description: `Todas as músicas de ${artist.name} já estão enriquecidas.`,
+                      });
+                      return;
+                    }
 
-                          const pendingSongIds = pendingSongsData?.map(s => s.id) || [];
-                          
-                          console.log(`[ArtistCard.onEnrich] ✅ ${pendingSongIds.length} músicas pendentes encontradas para ${artist.name}`);
-                          
-                          if (pendingSongIds.length === 0) {
-                            toast({
-                              title: "Nenhuma música pendente",
-                              description: `Todas as músicas de ${artist.name} já estão enriquecidas.`,
-                            });
-                            return;
-                          }
-
-                          toast({
-                            title: "Enriquecendo músicas",
-                            description: `Iniciando enriquecimento de ${pendingSongIds.length} músicas de ${artist.name}...`,
-                          });
-                          
-                          await enrichBatch(pendingSongIds);
-                          
-                          // ✅ Atualizar stats do artista localmente (sem reload completo)
-                          const { data: updatedStats } = await supabase
-                            .from('songs')
-                            .select('status')
-                            .eq('artist_id', artist.id);
-                          
-                          if (updatedStats) {
-                            const total = updatedStats.length;
-                            const enriched = updatedStats.filter(s => s.status === 'enriched').length;
-                            const pending = updatedStats.filter(s => s.status === 'pending').length;
-                            const newPercentage = total > 0 ? Math.round((enriched / total) * 100) : 0;
-                            
-                            // Atualizar o artista no estado local
-                            setArtistStatsOverrides(prev => {
-                              const newMap = new Map(prev);
-                              newMap.set(artist.id, {
-                                pendingSongs: pending,
-                                enrichedPercentage: newPercentage
-                              });
-                              return newMap;
-                            });
-                            
-                            console.log(`[ArtistCard.onEnrich] ✅ Stats atualizadas: ${enriched}/${total} (${newPercentage}%)`);
-                          }
-                        } catch (error) {
-                          console.error(`[ArtistCard.onEnrich] Erro ao enriquecer ${artist.name}:`, error);
-                          toast({
-                            title: "Erro ao buscar músicas",
-                            description: error instanceof Error ? error.message : 'Erro ao enriquecer músicas',
-                            variant: "destructive",
-                          });
-                        }
-                      }}
+                    // ✅ Abrir modal ao invés de processar diretamente
+                    setSongsToEnrich(pendingSongsData.map(s => ({
+                      ...s,
+                      artist: artist.name
+                    })));
+                    setIsEnrichmentModalOpen(true);
+                    
+                  } catch (error) {
+                    console.error(`[ArtistCard.onEnrich] Erro:`, error);
+                    toast({
+                      title: "Erro ao buscar músicas",
+                      description: error instanceof Error ? error.message : 'Erro desconhecido',
+                      variant: "destructive",
+                    });
+                  }
+                 }}
                       onEnrichYouTube={async () => {
                         try {
                           toast({
@@ -1445,6 +1418,56 @@ export default function MusicCatalog() {
         onOpenChange={setYoutubeModalOpen}
         pendingSongs={songsWithoutYouTube}
         onComplete={handleBatchComplete}
+      />
+
+      {/* Artist-specific EnrichmentBatchModal */}
+      <EnrichmentBatchModal
+        open={isEnrichmentModalOpen}
+        onOpenChange={setIsEnrichmentModalOpen}
+        songs={songsToEnrich}
+        onEnrich={async (songId: string) => {
+          const result = await enrichmentService.enrichSong(songId, 'metadata-only');
+          return {
+            success: result.success,
+            message: result.success ? 'Música enriquecida com sucesso' : undefined,
+            error: result.error
+          };
+        }}
+        onComplete={async () => {
+          // Atualizar stats dos artistas afetados
+          const uniqueArtistIds = [...new Set(
+            songsToEnrich.map(s => {
+              const song = songs.find(song => song.id === s.id);
+              return song?.artist_id;
+            }).filter(Boolean)
+          )];
+
+          for (const artistId of uniqueArtistIds) {
+            const { data: updatedStats } = await supabase
+              .from('songs')
+              .select('status')
+              .eq('artist_id', artistId);
+            
+            if (updatedStats) {
+              const total = updatedStats.length;
+              const enriched = updatedStats.filter(s => s.status === 'enriched').length;
+              const pending = updatedStats.filter(s => s.status === 'pending').length;
+              const newPercentage = total > 0 ? Math.round((enriched / total) * 100) : 0;
+              
+              setArtistStatsOverrides(prev => {
+                const newMap = new Map(prev);
+                newMap.set(artistId as string, {
+                  pendingSongs: pending,
+                  enrichedPercentage: newPercentage
+                });
+                return newMap;
+              });
+            }
+          }
+          
+          setIsEnrichmentModalOpen(false);
+          setSongsToEnrich([]);
+        }}
       />
 
       {/* Artist Details Sheet - LAZY LOADING */}

@@ -12,6 +12,7 @@ interface EnrichmentResult {
     composer?: string;
     releaseYear?: string;
     youtubeVideoId?: string;
+    lyrics?: string;
   };
   confidenceScore: number;
   sources: string[];
@@ -289,6 +290,7 @@ async function enrichSingleSong(
         composer,
         release_year,
         youtube_url,
+        lyrics,
         confidence_score,
         status,
         artists (
@@ -313,6 +315,7 @@ async function enrichSingleSong(
       composer: song.composer,
       release_year: song.release_year,
       youtube_url: song.youtube_url,
+      lyrics: song.lyrics,
       confidence_score: song.confidence_score || 0,
       status: song.status
     };
@@ -391,6 +394,27 @@ async function enrichSingleSong(
       }
     }
 
+    // 4. Search lyrics if blank (new feature for Phase 3)
+    const shouldSearchLyrics = !song.lyrics && LOVABLE_API_KEY && enrichmentMode === 'full';
+
+    if (shouldSearchLyrics) {
+      try {
+        console.log(`[enrichSingleSong] Searching lyrics for "${song.title}"`);
+        const lyrics = await searchLyrics(song.title, artistName, LOVABLE_API_KEY);
+        if (lyrics) {
+          enrichedData.lyrics = lyrics;
+          confidenceScore += 10;
+          sources.push('lyrics_ai');
+          console.log(`[enrichSingleSong] ✅ Lyrics found (${lyrics.length} chars)`);
+        }
+      } catch (error) {
+        console.error('[enrichSingleSong] Lyrics search error:', error);
+      }
+    }
+
+    confidenceScore = Math.min(confidenceScore, 100);
+    }
+
     confidenceScore = Math.min(confidenceScore, 100);
 
     // ✅ INTELLIGENT MERGE LOGIC: Only update if new data is better
@@ -440,6 +464,7 @@ async function enrichSingleSong(
     // Intelligent field merge: use new data if available, otherwise preserve existing
     updateData.composer = enrichedData.composer || currentData.composer || null;
     updateData.release_year = enrichedData.releaseYear || currentData.release_year || null;
+    updateData.lyrics = enrichedData.lyrics || currentData.lyrics || null;
     
     if (enrichedData.youtubeVideoId) {
       updateData.youtube_url = `https://www.youtube.com/watch?v=${enrichedData.youtubeVideoId}`;
@@ -483,6 +508,63 @@ async function enrichSingleSong(
       sources: [],
       error: error instanceof Error ? error.message : String(error)
     };
+  }
+}
+
+// Helper function to search lyrics using AI
+async function searchLyrics(
+  songTitle: string,
+  artistName: string,
+  lovableApiKey: string
+): Promise<string | null> {
+  const prompt = `Você é um sistema de busca de letras de músicas.
+
+Retorne APENAS a letra completa da música "${songTitle}" do artista "${artistName}".
+
+REGRAS CRÍTICAS:
+1. Se você NÃO tiver certeza da letra COMPLETA e EXATA, retorne APENAS: "LETRA_NAO_DISPONIVEL"
+2. NÃO invente versos ou trechos
+3. NÃO misture com outras músicas
+4. Retorne a letra em português (se for música brasileira)
+5. Inclua quebras de linha entre versos
+6. NÃO adicione introduções, comentários ou formatação markdown
+
+Retorne APENAS a letra ou "LETRA_NAO_DISPONIVEL".`;
+
+  try {
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${lovableApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-2.5-flash',
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.1,
+        max_tokens: 2000
+      }),
+    });
+
+    if (!response.ok) {
+      console.error('[searchLyrics] API error:', response.status);
+      return null;
+    }
+
+    const data = await response.json();
+    const lyrics = data.choices?.[0]?.message?.content?.trim();
+
+    if (!lyrics || lyrics === 'LETRA_NAO_DISPONIVEL' || lyrics.length < 50) {
+      console.log(`[searchLyrics] Letra não encontrada para "${songTitle}"`);
+      return null;
+    }
+
+    console.log(`[searchLyrics] ✅ Letra encontrada (${lyrics.length} caracteres)`);
+    return lyrics;
+
+  } catch (error) {
+    console.error('[searchLyrics] Error:', error);
+    return null;
   }
 }
 
