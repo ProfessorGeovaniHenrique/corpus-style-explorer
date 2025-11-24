@@ -87,6 +87,7 @@ export default function MusicCatalog() {
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [selectedArtistId, setSelectedArtistId] = useState<string | null>(null);
   const [isClearingCatalog, setIsClearingCatalog] = useState(false);
+  const [enrichingByLetter, setEnrichingByLetter] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -627,6 +628,69 @@ export default function MusicCatalog() {
     return filtered;
   }, [artistsWithStats, selectedLetter, searchQuery]);
 
+  // Função auxiliar: conta músicas pendentes dos artistas filtrados
+  const getPendingSongsCountForLetter = () => {
+    const artistIds = filteredArtists.map(a => a.id);
+    const pendingSongs = allSongs.filter(
+      song => artistIds.includes(song.artist_id) && song.status === 'pending'
+    );
+    return pendingSongs.length;
+  };
+
+  // Handler: enriquece todas as músicas pendentes dos artistas da letra selecionada
+  const handleEnrichByLetter = async () => {
+    try {
+      setEnrichingByLetter(true);
+      
+      // 1. Coletar IDs dos artistas filtrados pela letra
+      const artistIds = filteredArtists.map(a => a.id);
+      
+      console.log(`[EnrichByLetter] Letra selecionada: ${selectedLetter}`);
+      console.log(`[EnrichByLetter] ${artistIds.length} artistas encontrados`);
+      
+      // 2. Buscar todas as músicas pendentes desses artistas
+      const pendingSongs = allSongs.filter(
+        song => artistIds.includes(song.artist_id) && song.status === 'pending'
+      );
+      
+      console.log(`[EnrichByLetter] ${pendingSongs.length} músicas pendentes`);
+      
+      if (pendingSongs.length === 0) {
+        toast({
+          title: "Nenhuma música pendente",
+          description: `Todas as músicas dos artistas com "${selectedLetter}" já estão enriquecidas.`,
+        });
+        return;
+      }
+      
+      // 3. Preparar dados para o modal de enriquecimento
+      const songsForBatch = pendingSongs.map(song => ({
+        id: song.id,
+        title: song.title,
+        artist: song.artists?.name || 'Desconhecido'
+      }));
+      
+      // 4. Abrir modal de enriquecimento em lote
+      setPendingSongsForBatch(songsForBatch);
+      setBatchModalOpen(true);
+      
+      toast({
+        title: `Enriquecimento iniciado`,
+        description: `Processando ${pendingSongs.length} músicas de ${artistIds.length} artistas com "${selectedLetter}"`,
+      });
+      
+    } catch (error) {
+      console.error('[EnrichByLetter] Erro:', error);
+      toast({
+        title: "Erro",
+        description: "Falha ao iniciar enriquecimento em lote.",
+        variant: "destructive"
+      });
+    } finally {
+      setEnrichingByLetter(false);
+    }
+  };
+
   return (
     <div className="space-y-0">
       {/* GitHub-style Toolbar */}
@@ -1001,6 +1065,30 @@ export default function MusicCatalog() {
               </Button>
             ))}
           </div>
+
+          {/* Botão de Enriquecimento em Lote por Letra */}
+          {selectedLetter !== 'all' && filteredArtists.length > 0 && getPendingSongsCountForLetter() > 0 && (
+            <div className="p-4 bg-card rounded-lg border">
+              <Button
+                onClick={handleEnrichByLetter}
+                className="w-full gap-2"
+                variant="default"
+                disabled={enrichingByLetter}
+              >
+                {enrichingByLetter ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Enriquecendo artistas com {selectedLetter}...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="h-4 w-4" />
+                    Enriquecer todos com "{selectedLetter}" ({getPendingSongsCountForLetter()} músicas pendentes)
+                  </>
+                )}
+              </Button>
+            </div>
+          )}
 
           {catalogLoading ? (
             <div className="text-center py-12">
