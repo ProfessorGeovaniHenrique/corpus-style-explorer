@@ -286,14 +286,62 @@ export default function MusicCatalog() {
     }
   };
 
-  const handleBatchEnrich = () => {
-    const pending = songs.filter(s => s.status === 'pending');
-    setPendingSongsForBatch(pending);
-    setBatchModalOpen(true);
-    
-    // Request notification permission
-    if ('Notification' in window && Notification.permission === 'default') {
-      Notification.requestPermission();
+  const handleBatchEnrich = async () => {
+    try {
+      setLoading(true);
+      
+      toast({
+        title: "Buscando músicas pendentes...",
+        description: "Consultando banco de dados para todas as músicas pendentes.",
+      });
+
+      // ✅ Query direta ao Supabase: busca TODAS as músicas pendentes (sem limite de 1000)
+      const { data: pendingSongsData, error } = await supabase
+        .from('songs')
+        .select(`
+          id,
+          title,
+          artists (
+            name
+          )
+        `)
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const pendingFormatted = pendingSongsData?.map(s => ({
+        id: s.id,
+        title: s.title,
+        artist: (s.artists as any)?.name || 'Desconhecido'
+      })) || [];
+
+      console.log(`[handleBatchEnrich] ✅ ${pendingFormatted.length} músicas pendentes encontradas`);
+
+      if (pendingFormatted.length === 0) {
+        toast({
+          title: "Nenhuma música pendente",
+          description: "Todas as músicas já foram enriquecidas!",
+        });
+        return;
+      }
+
+      setPendingSongsForBatch(pendingFormatted);
+      setBatchModalOpen(true);
+      
+      // Request notification permission
+      if ('Notification' in window && Notification.permission === 'default') {
+        Notification.requestPermission();
+      }
+    } catch (error) {
+      console.error('[handleBatchEnrich] Erro:', error);
+      toast({
+        title: "Erro ao buscar músicas",
+        description: error instanceof Error ? error.message : "Erro desconhecido",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -542,14 +590,37 @@ export default function MusicCatalog() {
     setCurrentArtistPage(1);
   }, [selectedLetter, debouncedSearchQuery]);
 
-  // Função auxiliar: conta músicas pendentes dos artistas filtrados
-  const getPendingSongsCountForLetter = () => {
-    const artistIds = filteredArtists.map(a => a.id);
-    const pendingSongs = allSongs.filter(
-      song => artistIds.includes(song.artist_id) && song.status === 'pending'
-    );
-    return pendingSongs.length;
-  };
+  // ✅ CORRIGIDO: Conta músicas pendentes via query direta (não limitada a 1000)
+  const [pendingCountForLetter, setPendingCountForLetter] = useState<number>(0);
+
+  // Atualiza contador quando letra ou artistas mudam
+  useEffect(() => {
+    if (selectedLetter === 'all' || filteredArtists.length === 0) {
+      setPendingCountForLetter(0);
+      return;
+    }
+
+    const fetchPendingCount = async () => {
+      try {
+        const artistIds = filteredArtists.map(a => a.id);
+        
+        const { count, error } = await supabase
+          .from('songs')
+          .select('id', { count: 'exact', head: true })
+          .in('artist_id', artistIds)
+          .eq('status', 'pending');
+
+        if (error) throw error;
+        
+        setPendingCountForLetter(count || 0);
+      } catch (error) {
+        console.error('[getPendingSongsCountForLetter] Erro:', error);
+        setPendingCountForLetter(0);
+      }
+    };
+
+    fetchPendingCount();
+  }, [selectedLetter, filteredArtists]);
 
   // Handler: enriquece todas as músicas pendentes dos artistas da letra selecionada
   const handleEnrichByLetter = async () => {
@@ -562,14 +633,30 @@ export default function MusicCatalog() {
       console.log(`[EnrichByLetter] Letra selecionada: ${selectedLetter}`);
       console.log(`[EnrichByLetter] ${artistIds.length} artistas encontrados`);
       
-      // 2. Buscar todas as músicas pendentes desses artistas
-      const pendingSongs = allSongs.filter(
-        song => artistIds.includes(song.artist_id) && song.status === 'pending'
-      );
+      toast({
+        title: "Buscando músicas pendentes...",
+        description: `Consultando todas as músicas dos ${artistIds.length} artistas com "${selectedLetter}"`,
+      });
+
+      // ✅ Query direta ao Supabase: busca TODAS as músicas pendentes desses artistas (sem limite de 1000)
+      const { data: pendingSongsData, error } = await supabase
+        .from('songs')
+        .select(`
+          id,
+          title,
+          artists (
+            name
+          )
+        `)
+        .in('artist_id', artistIds)
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      console.log(`[EnrichByLetter] ✅ ${pendingSongsData?.length || 0} músicas pendentes encontradas`);
       
-      console.log(`[EnrichByLetter] ${pendingSongs.length} músicas pendentes`);
-      
-      if (pendingSongs.length === 0) {
+      if (!pendingSongsData || pendingSongsData.length === 0) {
         toast({
           title: "Nenhuma música pendente",
           description: `Todas as músicas dos artistas com "${selectedLetter}" já estão enriquecidas.`,
@@ -578,10 +665,10 @@ export default function MusicCatalog() {
       }
       
       // 3. Preparar dados para o modal de enriquecimento
-      const songsForBatch = pendingSongs.map(song => ({
+      const songsForBatch = pendingSongsData.map(song => ({
         id: song.id,
         title: song.title,
-        artist: song.artists?.name || 'Desconhecido'
+        artist: (song.artists as any)?.name || 'Desconhecido'
       }));
       
       // 4. Abrir modal de enriquecimento em lote
@@ -590,14 +677,14 @@ export default function MusicCatalog() {
       
       toast({
         title: `Enriquecimento iniciado`,
-        description: `Processando ${pendingSongs.length} músicas de ${artistIds.length} artistas com "${selectedLetter}"`,
+        description: `Processando ${songsForBatch.length} músicas de ${artistIds.length} artistas com "${selectedLetter}"`,
       });
       
     } catch (error) {
       console.error('[EnrichByLetter] Erro:', error);
       toast({
-        title: "Erro",
-        description: "Falha ao iniciar enriquecimento em lote.",
+        title: "Erro ao buscar músicas",
+        description: error instanceof Error ? error.message : "Falha ao iniciar enriquecimento em lote.",
         variant: "destructive"
       });
     } finally {
@@ -981,7 +1068,7 @@ export default function MusicCatalog() {
           </div>
 
           {/* Botão de Enriquecimento em Lote por Letra */}
-          {selectedLetter !== 'all' && filteredArtists.length > 0 && getPendingSongsCountForLetter() > 0 && (
+          {selectedLetter !== 'all' && filteredArtists.length > 0 && pendingCountForLetter > 0 && (
             <div className="p-4 bg-card rounded-lg border">
               <Button
                 onClick={handleEnrichByLetter}
@@ -994,10 +1081,10 @@ export default function MusicCatalog() {
                     <Loader2 className="h-4 w-4 animate-spin" />
                     Enriquecendo artistas com {selectedLetter}...
                   </>
-                ) : (
+                  ) : (
                   <>
                     <Sparkles className="h-4 w-4" />
-                    Enriquecer todos com "{selectedLetter}" ({getPendingSongsCountForLetter()} músicas pendentes)
+                    Enriquecer todos com "{selectedLetter}" ({pendingCountForLetter} músicas pendentes)
                   </>
                 )}
               </Button>
@@ -1084,9 +1171,24 @@ export default function MusicCatalog() {
                       }}
                       onEnrich={async () => {
                         try {
-                          const pendingSongIds = artistSongs
-                            .filter(s => s.status === 'pending')
-                            .map(s => s.id);
+                          toast({
+                            title: "Buscando músicas pendentes...",
+                            description: `Consultando banco de dados para ${artist.name}...`,
+                          });
+
+                          // ✅ Query direta ao Supabase: busca TODAS as músicas pendentes deste artista (sem limite)
+                          const { data: pendingSongsData, error } = await supabase
+                            .from('songs')
+                            .select('id, title')
+                            .eq('artist_id', artist.id)
+                            .eq('status', 'pending')
+                            .order('created_at', { ascending: false });
+
+                          if (error) throw error;
+
+                          const pendingSongIds = pendingSongsData?.map(s => s.id) || [];
+                          
+                          console.log(`[ArtistCard.onEnrich] ✅ ${pendingSongIds.length} músicas pendentes encontradas para ${artist.name}`);
                           
                           if (pendingSongIds.length === 0) {
                             toast({
@@ -1104,9 +1206,10 @@ export default function MusicCatalog() {
                           await enrichBatch(pendingSongIds);
                           await reload();
                         } catch (error) {
+                          console.error(`[ArtistCard.onEnrich] Erro ao enriquecer ${artist.name}:`, error);
                           toast({
-                            title: "Erro",
-                            description: 'Erro ao enriquecer músicas',
+                            title: "Erro ao buscar músicas",
+                            description: error instanceof Error ? error.message : 'Erro ao enriquecer músicas',
                             variant: "destructive",
                           });
                         }
