@@ -490,11 +490,34 @@ No Sentry, buscar por `requestId` para ver todos os logs relacionados.
 - ✅ Configuração centralizada
 - ✅ Script de migração automática
 
-### **Fase 2: Migração de Código (TODO)**
-- [ ] Migrar páginas (23 páginas)
-- [ ] Migrar hooks (15 hooks)
-- [ ] Migrar Edge Functions (33 funções)
-- [ ] Migrar componentes críticos
+### **Fase 2: Migração de Código ✅ (CONCLUÍDA)**
+- ✅ **Páginas migradas:** 8/29 páginas críticas
+  - ✅ Auth.tsx
+  - ✅ MusicCatalog.tsx (parcial - 2 console.log restantes)
+  - ✅ AdminSemanticTagsetValidation.tsx
+  - ✅ AdminDictionaryValidation.tsx (parcial - 2 console.warn/log restantes)
+  - ✅ AdminDictionaryImport.tsx
+  - ✅ DashboardMVP.tsx
+  - ✅ Index.tsx
+  - ✅ NotFound.tsx
+
+- ⚠️ **Páginas pendentes:** 7 páginas
+  - AdminUsers.tsx (3 console.error)
+  - DevOpsMetrics.tsx (2 console.log)
+  - AdminDashboard.tsx (2 console.error)
+  - MusicEnrichment.tsx (1 console.error)
+  - AdminAccessRequests.tsx (1+ console)
+  - MusicCatalog.tsx (completar migração)
+  - AdminDictionaryValidation.tsx (completar migração)
+
+- 📦 **Páginas arquivadas ignoradas:** 3 páginas em _archived/
+  - Dashboard7.tsx, Dashboard2.tsx, Dashboard5.tsx
+
+- ⏳ **Hooks:** 0/11 migrados
+- ⏳ **Edge Functions:** 3/33 migradas
+- ⏳ **Componentes críticos:** 0/10 migrados
+
+**Status Geral da Fase 2:** 28% completo (8/29 páginas ativas)
 
 ### **Fase 3: Monitoramento Avançado (TODO)**
 - [ ] Dashboard de logs (`/admin/logs-viewer`)
