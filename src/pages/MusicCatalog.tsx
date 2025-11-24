@@ -19,6 +19,7 @@ import { ArtistDetailsSheet } from '@/components/music/ArtistDetailsSheet';
 import { EnrichmentBatchModal } from '@/components/music/EnrichmentBatchModal';
 import { YouTubeEnrichmentModal } from '@/components/music/YouTubeEnrichmentModal';
 import { EnrichmentMetricsDashboard } from '@/components/music/EnrichmentMetricsDashboard';
+import { EnrichmentValidationPanel } from '@/components/EnrichmentValidationPanel';
 import { Song } from '@/components/music/SongCard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -67,7 +68,7 @@ export default function MusicCatalog() {
   const { enrichYouTubeUI, enrichYouTubeBatch } = useYouTubeEnrichment();
   
   // States de UI
-  const [view, setView] = useState<'songs' | 'artists' | 'stats' | 'metrics'>('songs');
+  const [view, setView] = useState<'songs' | 'artists' | 'stats' | 'metrics' | 'validation'>('songs');
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
@@ -1031,6 +1032,7 @@ export default function MusicCatalog() {
           </TabsTrigger>
           <TabsTrigger value="stats">Estatísticas</TabsTrigger>
           <TabsTrigger value="metrics">Métricas</TabsTrigger>
+          <TabsTrigger value="validation">🧪 Validação</TabsTrigger>
         </TabsList>
 
         <TabsContent value="songs" className="space-y-4">
@@ -1423,6 +1425,28 @@ export default function MusicCatalog() {
               onExportReport={handleExportReport}
             />
           )}
+        </TabsContent>
+
+        <TabsContent value="validation" className="space-y-4">
+          <div className="rounded-lg border bg-card p-6">
+            <div className="space-y-4">
+              <div>
+                <h2 className="text-2xl font-bold tracking-tight">Validação do Pipeline de Enrichment</h2>
+                <p className="text-muted-foreground">
+                  Teste a persistência de dados e atualização da UI para Biography, YouTube e Metadata
+                </p>
+              </div>
+              
+              <EnrichmentValidationPanel />
+              
+              <div className="mt-6 p-4 bg-muted/50 rounded-lg">
+                <p className="text-sm text-muted-foreground">
+                  💡 <strong>Dica:</strong> Esta aba é temporária para validação do MVP. 
+                  Será removida após confirmação de que o pipeline de enrichment está funcionando corretamente.
+                </p>
+              </div>
+            </div>
+          </div>
         </TabsContent>
       </Tabs>
 
