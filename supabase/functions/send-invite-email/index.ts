@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.81.1';
 import { withInstrumentation } from "../_shared/instrumentation.ts";
 import { createHealthCheck } from "../_shared/health-check.ts";
+import { createEdgeLogger } from "../_shared/unified-logger.ts";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 
@@ -18,6 +19,9 @@ interface SendInviteRequest {
 }
 
 const handler = async (req: Request): Promise<Response> => {
+  const requestId = crypto.randomUUID();
+  const log = createEdgeLogger('send-invite-email', requestId);
+
   // Health check endpoint
   if (req.method === 'GET' && new URL(req.url).pathname.endsWith('/health')) {
     const health = await createHealthCheck('send-invite-email', '1.0.0');
@@ -35,7 +39,7 @@ const handler = async (req: Request): Promise<Response> => {
     // Verificar autenticação e permissão de admin
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
-      console.error('Missing authorization header');
+      log.warn('Missing authorization header');
       return new Response(
         JSON.stringify({ error: 'Não autorizado. Token de autenticação ausente.' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -53,7 +57,7 @@ const handler = async (req: Request): Promise<Response> => {
     const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
     
     if (userError || !user) {
-      console.error('Error getting user:', userError);
+      log.error('Failed to get user', userError ? new Error(userError.message) : undefined);
       return new Response(
         JSON.stringify({ error: 'Não autorizado. Usuário inválido.' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -69,7 +73,7 @@ const handler = async (req: Request): Promise<Response> => {
       .single();
 
     if (rolesError || !roles) {
-      console.error('User is not admin:', user.id);
+      log.warn('User is not admin', { userId: user.id });
       return new Response(
         JSON.stringify({ error: 'Acesso negado. Esta função requer privilégios de administrador.' }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -164,14 +168,14 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     const result = await emailResponse.json();
-    console.log("Email sent successfully:", result);
+    log.info('Email sent successfully', { recipientEmail, role });
 
     return new Response(JSON.stringify({ success: true, result }), {
       status: 200,
       headers: { "Content-Type": "application/json", ...corsHeaders },
     });
   } catch (error: any) {
-    console.error("Error sending invite email:", error);
+    log.error('Failed to send invite email', error);
     return new Response(
       JSON.stringify({ error: error.message }),
       { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }

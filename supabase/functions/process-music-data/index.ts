@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.81.1";
+import { createEdgeLogger } from "../_shared/unified-logger.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -12,6 +13,9 @@ interface ProcessingResult {
 }
 
 serve(async (req) => {
+  const requestId = crypto.randomUUID();
+  const log = createEdgeLogger('process-music-data', requestId);
+
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -31,7 +35,7 @@ serve(async (req) => {
       );
     }
 
-    console.log(`[process-music-data] Processing ${songIds.length} songs`);
+    log.info('Processing songs', { count: songIds.length });
 
     const errors: Array<{ songId: string; error: string }> = [];
     let songsProcessed = 0;
@@ -121,12 +125,12 @@ serve(async (req) => {
         songsProcessed++;
 
       } catch (error) {
-        console.error(`[process-music-data] Error processing song ${songId}:`, error);
+        log.error('Error processing song', error as Error, { songId });
         errors.push({ songId, error: error instanceof Error ? error.message : String(error) });
       }
     }
 
-    console.log(`[process-music-data] Successfully processed ${songsProcessed}/${songIds.length} songs`);
+    log.info('Processing complete', { processed: songsProcessed, total: songIds.length });
 
     const result: ProcessingResult = {
       songsProcessed,
@@ -139,7 +143,7 @@ serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('[process-music-data] Error:', error);
+    log.fatal('Fatal error in process-music-data', error as Error);
     return new Response(
       JSON.stringify({ error: error instanceof Error ? error.message : String(error) }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

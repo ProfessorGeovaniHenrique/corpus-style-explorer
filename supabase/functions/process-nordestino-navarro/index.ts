@@ -1,5 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.81.1';
+import { createEdgeLogger } from "../_shared/unified-logger.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -26,6 +27,9 @@ interface ParsedEntry {
 }
 
 serve(async (req) => {
+  const requestId = crypto.randomUUID();
+  const log = createEdgeLogger('process-nordestino-navarro', requestId);
+
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -42,7 +46,7 @@ serve(async (req) => {
 
     if (jobId) {
       // ✅ Se jobId fornecido, usar job existente
-      console.log(`🔄 Usando job existente: ${jobId}`);
+      log.info('Using existing job', { jobId });
       const { data, error } = await supabase
         .from('dictionary_import_jobs')
         .select('*')
@@ -56,7 +60,7 @@ serve(async (req) => {
       jobIdFinal = job.id;
     } else {
       // ✅ Se não fornecido, criar novo job (compatibilidade)
-      console.log(`✅ Criando novo job`);
+      log.info('Creating new job');
       const { data, error: jobError } = await supabase
         .from('dictionary_import_jobs')
         .insert({
@@ -76,15 +80,15 @@ serve(async (req) => {
       jobIdFinal = job.id;
     }
 
-    console.log(`📋 Job final: ${jobIdFinal} - offset: ${offsetInicial}`);
+    log.info('Job initialized', { jobId: jobIdFinal, offset: offsetInicial });
 
     // Usar conteúdo do body ou buscar do GitHub
     let content: string;
     if (fileContent) {
-      console.log('📄 Usando conteúdo fornecido no body');
+      log.info('Using provided file content');
       content = fileContent;
     } else {
-      console.log('📥 Buscando arquivo limpo do GitHub...');
+      log.info('Fetching file from GitHub');
       const githubUrl = 'https://raw.githubusercontent.com/ProfessorGeovaniHenrique/estilisticadecorpus/main/public/dictionaries/NAVARROCLEAN.txt';
       const response = await fetch(githubUrl);
       if (!response.ok) throw new Error(`Erro ao buscar arquivo: ${response.statusText}`);
@@ -92,7 +96,7 @@ serve(async (req) => {
     }
     
     const lines = content.split('\n').filter(line => line.trim());
-    console.log(`📊 Total de linhas processadas: ${lines.length}`);
+    log.info('Lines parsed', { totalLines: lines.length });
 
     // Processar em background
     processInBackground(supabase, jobIdFinal, lines, offsetInicial);
@@ -107,7 +111,7 @@ serve(async (req) => {
     );
 
   } catch (error: any) {
-    console.error('❌ Erro:', error);
+    log.error('Error in process-nordestino-navarro', error);
     return new Response(
       JSON.stringify({ error: error.message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

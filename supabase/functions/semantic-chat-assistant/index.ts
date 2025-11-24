@@ -1,5 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.81.1';
+import { createEdgeLogger } from "../_shared/unified-logger.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -7,6 +8,9 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
+  const requestId = crypto.randomUUID();
+  const log = createEdgeLogger('semantic-chat-assistant', requestId);
+
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -40,7 +44,7 @@ serve(async (req) => {
       .order('codigo');
 
     if (tagsetsError) {
-      console.error('Erro ao carregar tagsets:', tagsetsError);
+      log.error('Failed to load tagsets', tagsetsError);
       return new Response(JSON.stringify({ error: 'Erro ao carregar contexto' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -173,9 +177,10 @@ Você está pronto para auxiliar na curadoria desta taxonomia, tchê!`;
 
     if (!aiResponse.ok) {
       const errorText = await aiResponse.text();
-      console.error('Erro na API Lovable:', errorText);
+      log.error('Lovable AI API error', new Error(errorText));
       
       if (aiResponse.status === 429) {
+        log.warn('Rate limit exceeded');
         return new Response(JSON.stringify({ error: 'Rate limit atingido. Aguarde alguns segundos.' }), {
           status: 429,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -211,7 +216,7 @@ Você está pronto para auxiliar na curadoria desta taxonomia, tchê!`;
     });
 
   } catch (error) {
-    console.error('Erro no semantic-chat-assistant:', error);
+    log.fatal('Fatal error in semantic-chat-assistant', error as Error);
     const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
     return new Response(JSON.stringify({ error: errorMessage }), {
       status: 500,

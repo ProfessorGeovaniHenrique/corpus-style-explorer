@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.81.1';
+import { createEdgeLogger } from "../_shared/unified-logger.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -59,6 +60,9 @@ function parseRochaPomboEntry(text: string): RochaPomboEntry | null {
 }
 
 Deno.serve(async (req) => {
+  const requestId = crypto.randomUUID();
+  const log = createEdgeLogger('process-rocha-pombo-dictionary', requestId);
+
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -70,7 +74,7 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    console.log(`📖 Processando Dicionário Rocha Pombo - Job: ${jobId}`);
+    log.info('Processing Rocha Pombo dictionary', { jobId });
 
     // Dividir por linhas em branco (cada bloco é um verbete completo)
     const verbetes = fileContent
@@ -92,8 +96,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    console.log(`✅ Entradas válidas: ${entries.length}`);
-    console.log(`⚠️ Verbetes ignorados: ${skippedEntries}`);
+    log.info('Parsing complete', { validEntries: entries.length, skipped: skippedEntries });
 
     // Atualizar job com total de verbetes
     await supabase
@@ -139,7 +142,7 @@ Deno.serve(async (req) => {
         .select();
 
       if (error) {
-        console.error(`❌ Erro ao inserir lote ${i / batchSize + 1}:`, error);
+        log.error('Batch insert failed', error, { batchNumber: i / batchSize + 1 });
         errorCount += batch.length;
       } else {
         insertedCount += data?.length || 0;
@@ -160,7 +163,7 @@ Deno.serve(async (req) => {
         })
         .eq('id', jobId);
 
-      console.log(`📊 Progresso: ${progresso.toFixed(1)}% (${processedCount}/${entries.length})`);
+      log.info('Progress update', { progress: progresso.toFixed(1), processed: processedCount, total: entries.length });
     }
 
     // Finalizar job
@@ -173,12 +176,12 @@ Deno.serve(async (req) => {
       })
       .eq('id', jobId);
 
-    console.log(`✅ Importação concluída!
-      - Total: ${entries.length}
-      - Inseridos: ${insertedCount}
-      - Erros: ${errorCount}
-      - Taxa de sucesso: ${((insertedCount / entries.length) * 100).toFixed(1)}%
-    `);
+    log.info('Import complete', { 
+      total: entries.length, 
+      inserted: insertedCount, 
+      errors: errorCount,
+      successRate: ((insertedCount / entries.length) * 100).toFixed(1) 
+    });
 
     return new Response(
       JSON.stringify({
@@ -199,7 +202,7 @@ Deno.serve(async (req) => {
     );
 
   } catch (error: any) {
-    console.error('❌ Erro no processamento:', error);
+    log.error('Processing failed', error);
     
     return new Response(
       JSON.stringify({

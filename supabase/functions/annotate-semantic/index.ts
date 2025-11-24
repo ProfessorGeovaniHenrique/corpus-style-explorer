@@ -604,7 +604,7 @@ serve(async (req) => {
     log.info('User authenticated successfully', { userId });
     }
 
-    console.log(`[annotate-semantic] 🚀 Iniciando anotação: ${corpus_type}`, {
+    log.info('Starting semantic annotation', {
       userId,
       demo: demo_mode || false,
       artist_filter,

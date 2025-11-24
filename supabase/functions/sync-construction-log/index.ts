@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { withInstrumentation } from "../_shared/instrumentation.ts";
 import { createHealthCheck } from "../_shared/health-check.ts";
+import { createEdgeLogger } from "../_shared/unified-logger.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -22,7 +23,6 @@ const DATA_SOURCES = {
  */
 function parseTypeScriptExport(content: string, exportName: string): any {
   try {
-    // Remover comentários
     const withoutComments = content
       .replace(/\/\*[\s\S]*?\*\//g, '') // Block comments
       .replace(/\/\/.*/g, ''); // Line comments
@@ -53,14 +53,14 @@ function parseTypeScriptExport(content: string, exportName: string): any {
 
     return JSON.parse(jsonString);
   } catch (error) {
-    console.error(`❌ Erro ao parsear ${exportName}:`, error);
+    console.error(`Parse error for ${exportName}:`, error);
     throw error;
   }
 }
 
 // ==================== SINCRONIZAÇÃO ====================
-async function syncConstructionLog(supabase: any): Promise<SyncResult> {
-  console.log('📋 Sincronizando construction-log...');
+async function syncConstructionLog(supabase: any, log: any): Promise<SyncResult> {
+  log.info('Syncing construction log');
   
   try {
     // Tentar buscar do GitHub Raw
@@ -73,13 +73,13 @@ async function syncConstructionLog(supabase: any): Promise<SyncResult> {
       if (response.ok) {
         const tsContent = await response.text();
         constructionLog = parseTypeScriptExport(tsContent, 'constructionLog');
-        console.log('✅ Dados carregados do GitHub Raw');
+        log.info('Data loaded from GitHub');
       } else {
         throw new Error(`GitHub fetch failed: ${response.status}`);
       }
     } catch (fetchError) {
       // Fallback: usar dados estáticos embutidos (simplificado)
-      console.warn('⚠️ Falha ao buscar do GitHub, usando fallback estático');
+      log.warn('GitHub fetch failed, using fallback');
       constructionLog = getFallbackData();
     }
 
@@ -94,7 +94,7 @@ async function syncConstructionLog(supabase: any): Promise<SyncResult> {
       .single();
 
     if (lastSync?.data_hash === dataHash) {
-      console.log('✅ Dados já sincronizados (hash igual)');
+      log.info('Data already up-to-date');
       return { status: 'up-to-date', itemsSynced: 0 };
     }
 
@@ -124,7 +124,7 @@ async function syncConstructionLog(supabase: any): Promise<SyncResult> {
         });
 
       if (error) {
-        console.error(`❌ Erro ao upsert fase ${phase.phase}:`, error);
+        log.error('Phase upsert failed', error, { phaseName: phase.phase });
       } else {
         itemsSynced++;
       }
@@ -133,7 +133,7 @@ async function syncConstructionLog(supabase: any): Promise<SyncResult> {
     return { status: 'success', itemsSynced, dataHash };
 
   } catch (error) {
-    console.error('❌ Erro na sincronização:', error);
+    log.error('Sync failed', error as Error);
     throw error;
   }
 }
@@ -166,6 +166,9 @@ interface SyncResult {
 }
 
 serve(withInstrumentation('sync-construction-log', async (req) => {
+  const requestId = crypto.randomUUID();
+  const log = createEdgeLogger('sync-construction-log', requestId);
+
   // Health check endpoint
   if (req.method === 'GET' && new URL(req.url).pathname.endsWith('/health')) {
     const health = await createHealthCheck('sync-construction-log', '1.0.0');
@@ -188,9 +191,9 @@ serve(withInstrumentation('sync-construction-log', async (req) => {
     const startTime = Date.now();
     const { trigger } = await req.json();
 
-    console.log(`🔄 Iniciando sincronização (trigger: ${trigger})`);
+    log.info('Starting sync', { trigger });
 
-    const result = await syncConstructionLog(supabase);
+    const result = await syncConstructionLog(supabase, log);
 
     // Atualizar metadata
     const syncDurationMs = Date.now() - startTime;
@@ -207,7 +210,7 @@ serve(withInstrumentation('sync-construction-log', async (req) => {
         }, { onConflict: 'source' });
     }
 
-    console.log(`✅ Sincronização concluída: ${result.itemsSynced} itens em ${syncDurationMs}ms`);
+    log.info('Sync complete', { itemsSynced: result.itemsSynced, durationMs: syncDurationMs });
 
     return new Response(
       JSON.stringify({
@@ -220,7 +223,7 @@ serve(withInstrumentation('sync-construction-log', async (req) => {
     );
 
   } catch (error) {
-    console.error('❌ Erro na sincronização:', error);
+    log.error('Sync failed', error as Error);
     const message = error instanceof Error ? error.message : 'Erro desconhecido';
     return new Response(
       JSON.stringify({ error: message }),

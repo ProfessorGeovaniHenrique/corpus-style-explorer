@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { withInstrumentation } from "../_shared/instrumentation.ts";
 import { createHealthCheck } from "../_shared/health-check.ts";
+import { createEdgeLogger } from "../_shared/unified-logger.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -8,6 +9,9 @@ const corsHeaders = {
 };
 
 serve(withInstrumentation('process-nordestino-corpus', async (req) => {
+  const requestId = crypto.randomUUID();
+  const log = createEdgeLogger('process-nordestino-corpus', requestId);
+
   // Health check endpoint
   if (req.method === 'GET' && new URL(req.url).pathname.endsWith('/health')) {
     const health = await createHealthCheck('process-nordestino-corpus', '1.0.0');
@@ -22,7 +26,7 @@ serve(withInstrumentation('process-nordestino-corpus', async (req) => {
   }
 
   try {
-    console.log('🎵 Processando corpus nordestino...');
+    log.info('Processing nordestino corpus');
 
     // Mock simplificado - retornar estrutura similar ao corpus gaúcho
     // TODO: Implementar processamento real do corpus nordestino
@@ -128,13 +132,13 @@ serve(withInstrumentation('process-nordestino-corpus', async (req) => {
       }
     };
 
-    console.log(`✅ Processamento concluído: ${mockResult.keywords.length} palavras-chave`);
+    log.info('Processing complete', { keywordsCount: mockResult.keywords.length });
 
     return new Response(JSON.stringify(mockResult), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    console.error('❌ Erro ao processar corpus nordestino:', error);
+    log.error('Error processing corpus', error as Error);
     const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
     return new Response(
       JSON.stringify({ error: errorMessage }),
