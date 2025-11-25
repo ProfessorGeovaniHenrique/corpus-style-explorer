@@ -1,4 +1,7 @@
-// Deno Edge Runtime - POS Tagging with Expanded Grammar Rules (50+ irregular verbs)
+// Deno Edge Runtime - HYBRID POS TAGGING (3-Layer System)
+// Layer 1: VA Grammar (priority, zero cost)
+// Layer 2: spaCy fallback (TODO)
+// Layer 3: Gemini AI fallback (TODO)
 
 import { RateLimiter, addRateLimitHeaders } from "../_shared/rateLimiter.ts";
 import { EdgeFunctionLogger } from "../_shared/logger.ts";
