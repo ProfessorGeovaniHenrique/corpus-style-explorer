@@ -16,6 +16,7 @@ import { VelocityChart } from "@/components/dev-history/VelocityChart";
 import { SearchBar } from "@/components/dev-history/SearchBar";
 import { SyncStatusDashboard } from "@/components/dev-history/SyncStatusDashboard";
 import { ToolsMethodologies } from "@/components/dev-history/ToolsMethodologies";
+import { USASMethodologyViewer } from "@/components/dev-history/USASMethodologyViewer";
 import type { SearchResult } from "@/hooks/useDevHistorySearch";
 
 export default function DeveloperHistory() {
@@ -119,9 +120,20 @@ export default function DeveloperHistory() {
           </TabsContent>
 
           <TabsContent value="methodologies" className="space-y-4 mt-6">
-            <div className="grid gap-4">
-              <ScientificEvolution showMethodologies />
-            </div>
+            <Tabs defaultValue="general" className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="general">Metodologias Gerais</TabsTrigger>
+                <TabsTrigger value="usas">Pipeline USAS</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="general" className="mt-4">
+                <ScientificEvolution showMethodologies />
+              </TabsContent>
+              
+              <TabsContent value="usas" className="mt-4">
+                <USASMethodologyViewer />
+              </TabsContent>
+            </Tabs>
           </TabsContent>
 
           <TabsContent value="tools" className="space-y-4 mt-6">

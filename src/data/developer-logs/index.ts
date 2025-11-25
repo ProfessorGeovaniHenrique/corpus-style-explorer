@@ -73,3 +73,19 @@ export {
   getAllReferences,
   type Tool
 } from './tools-methodologies';
+
+export {
+  usasSystem,
+  versoAustralProposal,
+  criticalAnalysis,
+  validationStrategy,
+  usasReferences,
+  calculateTotalImplementationTime,
+  getUSASMethodById,
+  getComparisonByMethod,
+  getRoadmapSprint,
+  usasMethodologyMetadata,
+  type USASPipeline,
+  type VersoAustralProposal,
+  type USASMethod
+} from './usas-methodology';
