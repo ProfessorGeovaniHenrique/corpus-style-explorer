@@ -32,6 +32,8 @@ interface CoverageStats {
   coverageRate: number;
   unknownWords: string[];
   sourceDistribution: Record<string, number>;
+  layer1Coverage?: number;
+  layer2Coverage?: number;
 }
 
 interface PerformanceStats {
@@ -118,9 +120,10 @@ export const POSAnnotatorTest = () => {
 
   const getSourceIcon = (source?: string) => {
     switch (source) {
-      case 'va_grammar': return <Brain className="w-3 h-3" />;
-      case 'cache': return <Zap className="w-3 h-3" />;
-      case 'spacy': return <Database className="w-3 h-3" />;
+      case 'va_grammar': return <Brain className="w-3 h-3 text-blue-500" />;
+      case 'cache': return <Zap className="w-3 h-3 text-yellow-500" />;
+      case 'spacy': return <span className="text-sm">🐍</span>;
+      case 'gemini': return <span className="text-sm">✨</span>;
       default: return null;
     }
   };
