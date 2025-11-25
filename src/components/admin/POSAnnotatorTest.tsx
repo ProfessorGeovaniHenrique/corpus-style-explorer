@@ -22,8 +22,8 @@ interface AnnotatedToken {
   posDetalhada: string;
   features: Record<string, string>;
   posicao: number;
-  source: 'va_grammar' | 'spacy' | 'gemini' | 'cache';
-  confidence: number;
+  source?: 'va_grammar' | 'spacy' | 'gemini' | 'cache';
+  confianca?: number;
 }
 
 interface CoverageStats {
@@ -32,6 +32,12 @@ interface CoverageStats {
   coverageRate: number;
   unknownWords: string[];
   sourceDistribution: Record<string, number>;
+}
+
+interface PerformanceStats {
+  layer1Time: number;
+  layer2Time: number;
+  totalTime: number;
 }
 
 const SAMPLE_TEXTS = {
@@ -53,6 +59,7 @@ export const POSAnnotatorTest = () => {
   const [inputText, setInputText] = useState(SAMPLE_TEXTS.gaucho);
   const [annotations, setAnnotations] = useState<AnnotatedToken[]>([]);
   const [stats, setStats] = useState<CoverageStats | null>(null);
+  const [performance, setPerformance] = useState<PerformanceStats | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
@@ -76,6 +83,7 @@ export const POSAnnotatorTest = () => {
 
       setAnnotations(data.annotations);
       setStats(data.stats);
+      setPerformance(data.performance || null);
 
       toast({
         title: "Anotação Concluída",
@@ -108,7 +116,7 @@ export const POSAnnotatorTest = () => {
     return colors[pos] || 'bg-gray-400';
   };
 
-  const getSourceIcon = (source: string) => {
+  const getSourceIcon = (source?: string) => {
     switch (source) {
       case 'va_grammar': return <Brain className="w-3 h-3" />;
       case 'cache': return <Zap className="w-3 h-3" />;
@@ -117,9 +125,19 @@ export const POSAnnotatorTest = () => {
     }
   };
 
-  const getConfidenceColor = (confidence: number) => {
-    if (confidence >= 0.95) return 'text-green-600';
-    if (confidence >= 0.8) return 'text-yellow-600';
+  const getSourceLabel = (source?: string) => {
+    switch (source) {
+      case 'va_grammar': return 'VA Grammar';
+      case 'spacy': return 'spaCy';
+      case 'gemini': return 'Gemini';
+      case 'cache': return 'Cache';
+      default: return 'Unknown';
+    }
+  };
+
+  const getConfidenceColor = (confianca: number) => {
+    if (confianca >= 0.95) return 'text-green-600';
+    if (confianca >= 0.8) return 'text-yellow-600';
     return 'text-red-600';
   };
 
@@ -226,13 +244,18 @@ export const POSAnnotatorTest = () => {
                             {token.posDetalhada}
                           </Badge>
                         )}
-                        <Badge variant="secondary" className="gap-1">
+                        <Badge 
+                          variant={token.source === 'spacy' ? 'secondary' : 'outline'} 
+                          className="gap-1"
+                        >
                           {getSourceIcon(token.source)}
-                          {token.source}
+                          {getSourceLabel(token.source)}
                         </Badge>
-                        <span className={`text-xs font-mono ${getConfidenceColor(token.confidence)}`}>
-                          {(token.confidence * 100).toFixed(0)}%
-                        </span>
+                        {token.confianca !== undefined && (
+                          <span className={`text-xs font-mono ${getConfidenceColor(token.confianca)}`}>
+                            {(token.confianca * 100).toFixed(0)}%
+                          </span>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -253,16 +276,43 @@ export const POSAnnotatorTest = () => {
                 {/* Coverage Rate */}
                 <div>
                   <div className="flex justify-between mb-2">
-                    <span className="font-semibold">Taxa de Cobertura</span>
-                    <span className="text-2xl font-bold">
+                    <span className="font-semibold">Taxa de Cobertura Total</span>
+                    <span className="text-2xl font-bold text-green-600">
                       {stats.coverageRate.toFixed(1)}%
                     </span>
                   </div>
                   <Progress value={stats.coverageRate} className="h-3" />
                   <p className="text-sm text-muted-foreground mt-1">
-                    {stats.coveredByVA} de {stats.totalTokens} tokens cobertos pela gramática VA
+                    {stats.coveredByVA} de {stats.totalTokens} tokens cobertos
                   </p>
                 </div>
+
+                {/* Performance Stats */}
+                {performance && (
+                  <Card>
+                    <CardContent className="pt-6">
+                      <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                        ⚡ Performance
+                      </h3>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">🧠 Layer 1 (VA Grammar):</span>
+                          <span className="font-mono font-semibold">{performance.layer1Time}ms</span>
+                        </div>
+                        {performance.layer2Time > 0 && (
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">🐍 Layer 2 (spaCy):</span>
+                            <span className="font-mono font-semibold">{performance.layer2Time}ms</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between pt-2 border-t">
+                          <span className="font-semibold">Total:</span>
+                          <span className="font-mono font-bold">{performance.totalTime}ms</span>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
 
                 {/* Source Distribution */}
                 <div>

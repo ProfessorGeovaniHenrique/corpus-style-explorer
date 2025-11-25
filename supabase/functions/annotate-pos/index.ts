@@ -8,6 +8,7 @@ import { EdgeFunctionLogger } from "../_shared/logger.ts";
 import { withInstrumentation } from "../_shared/instrumentation.ts";
 import { createHealthCheck } from "../_shared/health-check.ts";
 import { annotateWithVAGrammar, calculateVAGrammarCoverage } from "../_shared/hybrid-pos-annotator.ts";
+import { annotateWithSpacy, checkSpacyHealth } from '../_shared/spacy-annotator.ts';
 import { getCacheStatistics } from "../_shared/pos-annotation-cache.ts";
 
 const corsHeaders = {
@@ -22,6 +23,8 @@ interface POSToken {
   posDetalhada: string;
   features: Record<string, string>;
   posicao: number;
+  source?: string;
+  confianca?: number;
 }
 
 // ============= EXPANDED KNOWLEDGE BASE: 50+ IRREGULAR VERBS =============
@@ -150,7 +153,12 @@ Deno.serve(withInstrumentation('annotate-pos', async (req) => {
   // Health check endpoint
   if (req.method === 'GET' && url.searchParams.get('health') === 'true') {
     const health = await createHealthCheck('annotate-pos', '1.0.0');
-    return new Response(JSON.stringify(health), {
+    const spacyHealth = await checkSpacyHealth();
+    
+    return new Response(JSON.stringify({
+      ...health,
+      spacy: spacyHealth
+    }), {
       status: health.status === 'healthy' ? 200 : 503,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
@@ -211,12 +219,38 @@ Deno.serve(withInstrumentation('annotate-pos', async (req) => {
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    // Processar anotação com Layer 1
-    const annotations = await annotateWithVAGrammar(inputText);
+    // Layer 1: VA Grammar
+    const startLayer1 = Date.now();
+    const vaAnnotations = await annotateWithVAGrammar(inputText);
+    const layer1Time = Date.now() - startLayer1;
+    
+    // Separar tokens conhecidos vs. unknown
+    const unknownTokens = vaAnnotations.filter(t => t.pos === 'UNKNOWN');
+    const knownTokens = vaAnnotations.filter(t => t.pos !== 'UNKNOWN');
+    
+    console.log(`✅ Layer 1 (VA Grammar): ${knownTokens.length}/${vaAnnotations.length} tokens (${layer1Time}ms)`);
+    
+    // Layer 2: spaCy para unknowns
+    let annotations = vaAnnotations;
+    let layer2Time = 0;
+    
+    if (unknownTokens.length > 0) {
+      console.log(`🐍 Layer 2 (spaCy): processando ${unknownTokens.length} tokens...`);
+      const startLayer2 = Date.now();
+      const spacyAnnotations = await annotateWithSpacy(unknownTokens, inputText);
+      layer2Time = Date.now() - startLayer2;
+      
+      // Mesclar resultados
+      annotations = [...knownTokens, ...spacyAnnotations]
+        .sort((a, b) => a.posicao - b.posicao);
+      
+      const spacyCovered = spacyAnnotations.filter(t => t.pos !== 'UNKNOWN').length;
+      console.log(`✅ Layer 2 (spaCy): ${spacyCovered}/${unknownTokens.length} tokens cobertos (${layer2Time}ms)`);
+    }
+    
+    // Calculate coverage statistics
     const stats = calculateVAGrammarCoverage(annotations);
-
-    console.log(`✅ Layer 1 (VA Grammar): ${stats.coveredByVA}/${stats.totalTokens} tokens (${stats.coverageRate.toFixed(1)}% cobertura)`);
-    console.log(`📊 Source distribution:`, stats.sourceDistribution);
+    console.log(`📊 Cobertura total (Layer 1+2): ${stats.coverageRate.toFixed(1)}%`);
 
     // Log de sucesso
     await logger.logResponse(req, 200, {
@@ -233,8 +267,22 @@ Deno.serve(withInstrumentation('annotate-pos', async (req) => {
     const successResponse = new Response(
       JSON.stringify({ 
         success: true,
-        annotations,
+        annotations: annotations.map(t => ({
+          palavra: t.palavra,
+          lema: t.lema,
+          pos: t.pos,
+          posDetalhada: t.posDetalhada,
+          features: t.features,
+          posicao: t.posicao,
+          source: t.source,
+          confianca: t.confianca
+        })),
         stats,
+        performance: {
+          layer1Time,
+          layer2Time,
+          totalTime: layer1Time + layer2Time
+        },
         mode
       }), 
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
