@@ -124,7 +124,7 @@ export async function searchYouTube(
       const errorData = await response.json().catch(() => ({}));
       if (errorData?.error?.errors?.[0]?.reason === 'quotaExceeded') {
         console.error('[YouTube] Daily quota exceeded - No fallback available');
-        return null;
+        throw new Error('YOUTUBE_QUOTA_EXCEEDED'); // ✅ FIX: Propaga erro ao invés de return null
       }
     }
 

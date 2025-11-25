@@ -374,7 +374,13 @@ async function enrichSingleSong(
           log.info('YouTube video found', { songId, videoId: youtubeContext.videoId });
         }
       } catch (error) {
-        log.warn('YouTube search failed', { songId, error: error instanceof Error ? error.message : String(error) });
+        // ✅ FIX: Detecta erro específico de quota excedida
+        if (error instanceof Error && error.message === 'YOUTUBE_QUOTA_EXCEEDED') {
+          log.error('YouTube quota exceeded', error, { songId });
+          // Não adiciona confidence, mas continua enrichment com outras fontes
+        } else {
+          log.warn('YouTube search failed', { songId, error: error instanceof Error ? error.message : String(error) });
+        }
       }
     }
 
@@ -458,16 +464,20 @@ async function enrichSingleSong(
     const hasNewComposer = enrichedData.composer && !currentData.composer;
     const hasNewYear = enrichedData.releaseYear && !currentData.release_year;
 
-    const shouldUpdate = hasNewData && (
+    // ✅ FIX: Se confidence atual é 0 E temos novos dados, SEMPRE atualiza
+    let shouldUpdate = hasNewData && (
       isBetterConfidence ||
       hasNewYouTube ||
       hasNewComposer ||
-      hasNewYear ||
-      currentData.confidence_score === 0
+      hasNewYear
     );
 
+    if (currentData.confidence_score === 0 && hasNewData) {
+      shouldUpdate = true;
+    }
+
     if (!shouldUpdate) {
-      log.info('Skipping update - current data better', { 
+      log.info('Skipping update - no new data or current data better', { 
         songId, 
         currentConfidence: currentData.confidence_score,
         newConfidence: confidenceScore 
@@ -475,14 +485,15 @@ async function enrichSingleSong(
       
       return {
         songId,
-        success: true,
+        success: false, // ✅ FIX: Retorna false quando nada mudou
         enrichedData: {
           composer: currentData.composer || undefined,
           releaseYear: currentData.release_year || undefined,
           youtubeVideoId: currentData.youtube_url ? extractVideoId(currentData.youtube_url) : undefined
         },
         confidenceScore: currentData.confidence_score,
-        sources: ['cached']
+        sources: ['cached'],
+        error: 'No new data found or current data is better' // ✅ FIX: Mensagem clara
       };
     }
 
