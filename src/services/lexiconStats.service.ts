@@ -29,6 +29,7 @@ export interface LexiconStats {
     total_entries: number;
     validation_rate: number;
     last_import: string | null;
+    unique_words?: number;
   };
 }
 
