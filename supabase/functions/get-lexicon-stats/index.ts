@@ -36,6 +36,7 @@ interface LexiconStats {
     total_entries: number;
     validation_rate: number;
     last_import: string | null;
+    unique_words: number;
   };
 }
 
@@ -54,67 +55,102 @@ serve(async (req) => {
 
     log.info('Fetching lexicon stats');
 
-    // ✅ FASE 1 & 2: Queries SQL otimizadas com RPC flexível (escalável)
-    const [gauchoResult, navarroResult, gutenbergResult, rochaPomboResult, rochaPomboValidadosResult, unespResult, lastImportResult] = await Promise.all([
-      // Gaúcho Unificado V2 - Query SQL otimizada
-      supabase.rpc('get_dialectal_stats_flexible', { dict_type: 'gaucho_unificado_v2', volume_filter: null }).single(),
+    // ✅ UPGRADE V2.0: Queries corrigidas para tipos reais de dicionário
+    const [
+      gauchoData,
+      navarroData,
+      gutenbergResult,
+      rochaPomboResult,
+      rochaPomboValidadosResult,
+      unespResult,
+      lastImportResult,
+      uniqueWordsResult
+    ] = await Promise.all([
+      // Gaúcho: buscar todos os tipos gaúcho unificados
+      supabase
+        .from('dialectal_lexicon')
+        .select('validado_humanamente, confianca_extracao, origem_regionalista, influencia_platina', { count: 'exact' })
+        .in('tipo_dicionario', ['gaucho_unificado', 'gaucho_unificado_v2', 'dialectal_I', 'dialectal_II']),
       
-      // Navarro 2014 - Query SQL otimizada com RPC flexível
-      supabase.rpc('get_dialectal_stats_flexible', { dict_type: 'navarro_2014', volume_filter: null }).single(),
+      // Navarro: buscar pelo tipo correto
+      supabase
+        .from('dialectal_lexicon')
+        .select('validado_humanamente, confianca_extracao', { count: 'exact' })
+        .eq('tipo_dicionario', 'navarro_2014'),
       
       // Gutenberg
-      supabase.rpc('get_gutenberg_stats', {}, { count: 'exact' }),
+      supabase.rpc('get_gutenberg_stats'),
       
-      // Rocha Pombo (ABL) total
-      supabase.from('lexical_synonyms').select('*', { count: 'exact', head: true }).eq('fonte', 'rocha_pombo'),
+      // Rocha Pombo total
+      supabase
+        .from('lexical_synonyms')
+        .select('*', { count: 'exact', head: true })
+        .eq('fonte', 'rocha_pombo'),
       
-      // Rocha Pombo (ABL) validados
-      supabase.from('lexical_synonyms').select('*', { count: 'exact', head: true }).eq('fonte', 'rocha_pombo').eq('validado_humanamente', true),
+      // Rocha Pombo validados
+      supabase
+        .from('lexical_synonyms')
+        .select('*', { count: 'exact', head: true })
+        .eq('fonte', 'rocha_pombo')
+        .eq('validado_humanamente', true),
       
-      // UNESP count
-      supabase.from('lexical_definitions').select('*', { count: 'exact', head: true }),
+      // UNESP
+      supabase
+        .from('lexical_definitions')
+        .select('*', { count: 'exact', head: true }),
       
-      // Last import
-      supabase.from('dictionary_import_jobs')
+      // Última importação
+      supabase
+        .from('dictionary_import_jobs')
         .select('tempo_fim')
         .eq('status', 'concluido')
         .order('tempo_fim', { ascending: false })
         .limit(1)
-        .single()
+        .maybeSingle(),
+
+      // Palavras únicas (estimativa via verbete_normalizado distinct)
+      supabase
+        .from('dialectal_lexicon')
+        .select('verbete_normalizado', { count: 'exact', head: true })
     ]);
 
-    // Processar stats Gaúcho (com fallback para dados vazios)
-    const gauchoData = gauchoResult.data as any;
+    // Processar Gaúcho
     const gauchoStats = {
-      total: gauchoData?.total || 0,
-      validados: gauchoData?.validados || 0,
-      confianca_media: parseFloat(gauchoData?.confianca_media || '0'),
-      campeiros: gauchoData?.campeiros || 0,
-      platinismos: gauchoData?.platinismos || 0,
+      total: gauchoData.count || 0,
+      validados: gauchoData.data?.filter(d => d.validado_humanamente).length || 0,
+      confianca_media: gauchoData.data && gauchoData.data.length > 0
+        ? gauchoData.data.reduce((acc, d) => acc + (d.confianca_extracao || 0), 0) / gauchoData.data.length
+        : 0,
+      campeiros: gauchoData.data?.filter(d => d.origem_regionalista?.includes('campeiro')).length || 0,
+      platinismos: gauchoData.data?.filter(d => d.influencia_platina).length || 0,
     };
 
-    // Processar stats Navarro (com fallback para dados vazios)
-    const navarroData = navarroResult.data as any;
+    // Processar Navarro
     const navarroStats = {
-      total: navarroData?.total || 0,
-      validados: navarroData?.validados || 0,
-      confianca_media: parseFloat(navarroData?.confianca_media || '0'),
+      total: navarroData.count || 0,
+      validados: navarroData.data?.filter(d => d.validado_humanamente).length || 0,
+      confianca_media: navarroData.data && navarroData.data.length > 0
+        ? navarroData.data.reduce((acc, d) => acc + (d.confianca_extracao || 0), 0) / navarroData.data.length
+        : 0,
     };
 
-    // Process gutenberg data
-    const gutenbergCount = gutenbergResult.data?.[0] || {
+    // Processar Gutenberg
+    const gutenbergData = gutenbergResult.data?.[0] || {
       total: 0,
       validados: 0,
       confianca_media: 0
     };
 
+    const totalValidados = gauchoStats.validados + navarroStats.validados + (gutenbergData.validados || 0) + (rochaPomboValidadosResult.count || 0);
+    const totalEntradas = gauchoStats.total + navarroStats.total + (gutenbergData.total || 0) + (rochaPomboResult.count || 0);
+
     const stats: LexiconStats = {
       gaucho: gauchoStats,
       navarro: navarroStats,
       gutenberg: {
-        total: gutenbergCount.total || 0,
-        validados: gutenbergCount.validados || 0,
-        confianca_media: parseFloat(gutenbergCount.confianca_media || '0'),
+        total: gutenbergData.total || 0,
+        validados: gutenbergData.validados || 0,
+        confianca_media: parseFloat(gutenbergData.confianca_media || '0'),
       },
       rochaPombo: {
         total: rochaPomboResult.count || 0,
@@ -124,16 +160,10 @@ serve(async (req) => {
         total: unespResult.count || 0,
       },
       overall: {
-        total_entries: 
-          gauchoStats.total + 
-          navarroStats.total +
-          (gutenbergCount.total || 0) + 
-          (rochaPomboResult.count || 0) + 
-          (unespResult.count || 0),
-        validation_rate: 
-          (gauchoStats.validados + navarroStats.validados + (gutenbergCount.validados || 0)) /
-          Math.max(1, gauchoStats.total + navarroStats.total + (gutenbergCount.total || 0)),
+        total_entries: totalEntradas + (unespResult.count || 0),
+        validation_rate: totalEntradas > 0 ? totalValidados / totalEntradas : 0,
         last_import: lastImportResult.data?.tempo_fim || null,
+        unique_words: uniqueWordsResult.count || 0,
       },
     };
 
@@ -153,46 +183,3 @@ serve(async (req) => {
     });
   }
 });
-
-// Create helper RPC functions in migration if they don't exist:
-/*
-CREATE OR REPLACE FUNCTION get_dialectal_stats()
-RETURNS TABLE (
-  total BIGINT,
-  volume_i BIGINT,
-  volume_ii BIGINT,
-  validados BIGINT,
-  confianca_media NUMERIC,
-  campeiros BIGINT,
-  platinismos BIGINT
-) AS $$
-BEGIN
-  RETURN QUERY
-  SELECT 
-    COUNT(*)::BIGINT as total,
-    COUNT(*) FILTER (WHERE volume_fonte = 'I')::BIGINT as volume_i,
-    COUNT(*) FILTER (WHERE volume_fonte = 'II')::BIGINT as volume_ii,
-    COUNT(*) FILTER (WHERE validado_humanamente = true)::BIGINT as validados,
-    COALESCE(AVG(confianca_extracao), 0)::NUMERIC as confianca_media,
-    COUNT(*) FILTER (WHERE 'campeiro' = ANY(origem_regionalista))::BIGINT as campeiros,
-    COUNT(*) FILTER (WHERE influencia_platina = true)::BIGINT as platinismos
-  FROM dialectal_lexicon;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
-CREATE OR REPLACE FUNCTION get_gutenberg_stats()
-RETURNS TABLE (
-  total BIGINT,
-  validados BIGINT,
-  confianca_media NUMERIC
-) AS $$
-BEGIN
-  RETURN QUERY
-  SELECT 
-    COUNT(*)::BIGINT as total,
-    COUNT(*) FILTER (WHERE validado = true)::BIGINT as validados,
-    COALESCE(AVG(confianca_extracao), 0)::NUMERIC as confianca_media
-  FROM gutenberg_lexicon;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-*/
