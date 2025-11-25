@@ -14,13 +14,19 @@ export interface POSToken {
   posicao: number;           // Position in text
 }
 
-export interface MorphFeatures {
-  tempo?: 'Pres' | 'Past' | 'Fut' | 'Imp';
-  numero?: 'Sing' | 'Plur';
-  pessoa?: '1' | '2' | '3';
-  genero?: 'Masc' | 'Fem';
-  modo?: 'Ind' | 'Sub' | 'Imp';
-  grau?: 'Cmp' | 'Sup' | 'Abs';
+export type MorphFeatures = Record<string, string | undefined>;
+
+export interface AnnotatedToken extends POSToken {
+  source: 'va_grammar' | 'spacy' | 'gemini' | 'cache';
+  confidence: number;
+}
+
+export interface CoverageStats {
+  totalTokens: number;
+  coveredByVA: number;
+  coverageRate: number;
+  unknownWords: string[];
+  sourceDistribution: Record<string, number>;
 }
 
 export interface POSAnnotatedSong {
