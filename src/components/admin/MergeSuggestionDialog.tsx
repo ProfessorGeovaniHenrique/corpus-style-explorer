@@ -39,13 +39,26 @@ interface ReorganizeStrategy {
   reasoning: string;
 }
 
+interface IncorporateStrategy {
+  newExamples: string[];
+  enhancedDescription: string;
+  reasoning: string;
+}
+
+interface EnhanceStrategy {
+  enhancedDescription: string;
+  reasoning: string;
+}
+
 interface MergeSuggestion {
-  recommendation: 'merge' | 'keep_separate' | 'reorganize' | 'split';
+  recommendation: 'merge' | 'keep_separate' | 'reorganize' | 'split' | 'incorporate' | 'enhance' | 'reject_pending';
   confidence: number;
   justification: string;
   mergeStrategy?: MergeStrategy;
   splitStrategy?: SplitStrategy;
   reorganizeStrategy?: ReorganizeStrategy;
+  incorporateStrategy?: IncorporateStrategy;
+  enhanceStrategy?: EnhanceStrategy;
   warnings: string[];
 }
 
@@ -55,8 +68,11 @@ interface Props {
   tagsetA: Tagset;
   tagsetB: Tagset;
   suggestion: MergeSuggestion | null;
+  mode: 'active-vs-active' | 'pending-vs-pending' | 'pending-vs-active';
   onApplyMerge: (survivorId: string, absorbedId: string, mergedData: Partial<Tagset>) => void;
   onApplySplit: (originalId: string, newTagsets: any[], rejectionReason: string) => void;
+  onApplyIncorporate: (activeId: string, pendingId: string, newExamples: string[], enhancedDescription: string) => void;
+  onApplyReject: (pendingId: string, reason: string) => void;
   isProcessing: boolean;
 }
 
@@ -66,8 +82,11 @@ export const MergeSuggestionDialog = ({
   tagsetA,
   tagsetB,
   suggestion,
+  mode,
   onApplyMerge,
   onApplySplit,
+  onApplyIncorporate,
+  onApplyReject,
   isProcessing,
 }: Props) => {
   if (!suggestion) return null;
@@ -78,6 +97,9 @@ export const MergeSuggestionDialog = ({
       case 'split': return <GitBranch className="h-5 w-5" />;
       case 'reorganize': return <ArrowRight className="h-5 w-5" />;
       case 'keep_separate': return <CheckCircle className="h-5 w-5" />;
+      case 'incorporate': return <ArrowRight className="h-5 w-5" />;
+      case 'enhance': return <Sparkles className="h-5 w-5" />;
+      case 'reject_pending': return <AlertCircle className="h-5 w-5" />;
     }
   };
 
@@ -87,6 +109,9 @@ export const MergeSuggestionDialog = ({
       case 'split': return 'DIVIDIR';
       case 'reorganize': return 'REORGANIZAR';
       case 'keep_separate': return 'MANTER SEPARADOS';
+      case 'incorporate': return 'INCORPORAR NO VALIDADO';
+      case 'enhance': return 'APRIMORAR VALIDADO';
+      case 'reject_pending': return 'REJEITAR PENDENTE';
     }
   };
 
@@ -96,18 +121,18 @@ export const MergeSuggestionDialog = ({
       case 'split': return 'bg-purple-500';
       case 'reorganize': return 'bg-orange-500';
       case 'keep_separate': return 'bg-green-500';
+      case 'incorporate': return 'bg-cyan-500';
+      case 'enhance': return 'bg-indigo-500';
+      case 'reject_pending': return 'bg-red-500';
     }
   };
 
   const handleApply = () => {
     if (suggestion.recommendation === 'merge' && suggestion.mergeStrategy) {
       const strategy = suggestion.mergeStrategy;
-      
-      // Determinar IDs
       const survivorId = strategy.survivorTagset === 'A' ? tagsetA.id : tagsetB.id;
       const absorbedId = strategy.survivorTagset === 'A' ? tagsetB.id : tagsetA.id;
       
-      // Se criar novo, usar ID do survivor mas com dados completamente novos
       const mergedData: Partial<Tagset> = {
         codigo: strategy.mergedCodigo,
         nome: strategy.mergedName,
@@ -128,6 +153,19 @@ export const MergeSuggestionDialog = ({
         strategy.splitIntoTagsets,
         `Dividido em ${strategy.splitIntoTagsets.length} domínios: ${strategy.reasoning}`
       );
+    } else if (suggestion.recommendation === 'incorporate' && suggestion.incorporateStrategy) {
+      const strategy = suggestion.incorporateStrategy;
+      // No modo pending-vs-active: A=pending, B=active
+      const activeId = tagsetB.id;
+      const pendingId = tagsetA.id;
+      
+      onApplyIncorporate(activeId, pendingId, strategy.newExamples, strategy.enhancedDescription);
+    } else if (suggestion.recommendation === 'reject_pending') {
+      // No modo pending-vs-active: A=pending, B=active
+      const pendingId = tagsetA.id;
+      const activeNome = tagsetB.nome;
+      
+      onApplyReject(pendingId, `Duplicado de '${activeNome}' (${tagsetB.codigo})`);
     } else {
       toast.error('Ação não implementada ainda para esta recomendação');
     }
@@ -226,6 +264,56 @@ export const MergeSuggestionDialog = ({
                   <strong>{tagsetB.nome}:</strong> Novo pai = {suggestion.reorganizeStrategy.tagsetB_newParent || 'Raiz'}
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* Incorporate Strategy */}
+          {suggestion.recommendation === 'incorporate' && suggestion.incorporateStrategy && (
+            <div className="rounded-lg border border-cyan-500/20 bg-cyan-500/5 p-4 space-y-3">
+              <h4 className="font-semibold flex items-center gap-2">
+                <ArrowRight className="h-4 w-4" />
+                Incorporação no Domínio Validado
+              </h4>
+              <p className="text-sm text-muted-foreground">{suggestion.incorporateStrategy.reasoning}</p>
+              <Separator />
+              <div className="space-y-2 text-sm">
+                <div><strong>Novos exemplos a adicionar:</strong></div>
+                <div className="text-muted-foreground">
+                  {suggestion.incorporateStrategy.newExamples.join(', ')}
+                </div>
+                <Separator />
+                <div><strong>Descrição aprimorada:</strong></div>
+                <p className="text-muted-foreground">{suggestion.incorporateStrategy.enhancedDescription}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Enhance Strategy */}
+          {suggestion.recommendation === 'enhance' && suggestion.enhanceStrategy && (
+            <div className="rounded-lg border border-indigo-500/20 bg-indigo-500/5 p-4 space-y-3">
+              <h4 className="font-semibold flex items-center gap-2">
+                <Sparkles className="h-4 w-4" />
+                Aprimoramento do Domínio Validado
+              </h4>
+              <p className="text-sm text-muted-foreground">{suggestion.enhanceStrategy.reasoning}</p>
+              <Separator />
+              <div className="space-y-2 text-sm">
+                <div><strong>Descrição aprimorada:</strong></div>
+                <p className="text-muted-foreground">{suggestion.enhanceStrategy.enhancedDescription}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Reject Pending */}
+          {suggestion.recommendation === 'reject_pending' && (
+            <div className="rounded-lg border border-red-500/20 bg-red-500/5 p-4 space-y-3">
+              <h4 className="font-semibold flex items-center gap-2 text-red-600">
+                <AlertCircle className="h-4 w-4" />
+                Rejeição de Pendente
+              </h4>
+              <p className="text-sm text-muted-foreground">
+                O domínio pendente será rejeitado por ser duplicado do domínio validado sem agregar valor significativo.
+              </p>
             </div>
           )}
 

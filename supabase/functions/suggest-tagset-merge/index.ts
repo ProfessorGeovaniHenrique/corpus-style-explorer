@@ -27,6 +27,7 @@ interface MergeSuggestionRequest {
   tagsetB: Tagset;
   similarity: number;
   allTagsets: Tagset[];
+  analysisMode?: string;
 }
 
 interface MergeStrategy {
@@ -58,13 +59,26 @@ interface ReorganizeStrategy {
   reasoning: string;
 }
 
+interface IncorporateStrategy {
+  newExamples: string[];
+  enhancedDescription: string;
+  reasoning: string;
+}
+
+interface EnhanceStrategy {
+  enhancedDescription: string;
+  reasoning: string;
+}
+
 interface MergeSuggestion {
-  recommendation: 'merge' | 'keep_separate' | 'reorganize' | 'split';
+  recommendation: 'merge' | 'keep_separate' | 'reorganize' | 'split' | 'incorporate' | 'enhance' | 'reject_pending';
   confidence: number;
   justification: string;
   mergeStrategy?: MergeStrategy;
   splitStrategy?: SplitStrategy;
   reorganizeStrategy?: ReorganizeStrategy;
+  incorporateStrategy?: IncorporateStrategy;
+  enhanceStrategy?: EnhanceStrategy;
   warnings: string[];
 }
 
@@ -75,7 +89,7 @@ serve(async (req) => {
   }
 
   try {
-    const { tagsetA, tagsetB, similarity, allTagsets }: MergeSuggestionRequest = await req.json();
+    const { tagsetA, tagsetB, similarity, allTagsets, analysisMode = 'active-vs-active' }: MergeSuggestionRequest = await req.json();
 
     // Validar entrada
     if (!tagsetA || !tagsetB || typeof similarity !== 'number') {
@@ -97,8 +111,50 @@ serve(async (req) => {
       .map(t => `- ${t.codigo}: ${t.nome} (Nível ${t.nivel_profundidade || 1})`)
       .join('\n');
 
+    // Adaptar prompt baseado no modo de análise
+    let modeContext = '';
+    let recommendationOptions = '';
+    
+    if (analysisMode === 'pending-vs-pending') {
+      modeContext = `
+**CONTEXTO:** Você está analisando dois domínios PENDENTES (aguardando validação).
+**OBJETIVO:** Reduzir redundância ANTES da validação para economizar trabalho.`;
+      
+      recommendationOptions = `
+**OPÇÕES DE RECOMENDAÇÃO:**
+1. **MERGE** - Mesclar em um único tagset pendente (se são essencialmente o mesmo conceito)
+2. **KEEP_SEPARATE** - Manter separados (se têm diferenças semânticas significativas)
+3. **SPLIT** - Dividir um dos tagsets se for muito amplo`;
+    } else if (analysisMode === 'pending-vs-active') {
+      modeContext = `
+**CONTEXTO:** Você está comparando um domínio PENDENTE (Tagset A) com um domínio JÁ VALIDADO (Tagset B).
+**OBJETIVO:** Decidir se o pendente deve ser incorporado ao validado, mantido como distinto, ou rejeitado.`;
+      
+      recommendationOptions = `
+**OPÇÕES DE RECOMENDAÇÃO:**
+1. **INCORPORATE** - Adicionar exemplos do pendente no domínio validado e rejeitar pendente (se pendente é redundante mas tem bons exemplos)
+2. **ENHANCE** - Aprimorar descrição do validado combinando com a do pendente (se pendente enriquece o validado)
+3. **KEEP_SEPARATE** - Aprovar pendente como domínio distinto (se semanticamente diferente apesar da sobreposição)
+4. **REJECT_PENDING** - Rejeitar pendente como duplicado (se é completamente redundante sem agregar valor)
+
+**PRIORIZE:** Enriquecer domínios validados com novos exemplos relevantes.`;
+    } else {
+      modeContext = `
+**CONTEXTO:** Você está analisando dois domínios JÁ VALIDADOS.
+**OBJETIVO:** Consolidar redundâncias ou reorganizar hierarquia.`;
+      
+      recommendationOptions = `
+**OPÇÕES DE RECOMENDAÇÃO:**
+1. **MERGE** - Mesclar em um único tagset (se redundantes ou muito sobrepostos)
+2. **SPLIT** - Dividir um dos tagsets em 2+ subtags mais específicos (se muito amplo e ambíguo)
+3. **KEEP_SEPARATE** - Manter separados (se semanticamente distintos apesar da sobreposição)
+4. **REORGANIZE** - Reorganizar hierarquicamente (se um é subcategoria do outro)`;
+    }
+
     // Prompt para Gemini
     const prompt = `Você é um especialista em taxonomia semântica. Analise dois domínios semânticos (tagsets) que apresentam sobreposição e recomende a melhor ação.
+
+${modeContext}
 
 **TAGSET A:**
 - Código: ${tagsetA.codigo}
@@ -121,12 +177,7 @@ serve(async (req) => {
 **HIERARQUIA ATUAL (CONTEXTO):**
 ${hierarchyContext}
 
-**OPÇÕES DE RECOMENDAÇÃO:**
-
-1. **MERGE** - Mesclar em um único tagset (se redundantes ou muito sobrepostos)
-2. **SPLIT** - Dividir um dos tagsets em 2+ subtags mais específicos (se muito amplo e ambíguo)
-3. **KEEP_SEPARATE** - Manter separados (se semanticamente distintos apesar da sobreposição)
-4. **REORGANIZE** - Reorganizar hierarquicamente (se um é subcategoria do outro)
+${recommendationOptions}
 
 **CONSIDERAÇÕES:**
 - Sobreposição de exemplos e descrições
@@ -144,9 +195,9 @@ ${hierarchyContext}
 6. Se reorganize: defina nova hierarquia
 7. Liste avisos (impactos, riscos)
 
-Retorne JSON válido no seguinte formato:
+Retorne JSON válido no seguinte formato (adapte baseado no modo):
 {
-  "recommendation": "merge" | "split" | "keep_separate" | "reorganize",
+  "recommendation": "merge" | "split" | "keep_separate" | "reorganize" | "incorporate" | "enhance" | "reject_pending",
   "confidence": 85,
   "justification": "Explicação detalhada...",
   "mergeStrategy": {
@@ -176,6 +227,15 @@ Retorne JSON válido no seguinte formato:
     "tagsetA_newParent": "NOVO_PAI_A ou null",
     "tagsetB_newParent": "NOVO_PAI_B ou null",
     "reasoning": "Razão da reorganização"
+  },
+  "incorporateStrategy": {
+    "newExamples": ["exemplo1", "exemplo2"],
+    "enhancedDescription": "Descrição enriquecida combinando ambos",
+    "reasoning": "Razão para incorporar"
+  },
+  "enhanceStrategy": {
+    "enhancedDescription": "Descrição melhorada",
+    "reasoning": "Razão para aprimorar"
   },
   "warnings": ["Aviso 1", "Aviso 2"]
 }`;

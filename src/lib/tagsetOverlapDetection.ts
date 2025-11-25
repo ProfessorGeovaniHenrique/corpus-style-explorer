@@ -68,7 +68,7 @@ const classifyOverlapType = (similarity: number): 'high' | 'medium' | 'low' => {
 };
 
 /**
- * Detecta todos os pares de tagsets com sobreposição acima do threshold
+ * Detecta todos os pares de tagsets com sobreposição acima do threshold (mesmo grupo)
  */
 export const detectOverlappingTagsets = (
   tagsets: Tagset[],
@@ -82,6 +82,43 @@ export const detectOverlappingTagsets = (
       const tagsetA = tagsets[i];
       const tagsetB = tagsets[j];
       
+      const similarity = calculateSemanticSimilarity(tagsetA, tagsetB);
+      
+      // Filtrar por threshold
+      if (similarity < threshold) continue;
+      
+      const commonExamples = findCommonExamples(tagsetA, tagsetB);
+      const commonWords = findCommonWords(tagsetA, tagsetB);
+      
+      pairs.push({
+        tagsetA,
+        tagsetB,
+        similarity,
+        commonExamples,
+        commonWords,
+        overlapType: classifyOverlapType(similarity)
+      });
+    }
+  }
+  
+  // Ordenar por similaridade decrescente
+  return pairs.sort((a, b) => b.similarity - a.similarity);
+};
+
+/**
+ * Detecta sobreposições entre dois grupos diferentes de tagsets (cross-status)
+ * Usado para comparar pendentes vs ativos
+ */
+export const detectCrossOverlaps = (
+  groupA: Tagset[],
+  groupB: Tagset[],
+  threshold: number = 0.3
+): OverlapPair[] => {
+  const pairs: OverlapPair[] = [];
+  
+  // Comparar todos os pares (n*m, sem auto-comparação)
+  for (const tagsetA of groupA) {
+    for (const tagsetB of groupB) {
       const similarity = calculateSemanticSimilarity(tagsetA, tagsetB);
       
       // Filtrar por threshold

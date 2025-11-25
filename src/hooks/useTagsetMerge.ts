@@ -26,6 +26,18 @@ interface SplitTagsetParams {
   rejectionReason: string;
 }
 
+interface IncorporateIntoPendingParams {
+  activeId: string;
+  pendingId: string;
+  newExamples: string[];
+  enhancedDescription: string;
+}
+
+interface RejectAsDuplicateParams {
+  pendingId: string;
+  reason: string;
+}
+
 export const useTagsetMerge = () => {
   const queryClient = useQueryClient();
 
@@ -129,10 +141,88 @@ export const useTagsetMerge = () => {
     },
   });
 
+  const incorporateIntoPending = useMutation({
+    mutationFn: async ({ activeId, pendingId, newExamples, enhancedDescription }: IncorporateIntoPendingParams) => {
+      // 1. Obter tagset ativo atual
+      const { data: activeData, error: fetchError } = await supabase
+        .from('semantic_tagset')
+        .select('exemplos, descricao')
+        .eq('id', activeId)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      // 2. Combinar exemplos (sem duplicatas)
+      const currentExamples = activeData.exemplos || [];
+      const uniqueNewExamples = newExamples.filter(ex => !currentExamples.includes(ex));
+      const combinedExamples = [...currentExamples, ...uniqueNewExamples];
+
+      // 3. Atualizar tagset ativo
+      const { error: updateError } = await supabase
+        .from('semantic_tagset')
+        .update({
+          exemplos: combinedExamples,
+          descricao: enhancedDescription
+        })
+        .eq('id', activeId);
+
+      if (updateError) throw updateError;
+
+      // 4. Rejeitar pendente
+      const { error: rejectError } = await supabase
+        .from('semantic_tagset')
+        .update({ 
+          status: 'rejeitado',
+          rejection_reason: `Incorporado em domínio validado existente`
+        })
+        .eq('id', pendingId);
+
+      if (rejectError) throw rejectError;
+
+      return { activeId, pendingId, addedExamples: uniqueNewExamples.length };
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['semantic_tagset'] });
+      toast.success(`${data.addedExamples} novos exemplos incorporados ao domínio validado!`);
+    },
+    onError: (error) => {
+      console.error('Erro ao incorporar:', error);
+      toast.error('Erro ao incorporar exemplos');
+    },
+  });
+
+  const rejectAsDuplicate = useMutation({
+    mutationFn: async ({ pendingId, reason }: RejectAsDuplicateParams) => {
+      const { error } = await supabase
+        .from('semantic_tagset')
+        .update({ 
+          status: 'rejeitado',
+          rejection_reason: reason
+        })
+        .eq('id', pendingId);
+
+      if (error) throw error;
+
+      return { pendingId };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['semantic_tagset'] });
+      toast.success('Domínio pendente rejeitado como duplicado');
+    },
+    onError: (error) => {
+      console.error('Erro ao rejeitar:', error);
+      toast.error('Erro ao rejeitar domínio');
+    },
+  });
+
   return {
     mergeTagsets: mergeTagsets.mutateAsync,
     splitTagset: splitTagset.mutateAsync,
+    incorporateIntoPending: incorporateIntoPending.mutateAsync,
+    rejectAsDuplicate: rejectAsDuplicate.mutateAsync,
     isMerging: mergeTagsets.isPending,
     isSplitting: splitTagset.isPending,
+    isIncorporating: incorporateIntoPending.isPending,
+    isRejecting: rejectAsDuplicate.isPending,
   };
 };

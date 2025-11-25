@@ -9,8 +9,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Slider } from "@/components/ui/slider";
-import { Loader2, GitMerge, Sparkles, AlertCircle } from "lucide-react";
-import { detectOverlappingTagsets, OverlapPair } from "@/lib/tagsetOverlapDetection";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
+import { Loader2, GitMerge, Sparkles, AlertCircle, Info } from "lucide-react";
+import { detectOverlappingTagsets, detectCrossOverlaps, OverlapPair } from "@/lib/tagsetOverlapDetection";
 import { MergeSuggestionDialog } from "./MergeSuggestionDialog";
 import { useTagsetMerge } from "@/hooks/useTagsetMerge";
 import { supabase } from "@/integrations/supabase/client";
@@ -22,17 +24,22 @@ interface Props {
   onMergeApplied: () => void;
 }
 
+type AnalysisMode = 'active-vs-active' | 'pending-vs-pending' | 'pending-vs-active';
+
 interface MergeSuggestion {
-  recommendation: 'merge' | 'keep_separate' | 'reorganize' | 'split';
+  recommendation: 'merge' | 'keep_separate' | 'reorganize' | 'split' | 'incorporate' | 'enhance' | 'reject_pending';
   confidence: number;
   justification: string;
   mergeStrategy?: any;
   splitStrategy?: any;
   reorganizeStrategy?: any;
+  incorporateStrategy?: any;
+  enhanceStrategy?: any;
   warnings: string[];
 }
 
 export const TagsetMergeAnalysisDashboard = ({ tagsets, onMergeApplied }: Props) => {
+  const [mode, setMode] = useState<AnalysisMode>('active-vs-active');
   const [threshold, setThreshold] = useState(0.3);
   const [overlaps, setOverlaps] = useState<OverlapPair[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -41,17 +48,32 @@ export const TagsetMergeAnalysisDashboard = ({ tagsets, onMergeApplied }: Props)
   const [isFetchingSuggestion, setIsFetchingSuggestion] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
 
-  const { mergeTagsets, splitTagset, isMerging, isSplitting } = useTagsetMerge();
+  const { mergeTagsets, splitTagset, incorporateIntoPending, rejectAsDuplicate, isMerging, isSplitting, isIncorporating, isRejecting } = useTagsetMerge();
 
-  // Filtrar apenas tagsets ativos
+  // Filtrar tagsets por status
   const activeTagsets = useMemo(
     () => tagsets.filter(t => t.status === 'ativo'),
+    [tagsets]
+  );
+  
+  const pendingTagsets = useMemo(
+    () => tagsets.filter(t => t.status === 'proposto'),
     [tagsets]
   );
 
   const handleAnalyze = () => {
     setIsAnalyzing(true);
-    const detected = detectOverlappingTagsets(activeTagsets, threshold);
+    
+    let detected: OverlapPair[] = [];
+    
+    if (mode === 'active-vs-active') {
+      detected = detectOverlappingTagsets(activeTagsets, threshold);
+    } else if (mode === 'pending-vs-pending') {
+      detected = detectOverlappingTagsets(pendingTagsets, threshold);
+    } else if (mode === 'pending-vs-active') {
+      detected = detectCrossOverlaps(pendingTagsets, activeTagsets, threshold);
+    }
+    
     setOverlaps(detected);
     setIsAnalyzing(false);
     toast.success(`Encontrados ${detected.length} pares com sobreposição`);
@@ -67,7 +89,8 @@ export const TagsetMergeAnalysisDashboard = ({ tagsets, onMergeApplied }: Props)
           tagsetA: pair.tagsetA,
           tagsetB: pair.tagsetB,
           similarity: pair.similarity,
-          allTagsets: activeTagsets
+          allTagsets: activeTagsets,
+          analysisMode: mode
         }
       });
 
@@ -112,10 +135,40 @@ export const TagsetMergeAnalysisDashboard = ({ tagsets, onMergeApplied }: Props)
       setSelectedPair(null);
       setSuggestion(null);
       onMergeApplied();
-      // Re-analisar após aplicar
       handleAnalyze();
     } catch (error) {
       console.error('Erro ao aplicar divisão:', error);
+    }
+  };
+
+  const handleApplyIncorporate = async (
+    activeId: string,
+    pendingId: string,
+    newExamples: string[],
+    enhancedDescription: string
+  ) => {
+    try {
+      await incorporateIntoPending({ activeId, pendingId, newExamples, enhancedDescription });
+      setDialogOpen(false);
+      setSelectedPair(null);
+      setSuggestion(null);
+      onMergeApplied();
+      handleAnalyze();
+    } catch (error) {
+      console.error('Erro ao incorporar:', error);
+    }
+  };
+
+  const handleApplyReject = async (pendingId: string, reason: string) => {
+    try {
+      await rejectAsDuplicate({ pendingId, reason });
+      setDialogOpen(false);
+      setSelectedPair(null);
+      setSuggestion(null);
+      onMergeApplied();
+      handleAnalyze();
+    } catch (error) {
+      console.error('Erro ao rejeitar:', error);
     }
   };
 
@@ -127,6 +180,29 @@ export const TagsetMergeAnalysisDashboard = ({ tagsets, onMergeApplied }: Props)
       low: overlaps.filter(o => o.overlapType === 'low'),
     };
   }, [overlaps]);
+
+  // Estatísticas por modo
+  const modeStats = useMemo(() => {
+    if (mode === 'active-vs-active') {
+      return {
+        label: 'Ativos vs Ativos',
+        description: 'Consolidar domínios validados redundantes',
+        count: activeTagsets.length
+      };
+    } else if (mode === 'pending-vs-pending') {
+      return {
+        label: 'Pendentes vs Pendentes',
+        description: 'Reduzir duplicados ANTES da validação',
+        count: pendingTagsets.length
+      };
+    } else {
+      return {
+        label: 'Pendentes vs Ativos',
+        description: 'Enriquecer domínios validados com novos exemplos',
+        count: `${pendingTagsets.length} pendentes × ${activeTagsets.length} ativos`
+      };
+    }
+  }, [mode, activeTagsets.length, pendingTagsets.length]);
 
   return (
     <>
@@ -141,11 +217,76 @@ export const TagsetMergeAnalysisDashboard = ({ tagsets, onMergeApplied }: Props)
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
+          {/* Modo de Análise */}
+          <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-3">
+            <Label className="text-sm font-semibold">Modo de Análise</Label>
+            <RadioGroup value={mode} onValueChange={(v) => setMode(v as AnalysisMode)}>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="active-vs-active" id="mode-active" />
+                <Label htmlFor="mode-active" className="font-normal cursor-pointer">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/30">
+                      ✓ Validados
+                    </Badge>
+                    <span>vs</span>
+                    <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/30">
+                      ✓ Validados
+                    </Badge>
+                    <span className="text-xs text-muted-foreground ml-2">
+                      ({activeTagsets.length} domínios)
+                    </span>
+                  </div>
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="pending-vs-pending" id="mode-pending" />
+                <Label htmlFor="mode-pending" className="font-normal cursor-pointer">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/30">
+                      ⏳ Pendentes
+                    </Badge>
+                    <span>vs</span>
+                    <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/30">
+                      ⏳ Pendentes
+                    </Badge>
+                    <span className="text-xs text-muted-foreground ml-2">
+                      ({pendingTagsets.length} domínios)
+                    </span>
+                  </div>
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="pending-vs-active" id="mode-cross" />
+                <Label htmlFor="mode-cross" className="font-normal cursor-pointer">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/30">
+                      ⏳ Pendentes
+                    </Badge>
+                    <span>vs</span>
+                    <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/30">
+                      ✓ Validados
+                    </Badge>
+                    <span className="text-xs text-muted-foreground ml-2">
+                      ({pendingTagsets.length} × {activeTagsets.length} comparações)
+                    </span>
+                  </div>
+                </Label>
+              </div>
+            </RadioGroup>
+            
+            <div className="flex items-start gap-2 pt-2 text-xs text-muted-foreground">
+              <Info className="h-3 w-3 mt-0.5 shrink-0" />
+              <div>
+                <strong>{modeStats.label}:</strong> {modeStats.description}
+              </div>
+            </div>
+          </div>
+
           {/* Controles */}
           <div className="flex items-center gap-4">
             <Button 
               onClick={handleAnalyze}
-              disabled={isAnalyzing || activeTagsets.length < 2}
+              disabled={isAnalyzing || (mode === 'active-vs-active' && activeTagsets.length < 2) || (mode === 'pending-vs-pending' && pendingTagsets.length < 2) || (mode === 'pending-vs-active' && (pendingTagsets.length === 0 || activeTagsets.length === 0))}
             >
               {isAnalyzing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Analisar Sobreposições
@@ -184,6 +325,7 @@ export const TagsetMergeAnalysisDashboard = ({ tagsets, onMergeApplied }: Props)
                       <OverlapCard
                         key={idx}
                         pair={pair}
+                        mode={mode}
                         onRequestSuggestion={handleRequestSuggestion}
                         isLoading={isFetchingSuggestion && selectedPair === pair}
                       />
@@ -201,6 +343,7 @@ export const TagsetMergeAnalysisDashboard = ({ tagsets, onMergeApplied }: Props)
                       <OverlapCard
                         key={idx}
                         pair={pair}
+                        mode={mode}
                         onRequestSuggestion={handleRequestSuggestion}
                         isLoading={isFetchingSuggestion && selectedPair === pair}
                       />
@@ -218,6 +361,7 @@ export const TagsetMergeAnalysisDashboard = ({ tagsets, onMergeApplied }: Props)
                       <OverlapCard
                         key={idx}
                         pair={pair}
+                        mode={mode}
                         onRequestSuggestion={handleRequestSuggestion}
                         isLoading={isFetchingSuggestion && selectedPair === pair}
                       />
@@ -244,9 +388,12 @@ export const TagsetMergeAnalysisDashboard = ({ tagsets, onMergeApplied }: Props)
         tagsetA={selectedPair?.tagsetA!}
         tagsetB={selectedPair?.tagsetB!}
         suggestion={suggestion}
+        mode={mode}
         onApplyMerge={handleApplyMerge}
         onApplySplit={handleApplySplit}
-        isProcessing={isMerging || isSplitting}
+        onApplyIncorporate={handleApplyIncorporate}
+        onApplyReject={handleApplyReject}
+        isProcessing={isMerging || isSplitting || isIncorporating || isRejecting}
       />
     </>
   );
@@ -254,11 +401,12 @@ export const TagsetMergeAnalysisDashboard = ({ tagsets, onMergeApplied }: Props)
 
 interface OverlapCardProps {
   pair: OverlapPair;
+  mode: AnalysisMode;
   onRequestSuggestion: (pair: OverlapPair) => void;
   isLoading: boolean;
 }
 
-const OverlapCard = ({ pair, onRequestSuggestion, isLoading }: OverlapCardProps) => {
+const OverlapCard = ({ pair, mode, onRequestSuggestion, isLoading }: OverlapCardProps) => {
   return (
     <div className="border border-border rounded-lg p-4 space-y-3 bg-card">
       <div className="flex items-start justify-between gap-4">
@@ -266,6 +414,12 @@ const OverlapCard = ({ pair, onRequestSuggestion, isLoading }: OverlapCardProps)
           <div className="flex items-center gap-2">
             <Badge variant="outline">{pair.tagsetA.codigo}</Badge>
             <span className="font-semibold">{pair.tagsetA.nome}</span>
+            <Badge 
+              variant="outline" 
+              className={pair.tagsetA.status === 'ativo' ? 'bg-green-500/10 text-green-600 border-green-500/30' : 'bg-amber-500/10 text-amber-600 border-amber-500/30'}
+            >
+              {pair.tagsetA.status === 'ativo' ? '✓' : '⏳'}
+            </Badge>
           </div>
           <div className="text-sm text-muted-foreground">
             {pair.tagsetA.descricao?.substring(0, 100)}...
@@ -283,6 +437,12 @@ const OverlapCard = ({ pair, onRequestSuggestion, isLoading }: OverlapCardProps)
           <div className="flex items-center gap-2">
             <Badge variant="outline">{pair.tagsetB.codigo}</Badge>
             <span className="font-semibold">{pair.tagsetB.nome}</span>
+            <Badge 
+              variant="outline" 
+              className={pair.tagsetB.status === 'ativo' ? 'bg-green-500/10 text-green-600 border-green-500/30' : 'bg-amber-500/10 text-amber-600 border-amber-500/30'}
+            >
+              {pair.tagsetB.status === 'ativo' ? '✓' : '⏳'}
+            </Badge>
           </div>
           <div className="text-sm text-muted-foreground">
             {pair.tagsetB.descricao?.substring(0, 100)}...
