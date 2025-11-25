@@ -15,6 +15,7 @@ import {
   quickEnrichmentStatusCheck,
   ValidationResult 
 } from '@/tests/enrichment-validation.test';
+import { supabase } from '@/integrations/supabase/client';
 
 export function EnrichmentValidationPanel() {
   const [testSongId, setTestSongId] = useState('');
@@ -22,6 +23,33 @@ export function EnrichmentValidationPanel() {
   const [isRunning, setIsRunning] = useState(false);
   const [results, setResults] = useState<ValidationResult[]>([]);
   const [quickCheckResults, setQuickCheckResults] = useState<string>('');
+
+  const handleAutoDetect = async () => {
+    setIsRunning(true);
+    try {
+      const { data: song, error: songError } = await supabase
+        .from('songs')
+        .select('id, artist_id')
+        .eq('status', 'pending')
+        .limit(1)
+        .single();
+
+      if (songError || !song) {
+        alert('Nenhuma música pendente encontrada. Importe músicas primeiro.');
+        return;
+      }
+
+      setTestSongId(song.id);
+      setTestArtistId(song.artist_id);
+      
+      alert(`✅ IDs detectados automaticamente!\nSong ID: ${song.id}\nArtist ID: ${song.artist_id}`);
+    } catch (error) {
+      console.error('Error auto-detecting IDs:', error);
+      alert('Erro ao buscar IDs automaticamente');
+    } finally {
+      setIsRunning(false);
+    }
+  };
 
   const handleRunTests = async () => {
     if (!testSongId || !testArtistId) {
@@ -122,6 +150,16 @@ export function EnrichmentValidationPanel() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          <Button 
+            onClick={handleAutoDetect} 
+            disabled={isRunning}
+            variant="outline"
+            className="w-full"
+          >
+            <RefreshCw className="mr-2 h-4 w-4" />
+            🔍 Auto-detectar IDs de Teste
+          </Button>
+
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <label className="text-sm font-medium">Song ID para teste:</label>
@@ -141,8 +179,12 @@ export function EnrichmentValidationPanel() {
             </div>
           </div>
 
+          <p className="text-xs text-muted-foreground">
+            💡 <strong>Dica:</strong> Use o botão acima para preencher automaticamente com uma música pendente
+          </p>
+
           <Button 
-            onClick={handleRunTests} 
+            onClick={handleRunTests}
             disabled={isRunning || !testSongId || !testArtistId}
             className="w-full"
           >
