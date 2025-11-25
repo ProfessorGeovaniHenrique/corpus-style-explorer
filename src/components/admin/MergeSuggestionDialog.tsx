@@ -73,6 +73,8 @@ interface Props {
   onApplySplit: (originalId: string, newTagsets: any[], rejectionReason: string) => void;
   onApplyIncorporate: (activeId: string, pendingId: string, newExamples: string[], enhancedDescription: string) => void;
   onApplyReject: (pendingId: string, reason: string) => void;
+  onApplyReorganize: (tagsetAId: string, tagsetBId: string, tagsetA_newParent: string | null, tagsetB_newParent: string | null) => void;
+  onApplyEnhance: (activeId: string, pendingId: string, enhancedDescription: string) => void;
   isProcessing: boolean;
 }
 
@@ -87,6 +89,8 @@ export const MergeSuggestionDialog = ({
   onApplySplit,
   onApplyIncorporate,
   onApplyReject,
+  onApplyReorganize,
+  onApplyEnhance,
   isProcessing,
 }: Props) => {
   if (!suggestion) return null;
@@ -153,6 +157,15 @@ export const MergeSuggestionDialog = ({
         strategy.splitIntoTagsets,
         `Dividido em ${strategy.splitIntoTagsets.length} domínios: ${strategy.reasoning}`
       );
+    } else if (suggestion.recommendation === 'reorganize' && suggestion.reorganizeStrategy) {
+      const strategy = suggestion.reorganizeStrategy;
+      
+      onApplyReorganize(
+        tagsetA.id,
+        tagsetB.id,
+        strategy.tagsetA_newParent,
+        strategy.tagsetB_newParent
+      );
     } else if (suggestion.recommendation === 'incorporate' && suggestion.incorporateStrategy) {
       const strategy = suggestion.incorporateStrategy;
       // No modo pending-vs-active: A=pending, B=active
@@ -160,6 +173,13 @@ export const MergeSuggestionDialog = ({
       const pendingId = tagsetA.id;
       
       onApplyIncorporate(activeId, pendingId, strategy.newExamples, strategy.enhancedDescription);
+    } else if (suggestion.recommendation === 'enhance' && suggestion.enhanceStrategy) {
+      const strategy = suggestion.enhanceStrategy;
+      // No modo pending-vs-active: A=pending, B=active
+      const activeId = tagsetB.id;
+      const pendingId = tagsetA.id;
+      
+      onApplyEnhance(activeId, pendingId, strategy.enhancedDescription);
     } else if (suggestion.recommendation === 'reject_pending') {
       // No modo pending-vs-active: A=pending, B=active
       const pendingId = tagsetA.id;

@@ -48,7 +48,20 @@ export const TagsetMergeAnalysisDashboard = ({ tagsets, onMergeApplied }: Props)
   const [isFetchingSuggestion, setIsFetchingSuggestion] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
 
-  const { mergeTagsets, splitTagset, incorporateIntoPending, rejectAsDuplicate, isMerging, isSplitting, isIncorporating, isRejecting } = useTagsetMerge();
+  const { 
+    mergeTagsets, 
+    splitTagset, 
+    incorporateIntoPending, 
+    rejectAsDuplicate, 
+    reorganizeTagsets,
+    enhanceTagset,
+    isMerging, 
+    isSplitting, 
+    isIncorporating, 
+    isRejecting,
+    isReorganizing,
+    isEnhancing 
+  } = useTagsetMerge();
 
   // Filtrar tagsets por status
   const activeTagsets = useMemo(
@@ -169,6 +182,41 @@ export const TagsetMergeAnalysisDashboard = ({ tagsets, onMergeApplied }: Props)
       handleAnalyze();
     } catch (error) {
       console.error('Erro ao rejeitar:', error);
+    }
+  };
+
+  const handleApplyReorganize = async (
+    tagsetAId: string,
+    tagsetBId: string,
+    tagsetA_newParent: string | null,
+    tagsetB_newParent: string | null
+  ) => {
+    try {
+      await reorganizeTagsets({ tagsetAId, tagsetBId, tagsetA_newParent, tagsetB_newParent });
+      setDialogOpen(false);
+      setSelectedPair(null);
+      setSuggestion(null);
+      onMergeApplied();
+      handleAnalyze();
+    } catch (error) {
+      console.error('Erro ao reorganizar:', error);
+    }
+  };
+
+  const handleApplyEnhance = async (
+    activeId: string,
+    pendingId: string,
+    enhancedDescription: string
+  ) => {
+    try {
+      await enhanceTagset({ activeId, pendingId, enhancedDescription });
+      setDialogOpen(false);
+      setSelectedPair(null);
+      setSuggestion(null);
+      onMergeApplied();
+      handleAnalyze();
+    } catch (error) {
+      console.error('Erro ao aprimorar:', error);
     }
   };
 
@@ -393,7 +441,9 @@ export const TagsetMergeAnalysisDashboard = ({ tagsets, onMergeApplied }: Props)
         onApplySplit={handleApplySplit}
         onApplyIncorporate={handleApplyIncorporate}
         onApplyReject={handleApplyReject}
-        isProcessing={isMerging || isSplitting || isIncorporating || isRejecting}
+        onApplyReorganize={handleApplyReorganize}
+        onApplyEnhance={handleApplyEnhance}
+        isProcessing={isMerging || isSplitting || isIncorporating || isRejecting || isReorganizing || isEnhancing}
       />
     </>
   );

@@ -38,6 +38,19 @@ interface RejectAsDuplicateParams {
   reason: string;
 }
 
+interface ReorganizeTagsetsParams {
+  tagsetAId: string;
+  tagsetBId: string;
+  tagsetA_newParent: string | null;
+  tagsetB_newParent: string | null;
+}
+
+interface EnhanceTagsetParams {
+  activeId: string;
+  pendingId: string;
+  enhancedDescription: string;
+}
+
 export const useTagsetMerge = () => {
   const queryClient = useQueryClient();
 
@@ -215,14 +228,101 @@ export const useTagsetMerge = () => {
     },
   });
 
+  const reorganizeTagsets = useMutation({
+    mutationFn: async ({ tagsetAId, tagsetBId, tagsetA_newParent, tagsetB_newParent }: ReorganizeTagsetsParams) => {
+      // Atualizar ambos tagsets com novos pais
+      const updates = [];
+      
+      if (tagsetA_newParent !== undefined) {
+        updates.push(
+          supabase
+            .from('semantic_tagset')
+            .update({ 
+              categoria_pai: tagsetA_newParent,
+              tagset_pai: tagsetA_newParent
+            })
+            .eq('id', tagsetAId)
+        );
+      }
+      
+      if (tagsetB_newParent !== undefined) {
+        updates.push(
+          supabase
+            .from('semantic_tagset')
+            .update({ 
+              categoria_pai: tagsetB_newParent,
+              tagset_pai: tagsetB_newParent
+            })
+            .eq('id', tagsetBId)
+        );
+      }
+
+      const results = await Promise.all(updates);
+      
+      for (const result of results) {
+        if (result.error) throw result.error;
+      }
+
+      // Recalcular hierarquia
+      await supabase.rpc('calculate_tagset_hierarchy');
+
+      return { tagsetAId, tagsetBId };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['semantic_tagset'] });
+      toast.success('Hierarquia reorganizada com sucesso!');
+    },
+    onError: (error) => {
+      console.error('Erro ao reorganizar:', error);
+      toast.error('Erro ao reorganizar hierarquia');
+    },
+  });
+
+  const enhanceTagset = useMutation({
+    mutationFn: async ({ activeId, pendingId, enhancedDescription }: EnhanceTagsetParams) => {
+      // 1. Atualizar apenas a descrição do tagset ativo
+      const { error: updateError } = await supabase
+        .from('semantic_tagset')
+        .update({ descricao: enhancedDescription })
+        .eq('id', activeId);
+
+      if (updateError) throw updateError;
+
+      // 2. Rejeitar pendente
+      const { error: rejectError } = await supabase
+        .from('semantic_tagset')
+        .update({ 
+          status: 'rejeitado',
+          rejection_reason: `Descrição incorporada em domínio validado`
+        })
+        .eq('id', pendingId);
+
+      if (rejectError) throw rejectError;
+
+      return { activeId, pendingId };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['semantic_tagset'] });
+      toast.success('Descrição do domínio validado aprimorada!');
+    },
+    onError: (error) => {
+      console.error('Erro ao aprimorar:', error);
+      toast.error('Erro ao aprimorar descrição');
+    },
+  });
+
   return {
     mergeTagsets: mergeTagsets.mutateAsync,
     splitTagset: splitTagset.mutateAsync,
     incorporateIntoPending: incorporateIntoPending.mutateAsync,
     rejectAsDuplicate: rejectAsDuplicate.mutateAsync,
+    reorganizeTagsets: reorganizeTagsets.mutateAsync,
+    enhanceTagset: enhanceTagset.mutateAsync,
     isMerging: mergeTagsets.isPending,
     isSplitting: splitTagset.isPending,
     isIncorporating: incorporateIntoPending.isPending,
     isRejecting: rejectAsDuplicate.isPending,
+    isReorganizing: reorganizeTagsets.isPending,
+    isEnhancing: enhanceTagset.isPending,
   };
 };
