@@ -22,6 +22,9 @@ function MusicEnrichmentContent() {
   const [importResult, setImportResult] = useState<{ songsCreated: number; artistsCreated: number } | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
   const [isImporting, setIsImporting] = useState(false);
+  const [currentChunk, setCurrentChunk] = useState(0);
+  const [totalChunks, setTotalChunks] = useState(0);
+  const [songsProcessed, setSongsProcessed] = useState(0);
   const navigate = useNavigate();
 
   const handleFileSelect = useCallback(async (file: File) => {
@@ -55,9 +58,12 @@ function MusicEnrichmentContent() {
       setImportResult(null);
       setImportError(null);
       setIsImporting(true);
+      setCurrentChunk(0);
+      setTotalChunks(0);
+      setSongsProcessed(0);
       setShowImportProgress(true);
       
-      const result = await ingestionService.extractTitles(
+      const result = await ingestionService.extractTitlesChunked(
         validSongs.map(song => ({
           titulo: song.titulo,
           artista: song.artista!,
@@ -67,8 +73,16 @@ function MusicEnrichmentContent() {
           album: undefined,
           genero: undefined
         })),
-        undefined,
-        corpusId
+        {
+          uploadId: undefined,
+          corpusId,
+          chunkSize: 5000,
+          onProgress: (progress) => {
+            setCurrentChunk(progress.currentChunk);
+            setTotalChunks(progress.totalChunks);
+            setSongsProcessed(progress.songsProcessed);
+          }
+        }
       );
       
       // Atualizar com resultado real
@@ -115,6 +129,9 @@ function MusicEnrichmentContent() {
           isProcessing={isImporting}
           result={importResult}
           error={importError}
+          currentChunk={currentChunk}
+          totalChunks={totalChunks}
+          songsProcessed={songsProcessed}
         />
       </>
     );

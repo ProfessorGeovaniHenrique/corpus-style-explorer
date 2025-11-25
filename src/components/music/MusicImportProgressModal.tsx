@@ -10,6 +10,9 @@ interface MusicImportProgressModalProps {
   isProcessing?: boolean;
   result?: { songsCreated: number; artistsCreated: number } | null;
   error?: string | null;
+  currentChunk?: number;
+  totalChunks?: number;
+  songsProcessed?: number;
 }
 
 export function MusicImportProgressModal({
@@ -17,12 +20,17 @@ export function MusicImportProgressModal({
   totalSongs,
   isProcessing = false,
   result = null,
-  error = null
+  error = null,
+  currentChunk = 0,
+  totalChunks = 0,
+  songsProcessed = 0
 }: MusicImportProgressModalProps) {
   const [progress, setProgress] = useState(0);
   const [simulatedSongs, setSimulatedSongs] = useState(0);
   const [simulatedArtists, setSimulatedArtists] = useState(0);
+  const [estimatedTimeRemaining, setEstimatedTimeRemaining] = useState<string>('');
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const startTimeRef = useRef<number>(0);
 
   useEffect(() => {
     if (!open) {
@@ -30,6 +38,8 @@ export function MusicImportProgressModal({
       setProgress(0);
       setSimulatedSongs(0);
       setSimulatedArtists(0);
+      setEstimatedTimeRemaining('');
+      startTimeRef.current = 0;
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
       }
@@ -37,28 +47,51 @@ export function MusicImportProgressModal({
     }
 
     if (isProcessing && !result && !error) {
-      // Simular progresso enquanto processa
-      setProgress(5);
-      
-      intervalRef.current = setInterval(() => {
-        setProgress(prev => {
-          // Progresso mais rápido no início, mais lento perto do fim
-          const increment = prev < 30 ? 3 : prev < 60 ? 2 : prev < 90 ? 1 : 0.5;
-          const next = Math.min(95, prev + increment);
-          
-          // Atualizar músicas e artistas simulados
-          const songProgress = Math.floor((next / 100) * totalSongs);
-          setSimulatedSongs(songProgress);
-          setSimulatedArtists(Math.floor(songProgress * 0.3)); // ~30% de artistas únicos
-          
-          return next;
-        });
-      }, 400);
+      // Registrar tempo de início
+      if (startTimeRef.current === 0) {
+        startTimeRef.current = Date.now();
+      }
+
+      // Usar progresso real do chunking se disponível
+      if (totalChunks > 0 && songsProcessed > 0) {
+        const realProgress = (songsProcessed / totalSongs) * 100;
+        setProgress(realProgress);
+        setSimulatedSongs(songsProcessed);
+        setSimulatedArtists(Math.floor(songsProcessed * 0.3));
+
+        // Calcular tempo estimado
+        const elapsedMs = Date.now() - startTimeRef.current;
+        const msPerSong = elapsedMs / songsProcessed;
+        const remainingSongs = totalSongs - songsProcessed;
+        const remainingMs = remainingSongs * msPerSong;
+        
+        const remainingMinutes = Math.ceil(remainingMs / 60000);
+        setEstimatedTimeRemaining(
+          remainingMinutes > 1 ? `~${remainingMinutes} min restantes` : '~1 min restante'
+        );
+      } else {
+        // Fallback: simular progresso
+        setProgress(5);
+        
+        intervalRef.current = setInterval(() => {
+          setProgress(prev => {
+            const increment = prev < 30 ? 3 : prev < 60 ? 2 : prev < 90 ? 1 : 0.5;
+            const next = Math.min(95, prev + increment);
+            
+            const songProgress = Math.floor((next / 100) * totalSongs);
+            setSimulatedSongs(songProgress);
+            setSimulatedArtists(Math.floor(songProgress * 0.3));
+            
+            return next;
+          });
+        }, 400);
+      }
     } else if (result) {
       // Completar progresso quando tiver resultado
       setProgress(100);
       setSimulatedSongs(result.songsCreated);
       setSimulatedArtists(result.artistsCreated);
+      setEstimatedTimeRemaining('');
       
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
@@ -70,11 +103,14 @@ export function MusicImportProgressModal({
         clearInterval(intervalRef.current);
       }
     };
-  }, [open, isProcessing, result, error, totalSongs]);
+  }, [open, isProcessing, result, error, totalSongs, totalChunks, songsProcessed]);
 
   const getStageMessage = () => {
     if (error) return 'Erro na importação';
     if (result) return 'Importação concluída!';
+    if (totalChunks > 0) {
+      return `Processando chunk ${currentChunk} de ${totalChunks}...`;
+    }
     if (progress < 20) return 'Preparando importação...';
     if (progress < 50) return 'Criando artistas e músicas...';
     if (progress < 90) return 'Finalizando importação...';
@@ -112,9 +148,17 @@ export function MusicImportProgressModal({
           {/* Progress Bar */}
           <div className="space-y-2">
             <Progress value={progress} className="h-2" />
-            <p className="text-xs text-center text-muted-foreground">
-              {Math.round(progress)}% completo
-            </p>
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>{Math.round(progress)}% completo</span>
+              {estimatedTimeRemaining && (
+                <span className="text-primary">{estimatedTimeRemaining}</span>
+              )}
+            </div>
+            {totalChunks > 0 && (
+              <p className="text-xs text-center text-muted-foreground">
+                {songsProcessed.toLocaleString()} de {totalSongs.toLocaleString()} músicas
+              </p>
+            )}
           </div>
 
           {/* Stats Grid */}

@@ -39,6 +39,14 @@ export interface ProcessingResult {
   errors: Array<{ songId: string; error: string }>;
 }
 
+export interface ChunkProgress {
+  currentChunk: number;
+  totalChunks: number;
+  songsProcessed: number;
+  totalSongs: number;
+  currentResult?: ExtractionResult;
+}
+
 export const ingestionService = {
   /**
    * Extract music titles from parsed data and create/update database records
@@ -58,6 +66,67 @@ export const ingestionService = {
     }
 
     return data as ExtractionResult;
+  },
+
+  /**
+   * Extract music titles in chunks to avoid worker memory limits
+   */
+  async extractTitlesChunked(
+    songs: ParsedMusic[],
+    options: {
+      chunkSize?: number;
+      uploadId?: string;
+      corpusId?: string | null;
+      onProgress?: (progress: ChunkProgress) => void;
+    } = {}
+  ): Promise<ExtractionResult> {
+    const {
+      chunkSize = 5000,
+      uploadId,
+      corpusId,
+      onProgress,
+    } = options;
+
+    const totalChunks = Math.ceil(songs.length / chunkSize);
+    const aggregatedResult: ExtractionResult = {
+      artistsCreated: 0,
+      songsCreated: 0,
+      duplicatesSkipped: 0,
+      artistIds: {},
+      songIds: [],
+    };
+
+    for (let i = 0; i < songs.length; i += chunkSize) {
+      const chunk = songs.slice(i, i + chunkSize);
+      const chunkNumber = Math.floor(i / chunkSize) + 1;
+
+      try {
+        const result = await this.extractTitles(chunk, uploadId, corpusId);
+
+        // Agregar resultados
+        aggregatedResult.artistsCreated += result.artistsCreated;
+        aggregatedResult.songsCreated += result.songsCreated;
+        aggregatedResult.duplicatesSkipped += result.duplicatesSkipped;
+        aggregatedResult.artistIds = { ...aggregatedResult.artistIds, ...result.artistIds };
+        aggregatedResult.songIds.push(...result.songIds);
+
+        // Reportar progresso
+        if (onProgress) {
+          onProgress({
+            currentChunk: chunkNumber,
+            totalChunks,
+            songsProcessed: Math.min(i + chunkSize, songs.length),
+            totalSongs: songs.length,
+            currentResult: result,
+          });
+        }
+      } catch (error) {
+        console.error(`Error processing chunk ${chunkNumber}/${totalChunks}:`, error);
+        throw new Error(`Falha no chunk ${chunkNumber}/${totalChunks}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
+    }
+
+    return aggregatedResult;
   },
 
   /**
