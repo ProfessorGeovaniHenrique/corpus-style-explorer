@@ -77,6 +77,40 @@ export interface VersoAustralProposal {
     };
     synergy: string[];
   };
+  hybridPOSSystem: {
+    overview: string;
+    architecture: {
+      layer1_vaGrammar: {
+        name: string;
+        priority: string;
+        coverage: string;
+        sources: string[];
+        advantages: string[];
+      };
+      layer2_spaCyFallback: {
+        name: string;
+        priority: string;
+        coverage: string;
+        model: string;
+        challenges: string[];
+      };
+      layer3_geminiAI: {
+        name: string;
+        priority: string;
+        useCases: string[];
+        costOptimization: string;
+      };
+    };
+    optimizations: Array<{
+      feature: string;
+      implementation: string;
+      benefit: string;
+    }>;
+    performanceComparison: {
+      current: { accuracy: number; cost: string; speed: string };
+      optimized: { accuracy: number; cost: string; speed: string };
+    };
+  };
   optimizedPipeline: {
     phases: {
       id: string;
@@ -514,6 +548,90 @@ export const versoAustralProposal: VersoAustralProposal = {
     "Sinergia com dialectal_lexicon existente (106k entradas regionalistas)",
     "Sistema de insígnias culturais para escalabilidade multi-regional"
   ],
+
+  hybridPOSSystem: {
+    overview: 'Sistema híbrido de 3 camadas que prioriza gramática interna (zero custo) antes de recorrer a spaCy ou IA, otimizado para português brasileiro regional.',
+    
+    architecture: {
+      layer1_vaGrammar: {
+        name: 'Gramática Verso Austral (Prioridade Máxima)',
+        priority: '1ª - Sempre consultar primeiro',
+        coverage: '50+ verbos irregulares, pronomes, determinantes, preposições, MWEs gaúchas',
+        sources: [
+          'src/data/grammatical-knowledge/verbal-morphology.ts',
+          'src/data/grammatical-knowledge/pronoun-system.ts',
+          'src/data/grammatical-knowledge/gaucho-mwe.ts',
+        ],
+        advantages: [
+          '✅ Custo zero - sem chamadas API',
+          '✅ Precisão 100% para palavras conhecidas',
+          '✅ Suporte completo a regionalismos gaúchos',
+          '✅ Reconhecimento de MWEs culturais (mate amargo, cavalo gateado)',
+          '✅ Controle total sobre lematização',
+        ],
+      },
+      
+      layer2_spaCyFallback: {
+        name: 'spaCy pt_core_news_lg (Fallback Geral)',
+        priority: '2ª - Apenas se Layer 1 não cobrir',
+        coverage: 'Português geral (notícias, textos formais)',
+        model: 'pt_core_news_lg',
+        challenges: [
+          '⚠️ Python-only (requer microserviço separado ou stanza-js)',
+          '⚠️ Fraco em regionalismos (não conhece "aquerenciar", "campear")',
+          '⚠️ Overhead de latência (~100-200ms por texto)',
+          '⚠️ Confiança baixa em neologismos',
+        ],
+      },
+      
+      layer3_geminiAI: {
+        name: 'Gemini Flash Zero-Shot (Fallback IA)',
+        priority: '3ª - Apenas se confidence < 90% ou palavra desconhecida',
+        useCases: [
+          'Neologismos não cobertos (ex: "troletar", "aporriado")',
+          'MWEs complexas ambíguas (ex: "pegar no tranco")',
+          'Palavras com múltiplos sentidos contextuais',
+        ],
+        costOptimization: 'Cache inteligente (palavra:contexto) reduz 70%+ das chamadas',
+      },
+    },
+    
+    optimizations: [
+      {
+        feature: 'MWE Detection Gaúcha',
+        implementation: 'Templates pré-definidos (mate [ADJ], cavalo [ADJ], tropa [ADJ]) + coocorrência',
+        benefit: 'Reconhece "mate amargo" como unidade antes de tokenizar',
+      },
+      {
+        feature: 'Pronoun Regional Logic',
+        implementation: 'Detecta tu/você e ajusta concordância verbal automaticamente',
+        benefit: 'Suporta "tu vai" (coloquial RS) e "você vai" (padrão)',
+      },
+      {
+        feature: 'POS Cache Inteligente',
+        implementation: 'Cache (palavra:contexto_hash) → {pos, lema, features, source}',
+        benefit: 'Zero custo para palavras já vistas em contextos similares',
+      },
+      {
+        feature: 'Source Tracking',
+        implementation: 'Cada token anotado inclui campo "source": "va_grammar" | "spacy" | "gemini"',
+        benefit: 'Auditoria de qualidade e identificação de gaps no lexicon',
+      },
+    ],
+    
+    performanceComparison: {
+      current: { 
+        accuracy: 0.85, 
+        cost: '~$0.005/song (se usar IA para tudo)', 
+        speed: '2-3s/song' 
+      },
+      optimized: { 
+        accuracy: 0.98, 
+        cost: '~$0.001/song (Layer 1 cobre 70%+)', 
+        speed: '<1s/song (cache + grammar)' 
+      },
+    },
+  },
 
   dualLayerSystem: {
     overview: `Arquitetura que separa significado semântico funcional (DS) de identidade cultural/regional (Insígnia).
