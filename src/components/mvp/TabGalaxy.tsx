@@ -50,7 +50,7 @@ export function TabGalaxy({ demo = false }: TabGalaxyProps) {
   
   const { isOpen: kwicOpen, closeModal: closeKwicModal, selectedWord, kwicData, isLoading: kwicLoading, openModal: openKwicModal } = useKWICModal('gaucho');
   const { isOpen: kwicOpenNordestino, closeModal: closeKwicModalNordestino, selectedWord: selectedWordNordestino, kwicData: kwicDataNordestino, isLoading: kwicLoadingNordestino, openModal: openKwicModalNordestino } = useKWICModal('nordestino');
-  const { gauchoData: gauchoComparison, nordestinoData, isLoading: comparisonLoading } = useCorpusComparison();
+  const { nordestinoData, isLoading: comparisonLoading } = useCorpusComparison();
 
   // Carregar preferências salvas do localStorage
   useEffect(() => {
