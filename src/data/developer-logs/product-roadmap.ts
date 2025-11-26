@@ -364,14 +364,14 @@ export const futureProspects: FutureProspect[] = [
 // ============================================
 
 export const mvpMetrics = {
-  overallCompletion: 85, // %
+  overallCompletion: 90, // %
   implementedStories: 10,
   totalMvpStories: 8,
   totalStories: 12,
   inProgressStories: 1,
   completedEpics: 1,
   totalEpics: 2,
-  nextMilestone: "Épico Semântico - Anotação de Domínios com Insígnias Culturais",
+  nextMilestone: "Validação Final e Dashboard com Dados Reais",
   estimatedMvpCompletion: "Q2 2025"
 };
 
@@ -411,6 +411,14 @@ export const milestones: Milestone[] = [
     epicIds: ['epic-pos'],
     status: 'completed',
     description: 'Pipeline de anotação POS implementado: VA Grammar (85% cobertura) + spaCy (fallback 95%) + Gemini Flash via Lovable AI (cobertura final 99%)'
+  },
+  {
+    id: 'semantic-pipeline-integrated',
+    date: 'Nov 2025',
+    title: 'Pipeline Semântico Integrado com Dicionários',
+    epicIds: ['epic-semantic'],
+    status: 'completed',
+    description: 'Taxonomia 13 N1 sincronizada, 700+ regras dialectal_lexicon, propagação sinônimos Rocha Pombo, Gutenberg POS lookup (64k verbetes), redução 60% API calls'
   },
   {
     id: 'advanced-tools',
