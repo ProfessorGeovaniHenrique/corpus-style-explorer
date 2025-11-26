@@ -37,6 +37,7 @@ import MusicEnrichment from "./pages/MusicEnrichment";
 import MusicCatalog from "./pages/MusicCatalog";
 import AdminSemanticTagsetValidation from "./pages/AdminSemanticTagsetValidation";
 import ApiUsage from "./pages/ApiUsage";
+import DashboardExpandido from "./pages/DashboardExpandido";
 import NotFound from "./pages/NotFound";
 import { lazy, Suspense } from "react";
 
@@ -72,6 +73,7 @@ const RouterContent = () => {
 
         {/* Rota independente para DashboardMVP (sem AppLayout para evitar duplo header) */}
         <Route path="/dashboard-mvp" element={<DashboardMVP />} />
+        <Route path="/dashboard-expandido" element={<DashboardExpandido />} />
         <Route path="/onboarding" element={<Onboarding />} />
         
         {/* Admin Routes with AdminLayout for consistent navigation */}
