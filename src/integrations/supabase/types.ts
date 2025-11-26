@@ -1951,7 +1951,7 @@ export type Database = {
             foreignKeyName: "semantic_disambiguation_cache_tagset_codigo_fkey"
             columns: ["tagset_codigo"]
             isOneToOne: false
-            referencedRelation: "semantic_tagset_gaucho"
+            referencedRelation: "semantic_tagset"
             referencedColumns: ["codigo"]
           },
         ]
