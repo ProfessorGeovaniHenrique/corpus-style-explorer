@@ -120,20 +120,48 @@ export async function getCorpusAnalysisResults(
 
     log.info('Songs loaded', { count: songs.length });
 
-    // Processar textos das letras
+    // Buscar tagsets N1 para mapeamento de nomes
+    const { data: n1Tagsets, error: tagsetsError } = await supabase
+      .from('semantic_tagset')
+      .select('codigo, nome')
+      .eq('status', 'ativo')
+      .eq('nivel_profundidade', 1)
+      .order('codigo');
+
+    if (tagsetsError) {
+      log.error('Error fetching tagsets', new Error(tagsetsError.message));
+      throw tagsetsError;
+    }
+
+    const tagsetMap = new Map(n1Tagsets?.map(t => [t.codigo, t.nome]) || []);
+    
+    log.info('N1 Tagsets loaded', { count: n1Tagsets?.length });
+
+    // Buscar dados REAIS do semantic_disambiguation_cache
+    const { data: cacheEntries, error: cacheError } = await supabase
+      .from('semantic_disambiguation_cache')
+      .select('palavra, tagset_codigo, confianca, fonte, hits_count')
+      .order('hits_count', { ascending: false });
+
+    if (cacheError) {
+      log.warn('Cache not available, using fallback', { error: cacheError.message });
+    }
+
+    const cacheData = cacheEntries || [];
+    log.info('Semantic cache loaded', { entries: cacheData.length });
+
+    // Processar textos das letras para frequências
     const allLyrics = songs
       .filter(s => s.lyrics)
       .map(s => s.lyrics!)
       .join(' ');
 
-    // Tokenizar (simplificado - em produção usar annotate-pos)
     const tokens = allLyrics
       .toLowerCase()
       .replace(/[.,!?;:"()]/g, '')
       .split(/\s+/)
       .filter(t => t.length > 2);
 
-    // Calcular frequências
     const freqMap = new Map<string, number>();
     tokens.forEach(token => {
       freqMap.set(token, (freqMap.get(token) || 0) + 1);
@@ -142,52 +170,44 @@ export async function getCorpusAnalysisResults(
     const totalTokens = tokens.length;
     const uniqueWords = freqMap.size;
 
-    // Buscar tagsets semânticos ativos
-    const { data: tagsets, error: tagsetsError } = await supabase
-      .from('semantic_tagset')
-      .select('codigo, nome, categoria_pai, nivel_profundidade')
-      .eq('status', 'ativo')
-      .order('codigo');
-
-    if (tagsetsError) {
-      log.error('Error fetching tagsets', tagsetsError);
-      throw tagsetsError;
-    }
-
-    // Agrupar por domínios N1 (primeiro nível)
-    const n1Tagsets = tagsets?.filter(t => t.nivel_profundidade === 1) || [];
-    
-    log.info('Tagsets loaded', { total: tagsets?.length, n1Count: n1Tagsets.length });
-
-    // Simular classificação semântica (em produção: chamar annotate-semantic-domain)
-    // Por ora, distribuir palavras aleatoriamente entre domínios para mock realista
+    // Criar keywords usando cache semântico
     const topWords = Array.from(freqMap.entries())
       .sort((a, b) => b[1] - a[1])
       .slice(0, 100);
 
-    const keywords: CorpusKeyword[] = topWords.map(([ palavra, freq ]) => {
-      const randomDomain = n1Tagsets[Math.floor(Math.random() * n1Tagsets.length)];
+    const keywords: CorpusKeyword[] = topWords.map(([palavra, freq]) => {
+      // Buscar no cache
+      const cached = cacheData.find(c => c.palavra === palavra);
+      
+      const tagsetCodigo = cached?.tagset_codigo || 'NC';
+      const domainName = tagsetMap.get(tagsetCodigo) || 'Não Classificado';
+      
+      // Mock LL/MI scores (em produção: calcular com corpus de referência)
       const ll = Math.random() * 50 + 10;
       const mi = Math.random() * 8 + 2;
-      const colorMap: Record<string, string> = {
-        'Natureza': '#268BC8', 'Ser Humano': '#24A65B', 'Sentimentos e Emoções': '#8B5CF6',
-        'Estruturas e Lugares': '#FF9500', 'Sociedade e Política': '#EC4899', 'Atividades e Práticas': '#10b981'
-      };
       
+      // Mapa de cores dos 13 domínios N1
+      const colorMap: Record<string, string> = {
+        'AB': '#9333EA', 'AP': '#10B981', 'CC': '#F59E0B', 'EL': '#EF4444',
+        'EQ': '#8B5CF6', 'MG': '#6B7280', 'NA': '#268BC8', 'NC': '#6B7280',
+        'OA': '#F97316', 'SB': '#EC4899', 'SE': '#8B5CF6', 'SH': '#24A65B', 'SP': '#EC4899'
+      };
+
       return {
         palavra,
         frequencia: freq,
         ll: parseFloat(ll.toFixed(2)),
         mi: parseFloat(mi.toFixed(2)),
         significancia: ll > 15.13 ? 'Alta' : ll > 6.63 ? 'Média' : 'Baixa',
-        dominio: randomDomain?.nome || 'Não Classificado',
-        cor: colorMap[randomDomain?.nome || ''] || '#6B7280',
+        dominio: domainName,
+        cor: colorMap[tagsetCodigo] || '#6B7280',
         prosody: Math.random() > 0.6 ? 'Positiva' : Math.random() > 0.5 ? 'Negativa' : 'Neutra'
       };
     });
 
-    // Agregar domínios
+    // Agregar por domínio
     const dominioMap = new Map<string, {
+      codigo: string;
       palavras: string[];
       ocorrencias: number;
       llScores: number[];
@@ -196,7 +216,11 @@ export async function getCorpusAnalysisResults(
 
     keywords.forEach(k => {
       if (!dominioMap.has(k.dominio)) {
+        const codigo = Array.from(tagsetMap.entries())
+          .find(([_, nome]) => nome === k.dominio)?.[0] || 'NC';
+        
         dominioMap.set(k.dominio, {
+          codigo,
           palavras: [],
           ocorrencias: 0,
           llScores: [],
@@ -215,19 +239,19 @@ export async function getCorpusAnalysisResults(
       .reduce((sum, d) => sum + d.ocorrencias, 0);
 
     const colorMap: Record<string, string> = {
-      'Natureza': '#268BC8', 'Ser Humano': '#24A65B', 'Sentimentos e Emoções': '#8B5CF6',
-      'Estruturas e Lugares': '#FF9500', 'Sociedade e Política': '#EC4899', 'Atividades e Práticas': '#10b981'
+      'AB': '#9333EA', 'AP': '#10B981', 'CC': '#F59E0B', 'EL': '#EF4444',
+      'EQ': '#8B5CF6', 'MG': '#6B7280', 'NA': '#268BC8', 'NC': '#6B7280',
+      'OA': '#F97316', 'SB': '#EC4899', 'SE': '#8B5CF6', 'SH': '#24A65B', 'SP': '#EC4899'
     };
 
     const dominios: CorpusDomain[] = Array.from(dominioMap.entries()).map(([nome, data]) => {
-      const tagset = n1Tagsets.find(t => t.nome === nome);
       const avgLL = data.llScores.reduce((a, b) => a + b, 0) / data.llScores.length;
       const avgMI = data.miScores.reduce((a, b) => a + b, 0) / data.miScores.length;
 
       return {
         dominio: nome,
-        descricao: tagset ? `Domínio semântico ${tagset.codigo}` : 'Domínio semântico',
-        cor: colorMap[nome] || '#6B7280',
+        descricao: `Domínio ${data.codigo} - ${nome}`,
+        cor: colorMap[data.codigo] || '#6B7280',
         palavras: data.palavras,
         ocorrencias: data.ocorrencias,
         avgLL: parseFloat(avgLL.toFixed(2)),
@@ -237,17 +261,20 @@ export async function getCorpusAnalysisResults(
       };
     }).sort((a, b) => b.percentual - a.percentual);
 
-    // Dados para nuvem
-    const cloudData: CorpusCloudData[] = dominios.slice(0, 15).map(d => ({
-      codigo: d.dominio.substring(0, 3).toUpperCase(),
-      nome: d.dominio,
-      size: 50 + d.percentual * 2,
-      color: d.cor,
-      wordCount: d.riquezaLexical,
-      avgScore: d.avgLL
-    }));
+    const cloudData: CorpusCloudData[] = dominios.slice(0, 13).map(d => {
+      const codigo = Array.from(tagsetMap.entries())
+        .find(([_, nome]) => nome === d.dominio)?.[0] || 'NC';
+      
+      return {
+        codigo,
+        nome: d.dominio,
+        size: 50 + d.percentual * 2,
+        color: d.cor,
+        wordCount: d.riquezaLexical,
+        avgScore: d.avgLL
+      };
+    });
 
-    // Distribuição de prosódia
     const positivas = keywords.filter(k => k.prosody === 'Positiva').length;
     const negativas = keywords.filter(k => k.prosody === 'Negativa').length;
     const neutras = keywords.filter(k => k.prosody === 'Neutra').length;

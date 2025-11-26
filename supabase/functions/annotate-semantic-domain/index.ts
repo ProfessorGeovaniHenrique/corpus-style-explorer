@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.81.1";
 import { createEdgeLogger } from "../_shared/unified-logger.ts";
+import { getLexiconRule } from "../_shared/semantic-rules-lexicon.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -67,12 +68,33 @@ serve(async (req) => {
       );
     }
 
-    // 2️⃣ Aplicar regras contextuais (fallback rápido)
+    // 2️⃣ Verificar regras do léxico dialetal
+    const lexiconRule = await getLexiconRule(palavra);
+    if (lexiconRule) {
+      logger.info('Lexicon rule matched', { palavra, tagset: lexiconRule.tagset_codigo });
+      
+      await saveToCache(supabaseClient, palavra, contextoHash, lema, pos, {
+        tagset_codigo: lexiconRule.tagset_codigo,
+        confianca: lexiconRule.confianca,
+        fonte: 'rule_based',
+        justificativa: lexiconRule.justificativa,
+      });
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          result: lexiconRule,
+          processingTime: Date.now() - startTime,
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // 3️⃣ Aplicar regras contextuais (fallback rápido)
     const ruleBasedResult = applyContextualRules(palavra, lema, pos);
     if (ruleBasedResult) {
       logger.info('Rule-based classification', { palavra, tagset: ruleBasedResult.tagset_codigo });
       
-      // Salvar no cache
       await saveToCache(supabaseClient, palavra, contextoHash, lema, pos, ruleBasedResult);
 
       return new Response(
@@ -85,7 +107,7 @@ serve(async (req) => {
       );
     }
 
-    // 3️⃣ Chamar Gemini Flash via Lovable AI Gateway
+    // 4️⃣ Chamar Gemini Flash via Lovable AI Gateway
     const geminiResult = await classifyWithGemini(
       palavra,
       lema || palavra,
@@ -99,7 +121,7 @@ serve(async (req) => {
       throw new Error('Gemini classification failed');
     }
 
-    // 4️⃣ Salvar resultado no cache
+    // 5️⃣ Salvar resultado no cache
     await saveToCache(supabaseClient, palavra, contextoHash, lema, pos, geminiResult);
 
     logger.info('Anotação semântica concluída', {
@@ -190,30 +212,30 @@ function applyContextualRules(palavra: string, lema?: string, pos?: string): Sem
   // Regra 3: Palavras funcionais (POS-based)
   if (pos && ['ADP', 'DET', 'CONJ', 'SCONJ', 'PRON'].includes(pos)) {
     return {
-      tagset_codigo: 'PF',
+      tagset_codigo: 'MG',
       confianca: 0.99,
       fonte: 'rule_based',
-      justificativa: 'Palavra funcional identificada por POS tag',
+      justificativa: 'Marcador gramatical identificado por POS tag',
     };
   }
 
-  // Regra 4: Verbos → Ações
+  // Regra 4: Verbos → Atividades e Práticas
   if (pos === 'VERB') {
     return {
-      tagset_codigo: 'AV',
+      tagset_codigo: 'AP',
       confianca: 0.90,
       fonte: 'rule_based',
-      justificativa: 'Verbo mapeado para domínio de Ações',
+      justificativa: 'Verbo mapeado para Atividades e Práticas',
     };
   }
 
-  // Regra 5: Adjetivos → Qualidades
+  // Regra 5: Adjetivos → Estados e Qualidades
   if (pos === 'ADJ') {
     return {
-      tagset_codigo: 'QE',
+      tagset_codigo: 'EQ',
       confianca: 0.85,
       fonte: 'rule_based',
-      justificativa: 'Adjetivo mapeado para domínio de Qualidades',
+      justificativa: 'Adjetivo mapeado para Estados e Qualidades',
     };
   }
 
@@ -238,27 +260,22 @@ async function classifyWithGemini(
 
   const sentencaCompleta = `${contextoEsquerdo} **${palavra}** ${contextoDireito}`.trim();
 
-  const prompt = `Você é um especialista em análise semântica de texto. Sua tarefa é classificar a palavra em destaque em um dos 18 domínios semânticos abaixo.
+  const prompt = `Você é um especialista em análise semântica de texto. Sua tarefa é classificar a palavra em destaque em um dos 13 domínios semânticos abaixo.
 
-**18 DOMÍNIOS SEMÂNTICOS:**
-- NA (Natureza e Paisagem): flora, fauna, elementos naturais, geografia
-- CL (Cultura e Lida Gaúcha): artefatos culturais, tradições gaúchas, lida campeira
-- SE (Sentimentos e Abstrações): emoções, estados mentais, conceitos abstratos
-- AV (Ações e Processos): verbos de ação, processos, eventos
-- QE (Qualidades e Estados): adjetivos descritivos, estados físicos/mentais
-- CV (Corpo e Seres Vivos): partes do corpo, animais, seres vivos
-- PF (Palavras Funcionais): artigos, preposições, conjunções
-- AL (Alimentação e Bebidas): comidas, bebidas, erva-mate
-- VR (Vestimentas e Arreios): roupas, pilchas, equipamentos de montaria
-- LU (Lugares e Estruturas): locais físicos, construções
-- TE (Tempo e Cronologia): períodos, estações, momentos
-- MU (Música e Poesia): instrumentos, gêneros musicais
-- SO (Relações Sociais): família, amizade, comunidade
-- TR (Trabalho e Ferramentas): lida campeira, ferramentas
-- AN (Animais e Pecuária): cavalos, gado, animais domésticos
-- CO (Comércio e Economia): trocas, valores comerciais
-- RE (Religiosidade e Crenças): fé, santos, crenças
-- FE (Festas e Celebrações): rodeios, fandangos, celebrações
+**13 DOMÍNIOS SEMÂNTICOS (Taxonomia Verso Austral):**
+- AB (Abstrações e Conceitos): ideias abstratas, conceitos filosóficos, teorias
+- AP (Atividades e Práticas Sociais): trabalho, lida campeira, alimentação, lazer, transporte, ações humanas
+- CC (Cultura e Conhecimento): arte, música, literatura, educação, comunicação, religiosidade
+- EL (Estruturas e Lugares): construções, locais físicos, espaços geográficos
+- EQ (Estados, Qualidades e Medidas): adjetivos, qualidades físicas/mentais, quantidades, medidas
+- MG (Marcadores Gramaticais): artigos, preposições, conjunções, pronomes, conectivos
+- NA (Natureza e Paisagem): flora, fauna, elementos naturais, clima, geografia natural
+- NC (Não Classificado): palavras que não se encaixam em nenhum domínio
+- OA (Objetos e Artefatos): ferramentas, utensílios, objetos manufaturados, arreios
+- SB (Saúde e Bem-Estar): corpo humano, doenças, saúde física/mental
+- SE (Sentimentos e Emoções): amor, saudade, alegria, tristeza, estados emocionais
+- SH (Indivíduo - Ser Humano): aspectos da humanidade, características humanas, vida humana
+- SP (Sociedade e Organização Política): relações sociais, família, comunidade, política, economia
 
 **CONTEXTO:**
 Sentença: "${sentencaCompleta}"
@@ -267,10 +284,12 @@ Lema: "${lema}"
 POS: ${pos}
 
 **EXEMPLOS:**
-- "mate amargo" em "Cevou um mate pura-folha" → AL (Alimentação)
-- "galpão" em "pelos cantos do galpão" → LU (Lugares)
+- "mate" em "Cevou um mate pura-folha" → AP (Atividades - alimentação gaúcha)
+- "galpão" em "pelos cantos do galpão" → EL (Estruturas)
 - "saudade" em "saudade redomona" → SE (Sentimentos)
-- "gateado" em "lombo de uma gateada" → AN (Animais)
+- "gateado" em "lombo de uma gateada" → NA (Natureza - fauna)
+- "querência" em "voltou pra querência" → AB (Abstrações - conceito de pertencimento)
+- "arreio" em "arreios suados" → OA (Objetos e Artefatos)
 
 **TAREFA:**
 Retorne APENAS um JSON válido no formato:
@@ -353,8 +372,8 @@ Retorne APENAS um JSON válido no formato:
     
     // Fallback para domínio genérico baseado em POS
     if (pos === 'NOUN') return { tagset_codigo: 'NA', confianca: 0.60, fonte: 'rule_based', justificativa: 'Fallback: substantivo → Natureza' };
-    if (pos === 'VERB') return { tagset_codigo: 'AV', confianca: 0.60, fonte: 'rule_based', justificativa: 'Fallback: verbo → Ações' };
-    if (pos === 'ADJ') return { tagset_codigo: 'QE', confianca: 0.60, fonte: 'rule_based', justificativa: 'Fallback: adjetivo → Qualidades' };
+    if (pos === 'VERB') return { tagset_codigo: 'AP', confianca: 0.60, fonte: 'rule_based', justificativa: 'Fallback: verbo → Atividades' };
+    if (pos === 'ADJ') return { tagset_codigo: 'EQ', confianca: 0.60, fonte: 'rule_based', justificativa: 'Fallback: adjetivo → Qualidades' };
     
     // Fallback final
     return { tagset_codigo: 'SE', confianca: 0.50, fonte: 'rule_based', justificativa: 'Fallback genérico' };
