@@ -17,6 +17,7 @@ import { SearchBar } from "@/components/dev-history/SearchBar";
 import { SyncStatusDashboard } from "@/components/dev-history/SyncStatusDashboard";
 import { ToolsMethodologies } from "@/components/dev-history/ToolsMethodologies";
 import { USASMethodologyViewer } from "@/components/dev-history/USASMethodologyViewer";
+import { StylisticsMethodologyViewer } from "@/components/dev-history/StylisticsMethodologyViewer";
 import type { SearchResult } from "@/hooks/useDevHistorySearch";
 
 export default function DeveloperHistory() {
@@ -121,9 +122,10 @@ export default function DeveloperHistory() {
 
           <TabsContent value="methodologies" className="space-y-4 mt-6">
             <Tabs defaultValue="general" className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
+              <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="general">Metodologias Gerais</TabsTrigger>
                 <TabsTrigger value="usas">Pipeline USAS</TabsTrigger>
+                <TabsTrigger value="stylistics">Ferramentas de Estilística</TabsTrigger>
               </TabsList>
               
               <TabsContent value="general" className="mt-4">
@@ -132,6 +134,10 @@ export default function DeveloperHistory() {
               
               <TabsContent value="usas" className="mt-4">
                 <USASMethodologyViewer />
+              </TabsContent>
+              
+              <TabsContent value="stylistics" className="mt-4">
+                <StylisticsMethodologyViewer />
               </TabsContent>
             </Tabs>
           </TabsContent>
