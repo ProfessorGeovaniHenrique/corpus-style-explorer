@@ -1,9 +1,12 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BookOpen, Palette, Link2, FileText } from "lucide-react";
+import { BookOpen, Palette, Link2, FileText, MessageCircle, Brain, Sparkles } from "lucide-react";
 import { SyntacticProfileTool } from "./SyntacticProfileTool";
 import { RhetoricalFiguresTool } from "./RhetoricalFiguresTool";
 import { CohesionAnalysisTool } from "./CohesionAnalysisTool";
+import { SpeechThoughtPresentationTool } from "./SpeechThoughtPresentationTool";
+import { MindStyleAnalyzerTool } from "./MindStyleAnalyzerTool";
+import { ForegroundingDetectorTool } from "./ForegroundingDetectorTool";
 import { TabLexicalProfile } from "@/components/advanced/TabLexicalProfile";
 
 export function TabFerramentasEstilisticas() {
@@ -21,7 +24,7 @@ export function TabFerramentasEstilisticas() {
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="lexical" className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-7">
               <TabsTrigger value="lexical" className="flex items-center gap-2">
                 <BookOpen className="w-4 h-4" />
                 <span className="hidden sm:inline">Perfil Léxico</span>
@@ -37,6 +40,18 @@ export function TabFerramentasEstilisticas() {
               <TabsTrigger value="cohesion" className="flex items-center gap-2">
                 <Link2 className="w-4 h-4" />
                 <span className="hidden sm:inline">Coesão</span>
+              </TabsTrigger>
+              <TabsTrigger value="speech-thought" className="flex items-center gap-2">
+                <MessageCircle className="w-4 h-4" />
+                <span className="hidden sm:inline">Fala/Pensamento</span>
+              </TabsTrigger>
+              <TabsTrigger value="mind-style" className="flex items-center gap-2">
+                <Brain className="w-4 h-4" />
+                <span className="hidden sm:inline">Mind Style</span>
+              </TabsTrigger>
+              <TabsTrigger value="foregrounding" className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4" />
+                <span className="hidden sm:inline">Foregrounding</span>
               </TabsTrigger>
             </TabsList>
 
@@ -54,6 +69,18 @@ export function TabFerramentasEstilisticas() {
 
             <TabsContent value="cohesion" className="mt-6">
               <CohesionAnalysisTool />
+            </TabsContent>
+
+            <TabsContent value="speech-thought" className="mt-6">
+              <SpeechThoughtPresentationTool />
+            </TabsContent>
+
+            <TabsContent value="mind-style" className="mt-6">
+              <MindStyleAnalyzerTool />
+            </TabsContent>
+
+            <TabsContent value="foregrounding" className="mt-6">
+              <ForegroundingDetectorTool />
             </TabsContent>
           </Tabs>
         </CardContent>

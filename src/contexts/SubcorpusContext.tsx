@@ -23,6 +23,7 @@ interface SubcorpusContextType {
   
   // Corpus filtrado pronto para uso
   getFilteredCorpus: () => Promise<CorpusCompleto>;
+  loadedCorpus: CorpusCompleto | null;
   
   // Metadados do subcorpus atual
   currentMetadata: SubcorpusMetadata | null;
@@ -307,18 +308,17 @@ export function SubcorpusProvider({ children }: { children: ReactNode }) {
     throw new Error('Modo compare ainda não implementado');
   }, [selection, availableCorpora, fullCorpus]);
   
-  const value: SubcorpusContextType = {
-    selection,
-    setSelection,
-    getFilteredCorpus,
-    currentMetadata,
-    availableArtists,
-    subcorpora,
-    isLoading
-  };
-  
   return (
-    <SubcorpusContext.Provider value={value}>
+    <SubcorpusContext.Provider value={{
+      selection,
+      setSelection,
+      getFilteredCorpus,
+      loadedCorpus: fullCorpus,
+      currentMetadata,
+      availableArtists,
+      subcorpora,
+      isLoading
+    }}>
       {children}
     </SubcorpusContext.Provider>
   );
