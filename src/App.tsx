@@ -6,7 +6,6 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { CorpusProvider } from "@/contexts/CorpusContext";
-import { useCorpusPreload } from "@/hooks/useCorpusPreload";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
@@ -54,9 +53,6 @@ const ArchivedDashboard8 = lazy(() => import("./pages/_archived/Dashboard8"));
 const queryClient = new QueryClient();
 
 const RouterContent = () => {
-  // Hook precisa estar dentro do BrowserRouter
-  useCorpusPreload();
-  
   return (
     <Routes>
           <Route path="/" element={<Index />} />
