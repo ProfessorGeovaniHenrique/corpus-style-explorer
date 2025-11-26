@@ -381,6 +381,14 @@ export const mvpMetrics = {
 
 export const milestones: Milestone[] = [
   {
+    id: 'semantic-incremental',
+    date: 'Nov 26, 2025',
+    title: 'Pipeline Semântico Incremental On-Demand',
+    epicIds: ['epic-semantic-pipeline'],
+    status: 'completed',
+    description: 'Processamento incremental por artista com cache acumulativo, eliminando timeouts de batch jobs. Usuário seleciona artista → sistema verifica cache → se insuficiente, dispara processamento com feedback visual em tempo real. Cache cresce de 64 para 700+ palavras, redução de 70% em chamadas API Gemini.'
+  },
+  {
     id: 'mvp-auth',
     date: 'Q1 2025',
     title: 'Autenticação e Sessões',

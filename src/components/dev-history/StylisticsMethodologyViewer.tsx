@@ -1,10 +1,15 @@
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { leechShortTheory, versoAustralStylisticsTools, versoAustralStylisticsRoadmap } from "@/data/developer-logs/stylistics-methodology";
-import { BookOpen, Wrench, TrendingUp, CheckCircle2, Clock, Play } from "lucide-react";
+import { leechShortTheory, leechShortLevelsDetailed, versoAustralStylisticsTools, versoAustralStylisticsRoadmap, StylisticsLevelDetail } from "@/data/developer-logs/stylistics-methodology";
+import { BookOpen, Wrench, TrendingUp, CheckCircle2, Clock, Play, Info } from "lucide-react";
+import { StylisticsLevelModal } from "./StylisticsLevelModal";
 
 export function StylisticsMethodologyViewer() {
+  const [selectedLevel, setSelectedLevel] = useState<StylisticsLevelDetail | null>(null);
+
   return (
     <div className="space-y-6">
       <Card className="border-primary/30 bg-gradient-to-br from-primary/5 to-background">
@@ -42,20 +47,39 @@ export function StylisticsMethodologyViewer() {
         </TabsContent>
 
         <TabsContent value="theory" className="space-y-4">
-          {leechShortTheory.coreLevel.map((level, idx) => (
+          {leechShortLevelsDetailed.map((level, idx) => (
             <Card key={idx}>
-              <CardHeader>
-                <CardTitle className="text-base">{level.name}</CardTitle>
-                <CardDescription>{level.description}</CardDescription>
+              <CardHeader className="flex flex-row items-start justify-between space-y-0">
+                <div className="space-y-2 flex-1">
+                  <CardTitle className="text-base">{level.name}</CardTitle>
+                  <CardDescription>{level.description}</CardDescription>
+                  <Badge variant="outline" className="text-xs mt-2">
+                    📖 {level.pageReferences}
+                  </Badge>
+                </div>
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={() => setSelectedLevel(level)}
+                  className="ml-4 shrink-0"
+                >
+                  <Info className="h-4 w-4 mr-1" />
+                  Detalhes
+                </Button>
               </CardHeader>
               <CardContent>
                 <div className="grid gap-2">
-                  {level.components.map((comp, i) => (
+                  {level.components.slice(0, 3).map((comp, i) => (
                     <div key={i} className="flex items-center gap-2 text-sm">
                       <CheckCircle2 className="h-4 w-4 text-green-500" />
                       <span>{comp}</span>
                     </div>
                   ))}
+                  {level.components.length > 3 && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      + {level.components.length - 3} componentes adicionais
+                    </p>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -123,6 +147,12 @@ export function StylisticsMethodologyViewer() {
           ))}
         </TabsContent>
       </Tabs>
+
+      <StylisticsLevelModal 
+        level={selectedLevel}
+        isOpen={!!selectedLevel}
+        onClose={() => setSelectedLevel(null)}
+      />
     </div>
   );
 }
