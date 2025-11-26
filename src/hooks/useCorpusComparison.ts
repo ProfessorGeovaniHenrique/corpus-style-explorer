@@ -1,34 +1,44 @@
-import { useState, useEffect } from 'react';
-import { getDemoAnalysisResults, DemoAnalysisResult } from '@/services/demoCorpusService';
-import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
+/**
+ * ⚠️ DEPRECATED - Use useCorpusData instead
+ * 
+ * Este hook ainda usa dados mockup.
+ * Migre para useCorpusData que busca dados reais do banco.
+ */
 
+import { useState, useEffect } from 'react';
+import { getCorpusAnalysisResults, CorpusAnalysisResult } from '@/services/corpusDataService';
+import { toast } from 'sonner';
+import { createLogger } from '@/lib/loggerFactory';
+
+const log = createLogger('useCorpusComparison');
+
+/**
+ * @deprecated Use useCorpusData({ loadGaucho: true, loadNordestino: true })
+ */
 export function useCorpusComparison() {
-  const [gauchoData, setGauchoData] = useState<DemoAnalysisResult | null>(null);
-  const [nordestinoData, setNordestinoData] = useState<DemoAnalysisResult | null>(null);
+  log.warn('DEPRECATED: useCorpusComparison is deprecated. Use useCorpusData instead.');
+
+  const [gauchoData, setGauchoData] = useState<CorpusAnalysisResult | null>(null);
+  const [nordestinoData, setNordestinoData] = useState<CorpusAnalysisResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   
   useEffect(() => {
     const loadCorpora = async () => {
       setIsLoading(true);
       try {
-        // Corpus Gaúcho
-        const gaucho = await getDemoAnalysisResults();
+        log.info('Loading corpora from real database');
+
+        // Corpus Gaúcho - dados reais
+        const gaucho = await getCorpusAnalysisResults('gaucho', { limit: 1000 });
         setGauchoData(gaucho);
         
-        // Corpus Nordestino - chamar edge function
-        const { data: nordestino, error } = await supabase.functions.invoke('process-nordestino-corpus');
-        
-        if (error) {
-          console.error('Erro ao carregar corpus nordestino:', error);
-          toast.error('Erro ao carregar corpus nordestino');
-        } else {
-          setNordestinoData(nordestino as DemoAnalysisResult);
-        }
+        // Corpus Nordestino - dados reais
+        const nordestino = await getCorpusAnalysisResults('nordestino', { limit: 1000 });
+        setNordestinoData(nordestino);
         
         toast.success('Corpora carregados com sucesso');
       } catch (error) {
-        console.error('Erro ao carregar corpora:', error);
+        log.error('Error loading corpora', error as Error);
         toast.error('Erro ao carregar corpora para comparação');
       } finally {
         setIsLoading(false);

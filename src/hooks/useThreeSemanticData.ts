@@ -1,6 +1,5 @@
 import { useMemo } from "react";
-import { dominiosNormalizados } from "@/data/mockup/dominios-normalized";
-import { getProsodiaSemantica } from "@/data/mockup/prosodias-map";
+import { CorpusDomain } from "@/services/corpusDataService";
 import { calculateAllDomainStats } from "@/lib/linguisticStats";
 import { HIERARCHY_CONFIG } from "@/config/hierarchyConfig";
 import {
@@ -26,14 +25,22 @@ const CORPUS_SIZE = 10000;
 /**
  * Hook para gerar dados 3D da nuvem de domínios semânticos
  * Refatorado com separação clara entre dados brutos e visuais
+ * 
+ * @param dominiosData - Dados dos domínios (agora recebidos externamente)
  */
 export function useThreeSemanticData(
   viewMode: ViewMode = 'constellation',
-  selectedDomainId?: string
+  selectedDomainId?: string,
+  dominiosData?: CorpusDomain[]
 ) {
   const { nodes, stats, connections } = useMemo(() => {
+    // Se não houver dados, retornar vazio
+    if (!dominiosData || dominiosData.length === 0) {
+      return { nodes: [], stats: null, connections: [] };
+    }
+
     // ===== FASE 1: Converter dados brutos =====
-    const rawDomains = convertToRawDomains(dominiosNormalizados);
+    const rawDomains = convertToRawDomains(dominiosData);
     
     // ===== FASE 2: Criar nós visuais de domínios =====
     const domainNodes = createDomainNodes(
@@ -54,15 +61,17 @@ export function useThreeSemanticData(
     const allNodes = [...domainNodes, ...wordNodes];
     
     // ===== FASE 5: Calcular estatísticas =====
-    const domainStats = calculateAllDomainStats(
-      dominiosNormalizados.filter(d => d.dominio !== "Palavras Funcionais")
-    );
+    const domainStats = rawDomains.length > 0 ? {
+      totalDomains: rawDomains.length,
+      avgLexicalRichness: rawDomains.reduce((a, d) => a + d.lexicalRichness, 0) / rawDomains.length,
+      avgTextualWeight: rawDomains.reduce((a, d) => a + d.textualWeight, 0) / rawDomains.length
+    } : null;
     
     // ===== FASE 6: Calcular conexões =====
     const connections = calculateDomainConnections();
     
     return { nodes: allNodes, stats: domainStats, connections };
-  }, [viewMode, selectedDomainId]);
+  }, [viewMode, selectedDomainId, dominiosData]);
   
   return { nodes, stats, connections };
 }
@@ -70,26 +79,26 @@ export function useThreeSemanticData(
 // ===== FUNÇÕES AUXILIARES =====
 
 /**
- * Converte dados do mockup para estrutura RawDomainData
+ * Converte dados reais para estrutura RawDomainData
  */
-function convertToRawDomains(dominios: DominioSemantico[]): RawDomainData[] {
+function convertToRawDomains(dominios: CorpusDomain[]): RawDomainData[] {
   return dominios
     .filter(d => d.dominio !== "Palavras Funcionais")
     .map(dominio => ({
       id: dominio.dominio,
       name: dominio.dominio,
       rawFrequency: dominio.ocorrencias,
-      normalizedFrequency: dominio.frequenciaNormalizada,
+      normalizedFrequency: dominio.percentual,
       lexicalRichness: dominio.riquezaLexical / 100,
-      textualWeight: dominio.percentualTematico || 0,
-      comparisonStatus: dominio.comparacaoCorpus,
+      textualWeight: dominio.percentual,
+      comparisonStatus: 'equilibrado',
       color: dominio.cor,
-      textColor: dominio.corTexto,
-      words: dominio.palavrasComFrequencia.map(p => ({
-        text: p.palavra,
-        rawFrequency: p.ocorrencias,
-        normalizedFrequency: (p.ocorrencias / CORPUS_SIZE) * 1000,
-        prosody: getProsodiaSemantica(p.palavra),
+      textColor: '#ffffff',
+      words: dominio.palavras.map(p => ({
+        text: p,
+        rawFrequency: 1,
+        normalizedFrequency: 1,
+        prosody: 'Neutra' as const,
       })),
     }));
 }

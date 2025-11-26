@@ -15,7 +15,7 @@ import { useKWICModal } from '@/hooks/useKWICModal';
 import { useCorpusComparison } from '@/hooks/useCorpusComparison';
 import { useWordCloudFilters } from '@/hooks/useWordCloudFilters';
 import { getDomainColor } from '@/config/domainColors';
-import { getDemoAnalysisResults } from '@/services/demoCorpusService';
+import { useCorpusData } from '@/hooks/useCorpusData';
 import { toast } from 'sonner';
 import html2canvas from 'html2canvas';
 
@@ -26,9 +26,15 @@ interface TabGalaxyProps {
 type ViewMode = 'domains' | 'keywords';
 
 export function TabGalaxy({ demo = false }: TabGalaxyProps) {
+  const { gauchoData, isLoading: isLoadingCorpus } = useCorpusData({ 
+    loadGaucho: true, 
+    loadNordestino: false,
+    limit: demo ? 1000 : undefined 
+  });
+
   const [viewMode, setViewMode] = useState<ViewMode>('domains');
-  const [isLoading, setIsLoading] = useState(false);
-  const [demoData, setDemoData] = useState<any>(null);
+  const demoData = gauchoData;
+  const isLoading = isLoadingCorpus;
   const [padding, setPadding] = useState(6);
   const [spiral, setSpiral] = useState<'archimedean' | 'rectangular'>('archimedean');
   const [rotation, setRotation] = useState(0);
@@ -44,17 +50,7 @@ export function TabGalaxy({ demo = false }: TabGalaxyProps) {
   
   const { isOpen: kwicOpen, closeModal: closeKwicModal, selectedWord, kwicData, isLoading: kwicLoading, openModal: openKwicModal } = useKWICModal('gaucho');
   const { isOpen: kwicOpenNordestino, closeModal: closeKwicModalNordestino, selectedWord: selectedWordNordestino, kwicData: kwicDataNordestino, isLoading: kwicLoadingNordestino, openModal: openKwicModalNordestino } = useKWICModal('nordestino');
-  const { gauchoData, nordestinoData, isLoading: comparisonLoading } = useCorpusComparison();
-
-  useEffect(() => {
-    if (demo) {
-      setIsLoading(true);
-      getDemoAnalysisResults()
-        .then(r => { setDemoData(r); toast.success('Dados carregados'); })
-        .catch(() => toast.error('Erro ao carregar'))
-        .finally(() => setIsLoading(false));
-    }
-  }, [demo]);
+  const { gauchoData: gauchoComparison, nordestinoData, isLoading: comparisonLoading } = useCorpusComparison();
 
   // Carregar preferências salvas do localStorage
   useEffect(() => {
@@ -143,6 +139,8 @@ export function TabGalaxy({ demo = false }: TabGalaxyProps) {
       topDomains: gauchoData.dominios.sort((a,b) => b.percentual - a.percentual).slice(0, 3).map(d => ({ domain: d.dominio, percentage: d.percentual }))
     };
   }, [gauchoData]);
+  
+  const gauchoComparison = gauchoData;
   
   const nordestinoStats = useMemo(() => {
     if (!nordestinoData || !nordestinoData.estatisticas || !nordestinoData.dominios) {

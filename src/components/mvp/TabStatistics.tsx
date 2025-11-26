@@ -46,13 +46,10 @@ import {
   Scatter,
   ZAxis
 } from "recharts";
-import { dominiosNormalizados } from "@/data/mockup/dominios-normalized";
-import { palavrasChaveData } from "@/data/mockup/palavras-chave";
-import { getProsodiaByLema } from "@/data/mockup/prosodias-lemas";
-import { kwicDataMap } from "@/data/mockup/kwic";
 import { ACADEMIC_RS_COLORS } from "@/config/themeColors";
 import { KWICModal } from "@/components/KWICModal";
-import { getDemoAnalysisResults, DemoKeyword } from "@/services/demoCorpusService";
+import { useCorpusData } from "@/hooks/useCorpusData";
+import { CorpusKeyword } from "@/services/corpusDataService";
 import { toast } from "sonner";
 import { useStatisticsTour } from "@/hooks/useStatisticsTour";
 import { PlayCircle } from "lucide-react";
@@ -87,10 +84,12 @@ interface TabStatisticsProps {
 }
 
 export function TabStatistics({ demo = false }: TabStatisticsProps) {
-  const [demoData, setDemoData] = useState<DemoKeyword[] | null>(null);
-  const [demoDomains, setDemoDomains] = useState<any[]>([]);
-  const [demoStats, setDemoStats] = useState<any>(null);
-  const [isLoadingDemo, setIsLoadingDemo] = useState(false);
+  const { gauchoData, isLoading: isLoadingCorpus } = useCorpusData({ 
+    loadGaucho: true, 
+    loadNordestino: false,
+    limit: demo ? 1000 : undefined 
+  });
+
   const [searchQuery, setSearchQuery] = useState("");
   const [sortColumn, setSortColumn] = useState<SortColumn>('frequenciaNormalizada');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
@@ -107,35 +106,21 @@ export function TabStatistics({ demo = false }: TabStatisticsProps) {
   useStatisticsTour(tourEnabled);
   
   // Filtros de range
-  const [freqRange, setFreqRange] = useState<[number, number]>([0, 6]);
-  const [llRange, setLlRange] = useState<[number, number]>([0, 53]);
+  const [freqRange, setFreqRange] = useState<[number, number]>([0, 100]);
+  const [llRange, setLlRange] = useState<[number, number]>([0, 60]);
   const [miRange, setMiRange] = useState<[number, number]>([0, 10]);
 
   const itemsPerPage = 100;
 
-  // Carregar dados demo
-  useEffect(() => {
-    if (demo) {
-      setIsLoadingDemo(true);
-      getDemoAnalysisResults()
-        .then(result => {
-          setDemoData(result.keywords);
-          setDemoDomains(result.dominios);
-          setDemoStats(result.estatisticas);
-          toast.success(`${result.keywords.length} palavras-chave carregadas`);
-        })
-        .catch(error => {
-          console.error('Erro ao carregar dados demo:', error);
-          toast.error('Erro ao carregar análise demo');
-        })
-        .finally(() => setIsLoadingDemo(false));
-    }
-  }, [demo]);
+  const demoData = gauchoData?.keywords || null;
+  const demoDomains = gauchoData?.dominios || [];
+  const demoStats = gauchoData?.estatisticas || null;
+  const isLoadingDemo = isLoadingCorpus;
 
   // Enriquecer palavras-chave com prosódia
   const palavrasEnriquecidas: EnrichedWord[] = useMemo(() => {
-    // Se modo demo, usar dados da edge function
-    if (demo && demoData) {
+    // Usar dados reais do corpus
+    if (demoData) {
       return demoData.map(d => ({
         palavra: d.palavra,
         lema: d.palavra,
@@ -145,25 +130,15 @@ export function TabStatistics({ demo = false }: TabStatisticsProps) {
         mi: d.mi,
         significancia: d.significancia,
         efeito: d.ll > 15.13 ? 'Forte' : d.ll > 6.63 ? 'Moderado' : 'Fraco',
-        prosodia: d.prosody as ProsodiaType, // ✅ Já vem como string
+        prosodia: d.prosody,
         dominio: d.dominio,
         cor: d.cor
       }));
     }
 
-    // Caso contrário, usar dados mockup
-    return palavrasChaveData.map(p => ({
-      palavra: p.palavra,
-      lema: p.lema || p.palavra,
-      frequenciaBruta: p.frequenciaBruta,
-      frequenciaNormalizada: p.frequenciaNormalizada,
-      ll: p.ll,
-      mi: p.mi,
-      significancia: p.significancia,
-      efeito: p.efeito,
-      prosodia: getProsodiaByLema(p.lema || p.palavra)
-    }));
-  }, [demo, demoData]);
+    // Retornar vazio se não houver dados
+    return [];
+  }, [demoData]);
 
   // Filtrar por busca + ranges
   const filteredWords = useMemo(() => {
@@ -252,33 +227,22 @@ export function TabStatistics({ demo = false }: TabStatisticsProps) {
     "Neutra": "bg-muted/20 text-muted-foreground border-border"
   };
 
-  const totalPalavras = demo && demoData ? demoData.reduce((acc, k) => acc + k.frequencia, 0) : 212;
-  const totalDominios = demo && demoDomains ? demoDomains.length : dominiosNormalizados.length;
-  const totalPalavrasTematicas = demo && demoData ? demoData.filter(k => k.significancia !== 'Baixa').length : 117;
-  const riquezaLexicalMedia = demo && demoDomains 
+  const totalPalavras = demoStats?.totalPalavras || 0;
+  const totalDominios = demoDomains.length;
+  const totalPalavrasTematicas = demoStats?.palavrasChaveSignificativas || 0;
+  const riquezaLexicalMedia = demoDomains.length > 0
     ? Math.round(demoDomains.reduce((acc, d) => acc + d.riquezaLexical, 0) / totalDominios)
-    : Math.round(dominiosNormalizados.reduce((acc, d) => acc + d.riquezaLexical, 0) / totalDominios);
+    : 0;
 
-  const dominiosChartData = (demo && demoDomains ? 
-    demoDomains.map(d => ({
-      dominio: d.dominio,
-      percentual: d.percentual,
-      riquezaLexical: d.riquezaLexical,
-      ocorrencias: d.ocorrencias,
-      lemasUnicos: d.palavras.length,
-      status: 'equilibrado',
-      cor: d.cor
-    }))
-    :
-    dominiosNormalizados.map(d => ({
-      dominio: d.dominio,
-      percentual: d.percentualTematico,
-      riquezaLexical: d.riquezaLexical,
-      ocorrencias: d.ocorrencias,
-      lemasUnicos: d.palavras.length,
-      status: d.comparacaoCorpus
-    }))
-  ).sort((a, b) => b.percentual - a.percentual);
+  const dominiosChartData = demoDomains.map(d => ({
+    dominio: d.dominio,
+    percentual: d.percentual,
+    riquezaLexical: d.riquezaLexical,
+    ocorrencias: d.ocorrencias,
+    lemasUnicos: d.palavras.length,
+    status: 'equilibrado',
+    cor: d.cor
+  })).sort((a, b) => b.percentual - a.percentual);
 
   const palavrasFrequentesData = palavrasEnriquecidas.slice(0, 15).map(p => ({
     palavra: p.palavra,
@@ -376,13 +340,16 @@ export function TabStatistics({ demo = false }: TabStatisticsProps) {
   }, [palavrasEnriquecidas]);
 
   const prosodiaByDomain = useMemo(() => {
-    return dominiosNormalizados.filter(d => d.dominio !== "Palavras Funcionais").map(dominio => ({
-      dominio: dominio.dominio.length > 30 ? dominio.dominio.substring(0, 30) + "..." : dominio.dominio,
-      Positiva: dominio.palavras.filter(p => getProsodiaByLema(p) === 'Positiva').length,
-      Negativa: dominio.palavras.filter(p => getProsodiaByLema(p) === 'Negativa').length,
-      Neutra: dominio.palavras.filter(p => getProsodiaByLema(p) === 'Neutra').length
-    })).sort((a, b) => (b.Positiva + b.Negativa + b.Neutra) - (a.Positiva + a.Negativa + a.Neutra));
-  }, []);
+    return demoDomains.map(dominio => {
+      const palavrasComProsodia = palavrasEnriquecidas.filter(p => p.dominio === dominio.dominio);
+      return {
+        dominio: dominio.dominio.length > 30 ? dominio.dominio.substring(0, 30) + "..." : dominio.dominio,
+        Positiva: palavrasComProsodia.filter(p => p.prosodia === 'Positiva').length,
+        Negativa: palavrasComProsodia.filter(p => p.prosodia === 'Negativa').length,
+        Neutra: palavrasComProsodia.filter(p => p.prosodia === 'Neutra').length
+      };
+    }).sort((a, b) => (b.Positiva + b.Negativa + b.Neutra) - (a.Positiva + a.Negativa + a.Neutra));
+  }, [demoDomains, palavrasEnriquecidas]);
 
   const top20LL = useMemo(() => 
     [...palavrasEnriquecidas].sort((a, b) => b.ll - a.ll).slice(0, 20),
@@ -413,15 +380,10 @@ export function TabStatistics({ demo = false }: TabStatisticsProps) {
       filtered = filtered.filter(p => p.prosodia === prosodiaFilter);
     }
     
-    const withDomain = filtered.map(p => {
-      const dominio = dominiosNormalizados.find(d => 
-        d.palavras.some(palavra => palavra.toLowerCase() === (p.lema || p.palavra).toLowerCase()) // 🔧 FIX: Usar lema
-      );
-      return {
-        ...p,
-        dominio: dominio?.dominio || 'Sem domínio'
-      };
-    });
+    const withDomain = filtered.map(p => ({
+      ...p,
+      dominio: p.dominio || 'Sem domínio'
+    }));
 
     if (dominioFilter !== 'Todos') {
       return withDomain.filter(p => p.dominio === dominioFilter);
@@ -1150,7 +1112,7 @@ export function TabStatistics({ demo = false }: TabStatisticsProps) {
                           className="w-full mt-2 rounded-md border border-input bg-background px-3 py-2 text-sm"
                         >
                           <option value="Todos">Todos</option>
-                          {dominiosNormalizados.map((d) => (
+                          {demoDomains.map((d) => (
                             <option key={d.dominio} value={d.dominio}>{d.dominio}</option>
                           ))}
                         </select>
@@ -1435,7 +1397,7 @@ export function TabStatistics({ demo = false }: TabStatisticsProps) {
         open={kwicModalOpen} 
         onOpenChange={setKwicModalOpen} 
         word={selectedWord}
-        data={kwicDataMap[selectedWord] || []} 
+        data={[]} 
       />
     </>
   );

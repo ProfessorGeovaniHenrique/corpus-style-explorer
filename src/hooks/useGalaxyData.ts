@@ -1,6 +1,5 @@
 import { useMemo } from "react";
-import { dominiosNormalizados } from "@/data/mockup/dominios-normalized";
-import { getProsodiaSemantica } from "@/data/mockup/prosodias-map";
+import { CorpusDomain } from "@/services/corpusDataService";
 
 export interface GalaxyNode {
   id: string;
@@ -19,8 +18,10 @@ export interface GalaxyNode {
 /**
  * Hook para processar dados normalizados em layout orbital
  * Distribui domínios em círculo e palavras orbitando cada domínio
+ * 
+ * @param dominiosData - Dados dos domínios (agora recebidos externamente)
  */
-export function useGalaxyData() {
+export function useGalaxyData(dominiosData?: CorpusDomain[]) {
   const nodes = useMemo(() => {
     const galaxyNodes: GalaxyNode[] = [];
     
@@ -28,8 +29,13 @@ export function useGalaxyData() {
     const centerX = 700;
     const centerY = 400;
     
-    // Filtrar domínios (excluir palavras funcionais)
-    const domains = dominiosNormalizados.filter(
+    // Se não houver dados externos, retornar vazio
+    if (!dominiosData || dominiosData.length === 0) {
+      return galaxyNodes;
+    }
+    
+    // Filtrar domínios (excluir palavras funcionais se houver)
+    const domains = dominiosData.filter(
       d => d.dominio !== "Palavras Funcionais"
     );
     
@@ -47,8 +53,8 @@ export function useGalaxyData() {
         label: dominio.dominio,
         x: domainX,
         y: domainY,
-        color: dominio.cor,
-        colorText: dominio.corTexto,
+          color: dominio.cor,
+          colorText: '#ffffff',
         size: 35, // Tamanho fixo para domínios
         domain: dominio.dominio,
         frequency: dominio.ocorrencias,
@@ -57,10 +63,10 @@ export function useGalaxyData() {
       });
       
       // Distribuir palavras em órbita ao redor do domínio
-      const palavras = dominio.palavrasComFrequencia;
-      const wordOrbitRadius = 80; // Raio base da órbita das palavras
+      const palavras = dominio.palavras || [];
+      const wordOrbitRadius = 80;
       
-      palavras.forEach((palavra, wordIndex) => {
+      palavras.forEach((palavraText, wordIndex) => {
         const wordAngle = (wordIndex / palavras.length) * Math.PI * 2;
         
         // Criar camadas de órbita (3 camadas)
@@ -70,27 +76,27 @@ export function useGalaxyData() {
         const wordX = domainX + Math.cos(wordAngle) * layerRadius;
         const wordY = domainY + Math.sin(wordAngle) * layerRadius;
         
-        // Tamanho da palavra baseado na frequência (5 a 15)
-        const wordSize = Math.min(15, 5 + palavra.ocorrencias * 2);
+        // Tamanho fixo (dados de frequência individual não disponíveis)
+        const wordSize = 8;
         
         galaxyNodes.push({
-          id: `word-${palavra.palavra}`,
-          label: palavra.palavra,
+          id: `word-${palavraText}`,
+          label: palavraText,
           x: wordX,
           y: wordY,
           color: dominio.cor,
-          colorText: dominio.corTexto,
+          colorText: '#ffffff',
           size: wordSize,
           domain: dominio.dominio,
-          frequency: palavra.ocorrencias,
-          prosody: getProsodiaSemantica(palavra.palavra),
+          frequency: 1,
+          prosody: 'Neutra' as const,
           type: 'word'
         });
       });
     });
     
     return galaxyNodes;
-  }, []);
+  }, [dominiosData]);
   
   return { nodes };
 }

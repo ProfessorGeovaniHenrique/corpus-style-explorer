@@ -7,8 +7,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Database, Download, FileText, TrendingUp, BarChart3, Lightbulb, HelpCircle } from "lucide-react";
-import { getDemoAnalysisResults, DemoDomain } from "@/services/demoCorpusService";
-import { palavrasChaveData } from "@/data/mockup/palavras-chave";
+import { useCorpusData } from "@/hooks/useCorpusData";
+import { CorpusDomain } from "@/services/corpusDataService";
 import { toast } from "sonner";
 import { useDomainsTour } from "@/hooks/useDomainsTour";
 import { exportDomainsToPDF } from "@/utils/exportDomainsPDF";
@@ -19,55 +19,20 @@ interface TabDomainsProps {
 }
 
 export function TabDomains({ demo = false }: TabDomainsProps) {
-  const [demoData, setDemoData] = useState<DemoDomain[] | null>(null);
-  const [demoKeywords, setDemoKeywords] = useState<any[] | null>(null);
-  const [isLoadingDemo, setIsLoadingDemo] = useState(false);
+  const { gauchoData, isLoading: isLoadingCorpus } = useCorpusData({ 
+    loadGaucho: true, 
+    loadNordestino: false,
+    limit: demo ? 1000 : undefined 
+  });
+  
   const [searchTerm, setSearchTerm] = useState("");
   const [showTour, setShowTour] = useState(false);
   
   useDomainsTour(showTour);
 
-  useEffect(() => {
-    if (demo) {
-      setIsLoadingDemo(true);
-      getDemoAnalysisResults()
-        .then(result => {
-          console.group('📊 [TabDomains] Estrutura Completa Retornada');
-          console.log('✅ Total domínios:', result.dominios.length);
-          console.log('✅ Total keywords:', result.keywords.length);
-          console.log('📄 Exemplo keyword:', result.keywords[0]);
-          console.log('📄 Exemplo domínio:', result.dominios[0]);
-          console.log('📋 Estrutura keyword:', Object.keys(result.keywords[0] || {}));
-          console.groupEnd();
-          
-          setDemoData(result.dominios);
-          setDemoKeywords(result.keywords);
-          
-          // 🔍 DEBUG: Verificar correspondência de palavras
-          console.group('🔍 [TabDomains] Validação de Correspondências');
-          const todasPalavras = result.dominios.flatMap(d => d.palavras);
-          console.log('Total palavras nos domínios:', todasPalavras.length);
-          
-          const palavrasSemDados = todasPalavras.filter(p => 
-            !result.keywords.find(k => k.palavra.toLowerCase() === p.toLowerCase())
-          );
-          
-          if (palavrasSemDados.length > 0) {
-            console.warn('⚠️ Palavras sem dados estatísticos:', palavrasSemDados);
-          } else {
-            console.log('✅ Todas as palavras têm dados estatísticos');
-          }
-          console.groupEnd();
-          
-          toast.success(`${result.dominios.length} domínios carregados`);
-        })
-        .catch(error => {
-          console.error('❌ Erro ao carregar dados demo:', error);
-          toast.error('Erro ao carregar análise demo');
-        })
-        .finally(() => setIsLoadingDemo(false));
-    }
-  }, [demo]);
+  const demoData = gauchoData?.dominios || null;
+  const demoKeywords = gauchoData?.keywords || null;
+  const isLoadingDemo = isLoadingCorpus;
 
   // 🔍 Função de normalização de texto (remove acentos)
   const normalizeText = (text: string): string => {
@@ -78,72 +43,14 @@ export function TabDomains({ demo = false }: TabDomainsProps) {
       .trim();
   };
 
-  // 🔍 Função de lookup inteligente de palavras com fallback robusto
+  // Buscar dados de palavra nos keywords
   const findWordData = (palavra: string) => {
-    console.group(`🔍 Buscando dados para: "${palavra}"`);
-    console.log('   Total keywords disponíveis:', demoKeywords?.length || 0);
-    
-    if (!demoKeywords) {
-      console.warn('   ❌ demoKeywords ainda não carregado!');
-      console.groupEnd();
-      return null;
-    }
+    if (!demoKeywords) return null;
     
     const normalizedPalavra = normalizeText(palavra);
-    console.log('   Palavra normalizada:', normalizedPalavra);
-    
-    // 1. Tentativa exata (case insensitive + sem acentos)
-    let match = demoKeywords.find(k => 
+    return demoKeywords.find(k => 
       normalizeText(k.palavra) === normalizedPalavra
     );
-    
-    if (match) {
-      console.log('   ✅ Match exato encontrado:', match.palavra);
-      console.groupEnd();
-      return match;
-    }
-    
-    // 2. Tentativa por lema (buscar em palavrasChaveData)
-    const wordInfo = palavrasChaveData.find(p => 
-      normalizeText(p.palavra) === normalizedPalavra
-    );
-    
-    if (wordInfo?.lema) {
-      console.log('   🔄 Tentando buscar por lema:', wordInfo.lema);
-      match = demoKeywords.find(k => 
-        normalizeText(k.palavra) === normalizeText(wordInfo.lema)
-      );
-      
-      if (match) {
-        console.log('   ✅ Match por lema encontrado:', match.palavra);
-        console.groupEnd();
-        return match;
-      }
-    }
-    
-    // 3. FALLBACK: Usar dados estáticos de palavrasChaveData
-    if (wordInfo) {
-      console.warn('   ⚠️ Usando fallback com dados estáticos');
-      const fallbackData = {
-        palavra: wordInfo.palavra,
-        frequencia: wordInfo.frequenciaNormalizada,
-        ll: wordInfo.ll,
-        mi: wordInfo.mi,
-        prosody: wordInfo.efeito === 'Sobre-uso' ? 'Positiva' : 
-                 wordInfo.efeito === 'Sub-uso' ? 'Negativa' : 'Neutra',
-        significancia: wordInfo.significancia,
-        dominio: 'Indefinido',
-        cor: '#6B7280'
-      };
-      console.log('   ✅ Fallback aplicado:', fallbackData);
-      console.groupEnd();
-      return fallbackData;
-    }
-    
-    // 4. Log de debug se não encontrar nada
-    console.error(`   ❌ Palavra "${palavra}" não encontrada em nenhuma fonte`);
-    console.groupEnd();
-    return null;
   };
 
   const dominiosFiltrados = useMemo(() => {
@@ -172,11 +79,11 @@ export function TabDomains({ demo = false }: TabDomainsProps) {
       `"${d.dominio}","${d.descricao}",${d.percentual.toFixed(2)},${d.ocorrencias},${d.riquezaLexical},"${d.palavras.join(', ')}"`
     ).join("\n");
     
-    const blob = new Blob([csvHeader + csvRows], { type: 'text/csv' });
+    const blob = new Blob([csvHeader + csvRows], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'dominios-semanticos-demo.csv';
+    a.download = 'dominios-semanticos-corpus-real.csv';
     a.click();
     URL.revokeObjectURL(url);
     toast.success('CSV exportado com sucesso');

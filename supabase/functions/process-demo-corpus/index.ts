@@ -1,11 +1,10 @@
 /**
- * 🎯 PROCESS DEMO CORPUS - MVP REFATORADO
+ * ⚠️ DEPRECATED - PROCESS DEMO CORPUS
  * 
- * Processa a música "Quando o Verso Vem pras Casa" e gera:
- * - Análises estatísticas (LL/MI scores)
- * - 6 Domínios semânticos centralizados
- * - Prosódia como string ("Positiva", "Negativa", "Neutra")
- * - Dados para visualizações consistentes
+ * Esta edge function está OBSOLETA e será removida.
+ * Use process-corpus-analysis com corpusType='gaucho' para dados reais.
+ * 
+ * Mantido temporariamente para compatibilidade com código legado.
  */
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
@@ -292,6 +291,7 @@ serve(withInstrumentation('process-demo-corpus', async (req) => {
   const log = createEdgeLogger('process-demo-corpus', requestId);
 
   try {
+    log.warn('DEPRECATED: This endpoint is deprecated. Use process-corpus-analysis instead.');
     log.info('Request received for demo corpus');
     
     const result = processDemoCorpus(log);
