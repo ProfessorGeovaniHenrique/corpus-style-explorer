@@ -18,7 +18,7 @@ export interface CachedPOSAnnotation {
     modo?: string;
     grau?: string;
   };
-  source: 'va_grammar' | 'spacy' | 'gemini' | 'cache';
+  source: 'va_grammar' | 'spacy' | 'gemini' | 'cache' | 'gutenberg';
   cachedAt: number;
   hitCount: number;
 }

@@ -26,7 +26,7 @@ interface POSToken {
   features: Record<string, string>;
   posicao: number;
   source?: 'va_grammar' | 'spacy' | 'gemini' | 'cache' | 'gutenberg';
-  confianca?: number;
+  confidence?: number;
 }
 
 // ============= EXPANDED KNOWLEDGE BASE: 50+ IRREGULAR VERBS =============
@@ -270,7 +270,7 @@ Deno.serve(withInstrumentation('annotate-pos', async (req) => {
             features: {},
             posicao: token.posicao,
             source: 'gutenberg',
-            confianca: gutenbergPOS.confianca,
+            confidence: gutenbergPOS.confianca,
           };
         }
         
@@ -287,7 +287,7 @@ Deno.serve(withInstrumentation('annotate-pos', async (req) => {
           return {
             ...gutenbergToken,
             source: gutenbergToken.source || 'gutenberg' as const,
-            confianca: gutenbergToken.confianca || 0.92,
+            confidence: gutenbergToken.confidence || 0.92,
           };
         }
         return t;
@@ -303,7 +303,7 @@ Deno.serve(withInstrumentation('annotate-pos', async (req) => {
     let layer3Time = 0;
     let geminiMetrics = { cachedHits: 0, apiCalls: 0, tokensInput: 0, tokensOutput: 0, latency: 0 };
     
-    const stillUnknown = annotations.filter(t => t.pos === 'UNKNOWN' || (t.confianca && t.confianca < 0.85));
+    const stillUnknown = annotations.filter(t => t.pos === 'UNKNOWN' || (t.confidence && t.confidence < 0.85));
     
     if (stillUnknown.length > 0) {
       console.log(`✨ Layer 3 (Gemini): processando ${stillUnknown.length} tokens...`);
@@ -350,7 +350,7 @@ Deno.serve(withInstrumentation('annotate-pos', async (req) => {
           features: t.features,
           posicao: t.posicao,
           source: t.source,
-          confianca: t.confianca
+          confidence: t.confidence
         })),
         stats,
         performance: {

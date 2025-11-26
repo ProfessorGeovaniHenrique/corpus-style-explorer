@@ -5,6 +5,9 @@
  * antes de recorrer a spaCy ou IA
  */
 
+import type { AnnotatedToken } from '../../../src/data/types/pos-annotation.types.ts';
+export type { AnnotatedToken };
+
 import { 
   irregularVerbs, 
   conjugatedToInfinitive,
@@ -26,17 +29,6 @@ import {
 
 // Features compatible with Record<string, string>
 type MorphFeatures = Record<string, string>;
-
-export interface AnnotatedToken {
-  palavra: string;
-  lema: string;
-  pos: string;
-  posDetalhada: string;
-  features: MorphFeatures;
-  posicao: number;
-  source: 'va_grammar' | 'spacy' | 'gemini' | 'cache';
-  confianca: number;
-}
 
 // Conjuntos de palavras funcionais
 const DETERMINERS = new Set(['o', 'a', 'os', 'as', 'um', 'uma', 'uns', 'umas']);
@@ -90,7 +82,7 @@ export async function annotateWithVAGrammar(texto: string): Promise<AnnotatedTok
         features: cached.features,
         posicao: i,
         source: 'cache',
-        confianca: 1.0,
+        confidence: 1.0,
       });
       continue;
     }
@@ -103,7 +95,7 @@ export async function annotateWithVAGrammar(texto: string): Promise<AnnotatedTok
     });
 
     // Cachear resultado (apenas se confiança >= 95%)
-    if (annotation.confianca >= 0.95) {
+    if (annotation.confidence >= 0.95) {
       setCachedPOSAnnotation(palavra, {
         palavra: annotation.palavra,
         lema: annotation.lema,
@@ -178,7 +170,7 @@ function annotateTokenWithGrammar(
       features: inferVerbFeatures(lower, infinitivo),
       posicao: 0,
       source: 'va_grammar',
-      confianca: 1.0,
+      confidence: 1.0,
     };
   }
 
@@ -193,7 +185,7 @@ function annotateTokenWithGrammar(
       features: {},
       posicao: 0,
       source: 'va_grammar',
-      confianca: 1.0,
+      confidence: 1.0,
     };
   }
 
@@ -207,7 +199,7 @@ function annotateTokenWithGrammar(
       features: inferDeterminerFeatures(lower),
       posicao: 0,
       source: 'va_grammar',
-      confianca: 1.0,
+      confidence: 1.0,
     };
   }
 
@@ -221,7 +213,7 @@ function annotateTokenWithGrammar(
       features: {},
       posicao: 0,
       source: 'va_grammar',
-      confianca: 1.0,
+      confidence: 1.0,
     };
   }
 
@@ -235,7 +227,7 @@ function annotateTokenWithGrammar(
       features: {},
       posicao: 0,
       source: 'va_grammar',
-      confianca: 1.0,
+      confidence: 1.0,
     };
   }
 
@@ -249,7 +241,7 @@ function annotateTokenWithGrammar(
       features: {},
       posicao: 0,
       source: 'va_grammar',
-      confianca: 1.0,
+      confidence: 1.0,
     };
   }
 
@@ -263,7 +255,7 @@ function annotateTokenWithGrammar(
       features: {},
       posicao: 0,
       source: 'va_grammar',
-      confianca: 0.9,
+      confidence: 0.9,
     };
   }
 
@@ -276,7 +268,7 @@ function annotateTokenWithGrammar(
       features: { genero: 'Fem', numero: 'Sing' },
       posicao: 0,
       source: 'va_grammar',
-      confianca: 0.85,
+      confidence: 0.85,
     };
   }
 
@@ -289,7 +281,7 @@ function annotateTokenWithGrammar(
     features: {},
     posicao: 0,
     source: 'va_grammar',
-    confianca: 0.0,
+    confidence: 0.0,
   };
 }
 
@@ -363,7 +355,7 @@ export function calculateVAGrammarCoverage(tokens: AnnotatedToken[]): {
   sourceDistribution: Record<string, number>;
 } {
   const total = tokens.length;
-  const covered = tokens.filter(t => t.source === 'va_grammar' && t.confianca > 0.8).length;
+  const covered = tokens.filter(t => t.source === 'va_grammar' && t.confidence > 0.8).length;
   const unknown = tokens.filter(t => t.pos === 'UNKNOWN').map(t => t.palavra);
 
   const sourceDistribution = tokens.reduce((acc, t) => {

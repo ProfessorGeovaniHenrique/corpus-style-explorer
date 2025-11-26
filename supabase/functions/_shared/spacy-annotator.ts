@@ -3,7 +3,7 @@
  * Chama microserviço Python externo para anotar palavras desconhecidas
  */
 
-import type { AnnotatedToken } from './hybrid-pos-annotator.ts';
+import type { AnnotatedToken } from '../../../src/data/types/pos-annotation.types.ts';
 
 const SPACY_API_URL = Deno.env.get('SPACY_API_URL');
 const SPACY_TIMEOUT_MS = 5000; // 5s timeout

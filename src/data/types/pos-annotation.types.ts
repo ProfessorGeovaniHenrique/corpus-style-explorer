@@ -14,7 +14,7 @@ export interface POSToken {
   posicao: number;           // Position in text
 }
 
-export type MorphFeatures = Record<string, string | undefined>;
+export type MorphFeatures = Record<string, string>;
 
 export interface AnnotatedToken extends POSToken {
   source: 'va_grammar' | 'spacy' | 'gemini' | 'cache' | 'gutenberg';

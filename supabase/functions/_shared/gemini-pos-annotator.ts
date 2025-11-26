@@ -5,7 +5,7 @@
  * Usa few-shot learning para anotação morfossintática
  */
 
-import type { AnnotatedToken } from './hybrid-pos-annotator.ts';
+import type { AnnotatedToken } from '../../../src/data/types/pos-annotation.types.ts';
 import { createSupabaseClient } from './supabase.ts';
 
 const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
@@ -24,7 +24,7 @@ interface GeminiPOSResponse {
     genero?: string;
     modo?: string;
   };
-  confianca: number;
+  confidence: number;
   justificativa: string;
 }
 
@@ -44,7 +44,7 @@ Saída: {
   "pos": "AUX",
   "posDetalhada": "AUX",
   "features": { "tempo": "Imperf", "numero": "Sing", "pessoa": "1" },
-  "confianca": 0.95,
+  "confidence": 0.95,
   "justificativa": "Verbo auxiliar 'estar' no pretérito imperfeito, 1ª pessoa singular"
 }
 
@@ -55,7 +55,7 @@ Saída: {
   "pos": "VERB",
   "posDetalhada": "VERB",
   "features": { "tempo": "Perf", "numero": "Sing", "pessoa": "3" },
-  "confianca": 0.90,
+  "confidence": 0.90,
   "justificativa": "Neologismo derivado de 'Twitter', verbo regular terminação -ou (pretérito perfeito 3ª pessoa)"
 }
 
@@ -66,7 +66,7 @@ Saída: {
   "pos": "VERB",
   "posDetalhada": "VERB",
   "features": { "tempo": "Perf", "numero": "Sing", "pessoa": "3" },
-  "confianca": 0.92,
+  "confidence": 0.92,
   "justificativa": "Verbo regional gaúcho derivado de 'querência', pretérito perfeito 3ª pessoa"
 }
 
@@ -77,7 +77,7 @@ Saída: {
   "pos": "NOUN",
   "posDetalhada": "NOUN",
   "features": { "genero": "Fem", "numero": "Sing" },
-  "confianca": 0.98,
+  "confidence": 0.98,
   "justificativa": "Substantivo feminino singular, objeto cultural gaúcho para tomar mate"
 }
 
@@ -154,7 +154,7 @@ async function checkGeminiPOSCache(
       pos: data.pos || 'UNKNOWN',
       posDetalhada: data.pos_detalhada || 'UNKNOWN',
       features: data.features || {},
-      confianca: data.confianca || 0,
+      confidence: data.confidence || 0,
       justificativa: data.justificativa || ''
     };
   } catch (error) {
@@ -183,7 +183,7 @@ async function saveToGeminiPOSCache(
         pos: result.pos,
         pos_detalhada: result.posDetalhada,
         features: result.features,
-        confianca: result.confianca,
+        confidence: result.confidence,
         justificativa: result.justificativa,
         cached_at: new Date().toISOString(),
         hits_count: 0
@@ -260,7 +260,7 @@ async function annotateTokenWithGemini(
         posDetalhada: cached.posDetalhada,
         features: cached.features,
         source: 'cache',
-        confianca: cached.confianca
+        confidence: cached.confidence
       };
     }
     
@@ -331,7 +331,7 @@ async function annotateTokenWithGemini(
       posDetalhada: parsed.posDetalhada,
       features: parsed.features || {},
       source: 'gemini',
-      confianca: parsed.confianca
+      confidence: parsed.confidence
     };
     
   } catch (error) {
