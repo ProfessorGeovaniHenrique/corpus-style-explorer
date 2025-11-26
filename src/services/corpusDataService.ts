@@ -84,7 +84,7 @@ export async function getCorpusAnalysisResults(
     const { data: corpus, error: corpusError } = await supabase
       .from('corpora')
       .select('id, name')
-      .eq('normalized_name', corpusType === 'gaucho' ? 'gaucho_music' : 'nordestino_music')
+      .eq('normalized_name', corpusType)
       .single();
 
     if (corpusError || !corpus) {
@@ -345,7 +345,7 @@ export async function getCorpusStats(corpusType: 'gaucho' | 'nordestino') {
     const { data: corpus } = await supabase
       .from('corpora')
       .select('id, name')
-      .eq('normalized_name', corpusType === 'gaucho' ? 'gaucho_music' : 'nordestino_music')
+      .eq('normalized_name', corpusType)
       .single();
 
     if (!corpus) throw new Error('Corpus não encontrado');
