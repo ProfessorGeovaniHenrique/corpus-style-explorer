@@ -1,7 +1,7 @@
 import { 
   Key, Users, BarChart3, Database,
   BookOpen, Telescope, History, CircuitBoard, Activity, Upload,
-  Music, Library, Tags
+  Music, Library, Tags, Gauge, LayoutDashboard
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import {
@@ -30,6 +30,8 @@ const adminItems: NavItem[] = [
 ];
 
 const devItems: NavItem[] = [
+  { title: "Dashboard MVP", url: "/dashboard-mvp", icon: LayoutDashboard },
+  { title: "Dashboard Expandido", url: "/dashboard8", icon: Gauge },
   { title: "Importação de Dicionários", url: "/admin/dictionary-import", icon: Upload },
   { title: "Validação de Domínios Semânticos", url: "/admin/semantic-tagset-validation", icon: Tags },
   { title: "Enriquecimento Musical", url: "/music-enrichment", icon: Music },
