@@ -1,9 +1,12 @@
 import { createContext, useContext, useState, ReactNode, useCallback, useMemo, useEffect } from 'react';
 import { CorpusType } from '@/data/types/corpus-tools.types';
-import { CorpusCompleto } from '@/data/types/full-text-corpus.types';
+import { CorpusCompleto, SongEntry } from '@/data/types/full-text-corpus.types';
 import { SubcorpusMetadata } from '@/data/types/subcorpus.types';
-import { useCorpusCache } from './CorpusContext';
-import { extractSubcorpora } from '@/utils/subcorpusAnalysis';
+import { supabase } from '@/integrations/supabase/client';
+import { loadCorpusInChunks } from '@/services/corpusChunkService';
+import { createLogger } from '@/lib/loggerFactory';
+
+const log = createLogger('SubcorpusContext');
 
 export type SubcorpusMode = 'complete' | 'single' | 'compare';
 
@@ -84,9 +87,7 @@ const loadSavedSelection = (availableArtists: string[]): SubcorpusSelection | nu
 };
 
 export function SubcorpusProvider({ children }: { children: ReactNode }) {
-  const { getFullTextCache, isLoading: isCacheLoading } = useCorpusCache();
-  
-  // Estado de seleção inicial (será atualizado após carregar artistas)
+  // Estado de seleção inicial
   const [selection, setSelectionState] = useState<SubcorpusSelection>({
     mode: 'complete',
     corpusBase: 'gaucho',
@@ -94,9 +95,14 @@ export function SubcorpusProvider({ children }: { children: ReactNode }) {
     artistaB: null
   });
   
-  // Cache de corpus e subcorpora
+  // Estados de loading e corpus
+  const [isLoading, setIsLoading] = useState(false);
   const [fullCorpus, setFullCorpus] = useState<CorpusCompleto | null>(null);
   const [subcorpora, setSubcorpora] = useState<SubcorpusMetadata[]>([]);
+  const [availableCorpora, setAvailableCorpora] = useState<Array<{ id: string; name: string; normalized_name: string }>>([]);
+  
+  // Estado de progresso para carregamento de corpus completo
+  const [loadProgress, setLoadProgress] = useState<{ loaded: number; total: number; percentage: number }>({ loaded: 0, total: 0, percentage: 0 });
   
   // Salvar seleção no localStorage quando mudar
   const setSelection = useCallback((newSelection: SubcorpusSelection) => {
@@ -108,35 +114,84 @@ export function SubcorpusProvider({ children }: { children: ReactNode }) {
     }
   }, []);
   
-  // Carregar corpus base e restaurar seleção salva
+  // Carregar corpora disponíveis ao montar
   useEffect(() => {
-    const loadCorpus = async () => {
+    const loadAvailableCorpora = async () => {
       try {
-        if (selection.corpusBase === 'gaucho' || selection.corpusBase === 'nordestino') {
-          const cache = await getFullTextCache(selection.corpusBase);
-          setFullCorpus(cache.corpus);
-          
-          // Extrair subcorpora
-          const extracted = extractSubcorpora(cache.corpus);
-          setSubcorpora(extracted);
-          
-          // Após carregar artistas, tentar restaurar seleção salva
-          const artistasDisponiveis = extracted.map(s => s.artista);
-          const savedSelection = loadSavedSelection(artistasDisponiveis);
-          if (savedSelection && savedSelection.corpusBase === selection.corpusBase) {
-            setSelectionState(savedSelection);
-            console.log('✅ Seleção anterior restaurada:', savedSelection);
-          }
-          
-          console.log(`✅ Corpus ${selection.corpusBase} carregado: ${extracted.length} artistas`);
-        }
+        const { data: corpora, error } = await supabase
+          .from('corpora')
+          .select('id, name, normalized_name')
+          .order('name');
+        
+        if (error) throw error;
+        setAvailableCorpora(corpora || []);
+        log.info('Available corpora loaded', { count: corpora?.length });
       } catch (error) {
-        console.error('Erro ao carregar corpus:', error);
+        log.error('Failed to load available corpora', error as Error);
       }
     };
     
-    loadCorpus();
-  }, [selection.corpusBase, getFullTextCache]);
+    loadAvailableCorpora();
+  }, []);
+  
+  // Carregar artistas quando corpus base mudar
+  useEffect(() => {
+    const loadArtists = async () => {
+      try {
+        setIsLoading(true);
+        
+        // Buscar corpus_id pelo normalized_name
+        const corpus = availableCorpora.find(c => c.normalized_name === selection.corpusBase);
+        if (!corpus) {
+          log.warn('Corpus not found', { corpusBase: selection.corpusBase });
+          return;
+        }
+        
+        // Carregar artistas do corpus
+        const { data: artists, error } = await supabase
+          .from('artists')
+          .select('id, name')
+          .eq('corpus_id', corpus.id)
+          .order('name');
+        
+        if (error) throw error;
+        
+        // Criar metadados básicos (sem contar músicas ainda)
+        const metadata: SubcorpusMetadata[] = (artists || []).map(artist => ({
+          id: artist.id,
+          artista: artist.name,
+          totalMusicas: 0, // Será carregado sob demanda
+          totalPalavras: 0,
+          totalPalavrasUnicas: 0,
+          riquezaLexical: 0,
+          albums: []
+        }));
+        
+        setSubcorpora(metadata);
+        
+        // Restaurar seleção salva se aplicável
+        const artistNames = metadata.map(m => m.artista);
+        const savedSelection = loadSavedSelection(artistNames);
+        if (savedSelection && savedSelection.corpusBase === selection.corpusBase) {
+          setSelectionState(savedSelection);
+          log.info('Saved selection restored', { 
+            mode: savedSelection.mode, 
+            corpusBase: savedSelection.corpusBase 
+          });
+        }
+        
+        log.info('Artists loaded', { corpusBase: selection.corpusBase, count: artists?.length });
+      } catch (error) {
+        log.error('Failed to load artists', error as Error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    if (availableCorpora.length > 0) {
+      loadArtists();
+    }
+  }, [selection.corpusBase, availableCorpora]);
   
   // Lista de artistas disponíveis
   const availableArtists = useMemo(() => {
@@ -153,38 +208,104 @@ export function SubcorpusProvider({ children }: { children: ReactNode }) {
   
   // Função para obter corpus filtrado
   const getFilteredCorpus = useCallback(async (): Promise<CorpusCompleto> => {
-    if (!fullCorpus) {
-      throw new Error('Corpus ainda não carregado');
+    // Buscar corpus_id
+    const corpus = availableCorpora.find(c => c.normalized_name === selection.corpusBase);
+    if (!corpus) {
+      throw new Error('Corpus não encontrado');
     }
     
-    // Modo completo: retorna corpus inteiro
+    // Modo completo: carregar corpus inteiro em chunks
     if (selection.mode === 'complete') {
-      return fullCorpus;
-    }
-    
-    // Modo single: filtra por artistaA
-    if (selection.mode === 'single' && selection.artistaA) {
-      const filteredMusicas = fullCorpus.musicas.filter(
-        m => m.metadata.artista === selection.artistaA
+      if (fullCorpus) return fullCorpus;
+      
+      log.info('Loading full corpus in chunks', { corpusBase: selection.corpusBase });
+      
+      const loadedCorpus = await loadCorpusInChunks(
+        corpus.id,
+        selection.corpusBase,
+        {
+          chunkSize: 1000,
+          onProgress: (loaded, total, percentage) => {
+            setLoadProgress({ loaded, total, percentage });
+            log.info('Loading progress', { loaded, total, percentage });
+          }
+        }
       );
       
-      const totalPalavras = filteredMusicas.reduce(
-        (sum, m) => sum + m.palavras.length, 
-        0
-      );
+      setFullCorpus(loadedCorpus);
+      return loadedCorpus;
+    }
+    
+    // Modo single: carregar apenas músicas do artista selecionado
+    if (selection.mode === 'single' && selection.artistaA) {
+      log.info('Loading songs for artist', { artist: selection.artistaA });
+      
+      const { data: songs, error } = await supabase
+        .from('songs')
+        .select(`
+          id,
+          title,
+          lyrics,
+          release_year,
+          enrichment_source,
+          artists!inner (
+            id,
+            name
+          )
+        `)
+        .eq('artists.name', selection.artistaA)
+        .eq('artists.corpus_id', corpus.id)
+        .not('lyrics', 'is', null);
+      
+      if (error) throw error;
+      
+      const songEntries: SongEntry[] = [];
+      let posicaoGlobal = 0;
+      
+      for (const song of songs || []) {
+        if (!song.lyrics || !song.artists) continue;
+        
+        const letra = song.lyrics.trim();
+        const linhas = letra.split('\n').filter(l => l.trim());
+        const palavras = letra
+          .toLowerCase()
+          .replace(/[^\wáéíóúâêôãõàèìòùäëïöüçñ\s]/g, ' ')
+          .split(/\s+/)
+          .filter(p => p.length > 0);
+        
+        if (palavras.length === 0) continue;
+        
+        songEntries.push({
+          metadata: {
+            artista: song.artists.name,
+            compositor: undefined,
+            album: '',
+            musica: song.title,
+            ano: song.release_year || undefined,
+            fonte: (song.enrichment_source as any) || 'manual'
+          },
+          letra,
+          linhas,
+          palavras,
+          posicaoNoCorpus: posicaoGlobal
+        });
+        
+        posicaoGlobal += palavras.length;
+      }
+      
+      const totalPalavras = songEntries.reduce((sum, s) => sum + s.palavras.length, 0);
       
       return {
-        ...fullCorpus,
-        totalMusicas: filteredMusicas.length,
+        tipo: selection.corpusBase,
+        totalMusicas: songEntries.length,
         totalPalavras,
-        musicas: filteredMusicas
+        musicas: songEntries
       };
     }
     
-    // Modo compare: usa filtros do CorpusContext
-    // Por enquanto retorna corpus completo, será implementado na Fase de Keywords
-    return fullCorpus;
-  }, [fullCorpus, selection]);
+    // Modo compare: similar ao single, mas carrega dois artistas
+    throw new Error('Modo compare ainda não implementado');
+  }, [selection, availableCorpora, fullCorpus]);
   
   const value: SubcorpusContextType = {
     selection,
@@ -193,7 +314,7 @@ export function SubcorpusProvider({ children }: { children: ReactNode }) {
     currentMetadata,
     availableArtists,
     subcorpora,
-    isLoading: isCacheLoading
+    isLoading
   };
   
   return (

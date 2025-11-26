@@ -12,6 +12,7 @@ import { createLogger } from '@/lib/loggerFactory';
 const log = createLogger('catalogCorpusService');
 
 export interface CatalogCorpusFilters {
+  corpusId?: string;
   artistIds?: string[];
   artistNames?: string[];
   years?: number[];
@@ -51,6 +52,10 @@ export async function loadCorpusFromCatalog(
       .not('lyrics', 'is', null);
     
     // Aplicar filtros
+    if (filters?.corpusId) {
+      query = query.eq('artists.corpus_id', filters.corpusId);
+    }
+    
     if (filters?.artistIds && filters.artistIds.length > 0) {
       query = query.in('artist_id', filters.artistIds);
     }
@@ -178,12 +183,18 @@ export async function hasCatalogCorpus(corpusType: CorpusType): Promise<boolean>
 /**
  * Obtém lista de artistas disponíveis no catálogo
  */
-export async function getCatalogArtists(corpusType: CorpusType): Promise<string[]> {
+export async function getCatalogArtists(corpusId?: string): Promise<string[]> {
   try {
-    const { data: artists, error } = await supabase
+    let query = supabase
       .from('artists')
       .select('name')
       .order('name');
+    
+    if (corpusId) {
+      query = query.eq('corpus_id', corpusId);
+    }
+    
+    const { data: artists, error } = await query;
     
     if (error) {
       log.error('Failed to load artists', error);
@@ -194,5 +205,47 @@ export async function getCatalogArtists(corpusType: CorpusType): Promise<string[
   } catch (error) {
     log.error('Error loading artists', error as Error);
     return [];
+  }
+}
+
+/**
+ * Obtém estatísticas de um corpus
+ */
+export async function getCorpusStats(corpusId: string): Promise<{
+  totalSongs: number;
+  songsWithLyrics: number;
+  totalArtists: number;
+}> {
+  try {
+    const { count: totalSongs, error: countError } = await supabase
+      .from('songs')
+      .select('*', { count: 'exact', head: true })
+      .eq('artists.corpus_id', corpusId);
+    
+    if (countError) throw countError;
+    
+    const { count: songsWithLyrics, error: lyricsError } = await supabase
+      .from('songs')
+      .select('*', { count: 'exact', head: true })
+      .eq('artists.corpus_id', corpusId)
+      .not('lyrics', 'is', null);
+    
+    if (lyricsError) throw lyricsError;
+    
+    const { data: artists, error: artistsError } = await supabase
+      .from('artists')
+      .select('id', { count: 'exact', head: true })
+      .eq('corpus_id', corpusId);
+    
+    if (artistsError) throw artistsError;
+    
+    return {
+      totalSongs: totalSongs || 0,
+      songsWithLyrics: songsWithLyrics || 0,
+      totalArtists: artists?.length || 0
+    };
+  } catch (error) {
+    log.error('Failed to get corpus stats', error as Error);
+    throw error;
   }
 }

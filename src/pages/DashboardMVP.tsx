@@ -9,14 +9,13 @@ import { SubcorpusIndicator } from "@/components/corpus/SubcorpusIndicator";
 import { TabApresentacao } from "@/components/mvp/TabApresentacao";
 import { TabTools } from "@/components/mvp/TabTools";
 import { TabValidation } from "@/components/mvp/TabValidation";
-import { TabSubcorpus } from "@/components/mvp/TabSubcorpus";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { CorpusProvider } from "@/contexts/CorpusContext";
 import { SubcorpusProvider } from "@/contexts/SubcorpusContext";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Lock } from "lucide-react";
 
-type TabType = 'apresentacao' | 'tools' | 'subcorpus' | 'validation';
+type TabType = 'apresentacao' | 'tools' | 'validation';
 
 export default function DashboardMVP() {
   const [activeTab, setActiveTab] = useState<TabType>('apresentacao');
@@ -37,7 +36,7 @@ export default function DashboardMVP() {
   
   // Proteger: Se usuário não autenticado tentar acessar aba restrita, voltar para apresentação
   useEffect(() => {
-    if (!loading && !user && (activeTab === 'tools' || activeTab === 'subcorpus' || activeTab === 'validation')) {
+    if (!loading && !user && (activeTab === 'tools' || activeTab === 'validation')) {
       log.warn('Unauthorized access attempt to restricted tab', { activeTab });
       setActiveTab('apresentacao');
     }
@@ -79,19 +78,6 @@ export default function DashboardMVP() {
                   <Lock className="h-4 w-4" />
                   <AlertDescription className="ml-2">
                     Faça login para acessar as ferramentas de análise.
-                  </AlertDescription>
-                </Alert>
-              )
-            )}
-            
-            {activeTab === 'subcorpus' && (
-              hasToolsAccess() ? (
-                <TabSubcorpus />
-              ) : (
-                <Alert className="max-w-2xl mx-auto">
-                  <Lock className="h-4 w-4" />
-                  <AlertDescription className="ml-2">
-                    Faça login para acessar a análise de subcorpora.
                   </AlertDescription>
                 </Alert>
               )

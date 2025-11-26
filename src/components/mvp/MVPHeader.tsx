@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 import { Link } from "react-router-dom";
 import { AchievementsBadge } from "@/components/achievements/AchievementsBadge";
 
-type TabType = 'apresentacao' | 'tools' | 'subcorpus' | 'validation';
+type TabType = 'apresentacao' | 'tools' | 'validation';
 
 interface MVPHeaderProps {
   activeTab?: TabType;
@@ -73,7 +73,7 @@ export function MVPHeader({
       {/* Seção 2: Navegação (apenas se props forem fornecidas) */}
       {showNavigation && <div className="border-t border-border/50">
           <nav className="container-academic py-2 md:py-3">
-            <div className="grid w-full max-w-4xl mx-auto grid-cols-4 gap-2" data-tour="header-tabs">
+            <div className="grid w-full max-w-4xl mx-auto grid-cols-3 gap-2" data-tour="header-tabs">
               {/* Aba Apresentação - Sempre visível */}
               <button 
                 onClick={() => onTabChange('apresentacao')} 
@@ -113,45 +113,6 @@ export function MVPHeader({
                       <p className="font-semibold">🔒 Acesso Restrito</p>
                       <p className="text-xs">
                         Faça login para acessar as ferramentas de análise linguística.
-                      </p>
-                    </div>
-                  </TooltipContent>
-                </Tooltip>
-              )}
-              
-              {/* Subcorpus Tab */}
-              {hasToolsAccess ? (
-                <button 
-                  onClick={() => onTabChange('subcorpus')}
-                  className={cn(
-                    "tabs-academic-trigger",
-                    activeTab === 'subcorpus' && "active"
-                  )}
-                  data-tour="header-tab-subcorpus"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M9 18V5l12-2v13"></path>
-                    <circle cx="6" cy="18" r="3"></circle>
-                    <circle cx="18" cy="16" r="3"></circle>
-                  </svg>
-                  <span className="hidden sm:inline">Subcorpora</span>
-                </button>
-              ) : (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      disabled
-                      className="tabs-academic-trigger opacity-50 cursor-not-allowed"
-                    >
-                      <Lock className="w-4 h-4 text-muted-foreground" />
-                      <span className="hidden sm:inline">Subcorpora</span>
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom" className="max-w-xs">
-                    <div className="space-y-1">
-                      <p className="font-semibold">🔒 Acesso Restrito</p>
-                      <p className="text-xs">
-                        Faça login para acessar a análise de subcorpora.
                       </p>
                     </div>
                   </TooltipContent>
