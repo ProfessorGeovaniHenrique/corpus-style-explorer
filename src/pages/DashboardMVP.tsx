@@ -5,18 +5,15 @@ import { createLogger } from "@/lib/loggerFactory";
 const log = createLogger('DashboardMVP');
 import { MVPHeader } from "@/components/mvp/MVPHeader";
 import { MVPFooter } from "@/components/mvp/MVPFooter";
-import { SubcorpusIndicator } from "@/components/corpus/SubcorpusIndicator";
 import { TabApresentacao } from "@/components/mvp/TabApresentacao";
 import { TabTools } from "@/components/mvp/TabTools";
 import { TabValidation } from "@/components/mvp/TabValidation";
-import { TabSubcorpus } from "@/components/mvp/TabSubcorpus";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { CorpusProvider } from "@/contexts/CorpusContext";
-import { SubcorpusProvider } from "@/contexts/SubcorpusContext";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Lock } from "lucide-react";
 
-type TabType = 'apresentacao' | 'tools' | 'subcorpus' | 'validation';
+type TabType = 'apresentacao' | 'tools' | 'validation';
 
 export default function DashboardMVP() {
   const [activeTab, setActiveTab] = useState<TabType>('apresentacao');
@@ -37,7 +34,7 @@ export default function DashboardMVP() {
   
   // Proteger: Se usuário não autenticado tentar acessar aba restrita, voltar para apresentação
   useEffect(() => {
-    if (!loading && !user && (activeTab === 'tools' || activeTab === 'subcorpus' || activeTab === 'validation')) {
+    if (!loading && !user && (activeTab === 'tools' || activeTab === 'validation')) {
       log.warn('Unauthorized access attempt to restricted tab', { activeTab });
       setActiveTab('apresentacao');
     }
@@ -45,7 +42,6 @@ export default function DashboardMVP() {
 
   return (
     <CorpusProvider>
-      <SubcorpusProvider>
         <div className="min-h-screen flex flex-col bg-background">
           <MVPHeader 
             activeTab={activeTab} 
@@ -55,9 +51,6 @@ export default function DashboardMVP() {
             hasToolsAccess={hasToolsAccess()}
             hasTestsAccess={hasTestsAccess()}
           />
-          
-          {/* Badge Flutuante de Subcorpus Ativo */}
-          <SubcorpusIndicator />
 
       {/* Conteúdo scrollável com espaçamento ajustado para header unificado */}
       <main className="container-academic py-4 md:py-8 mt-[180px] md:mt-[200px]">
@@ -84,19 +77,6 @@ export default function DashboardMVP() {
               )
             )}
             
-            {activeTab === 'subcorpus' && (
-              hasToolsAccess() ? (
-                <TabSubcorpus />
-              ) : (
-                <Alert className="max-w-2xl mx-auto">
-                  <Lock className="h-4 w-4" />
-                  <AlertDescription className="ml-2">
-                    Faça login para acessar a análise de subcorpora.
-                  </AlertDescription>
-                </Alert>
-              )
-            )}
-            
             {activeTab === 'validation' && (
               hasTestsAccess() ? (
                 <TabValidation />
@@ -115,7 +95,6 @@ export default function DashboardMVP() {
 
           <MVPFooter />
         </div>
-      </SubcorpusProvider>
     </CorpusProvider>
   );
 }
