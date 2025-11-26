@@ -36,7 +36,7 @@ export function useThreeSemanticData(
   const { nodes, stats, connections } = useMemo(() => {
     // Se não houver dados, retornar vazio
     if (!dominiosData || dominiosData.length === 0) {
-      return { nodes: [], stats: null, connections: [] };
+      return { nodes: [], stats: [], connections: [] };
     }
 
     // ===== FASE 1: Converter dados brutos =====
@@ -61,11 +61,16 @@ export function useThreeSemanticData(
     const allNodes = [...domainNodes, ...wordNodes];
     
     // ===== FASE 5: Calcular estatísticas =====
-    const domainStats = rawDomains.length > 0 ? {
-      totalDomains: rawDomains.length,
-      avgLexicalRichness: rawDomains.reduce((a, d) => a + d.lexicalRichness, 0) / rawDomains.length,
-      avgTextualWeight: rawDomains.reduce((a, d) => a + d.textualWeight, 0) / rawDomains.length
-    } : null;
+    const domainStats = dominiosData.map(d => ({
+      domain: d.dominio,
+      color: d.cor,
+      totalFrequency: d.ocorrencias,
+      normalizedFrequency: parseFloat(((d.ocorrencias / (dominiosData.reduce((sum, dom) => sum + dom.ocorrencias, 0) || 1)) * 100).toFixed(2)),
+      lexicalRichness: d.riquezaLexical / d.ocorrencias,
+      logLikelihood: d.avgLL,
+      miScore: d.avgMI,
+      wordCount: d.palavras.length
+    }));
     
     // ===== FASE 6: Calcular conexões =====
     const connections = calculateDomainConnections();
