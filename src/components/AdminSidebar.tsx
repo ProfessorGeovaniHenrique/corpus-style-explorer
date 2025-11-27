@@ -31,7 +31,7 @@ const adminItems: NavItem[] = [
 
 const devItems: NavItem[] = [
   { title: "Dashboard MVP", url: "/dashboard-mvp", icon: LayoutDashboard },
-  { title: "Dashboard Expandido", url: "/dashboard8", icon: Gauge },
+  { title: "Dashboard Expandido", url: "/dashboard-expandido", icon: Gauge },
   { title: "Importação de Dicionários", url: "/admin/dictionary-import", icon: Upload },
   { title: "Validação de Domínios Semânticos", url: "/admin/semantic-tagset-validation", icon: Tags },
   { title: "Enriquecimento Musical", url: "/music-enrichment", icon: Music },
