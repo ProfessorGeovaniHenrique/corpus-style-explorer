@@ -29,6 +29,7 @@ import { createLogger } from "@/lib/loggerFactory";
 import { useSemanticAnnotationJob } from "@/hooks/useSemanticAnnotationJob";
 import { useJobSongsProgress } from "@/hooks/useJobSongsProgress";
 import { SongsProgressList } from "@/components/visualization/SongsProgressList";
+import { ReprocessingPanel } from "@/components/expanded/ReprocessingPanel";
 
 const log = createLogger('TabLexicalProfile');
 
@@ -577,6 +578,11 @@ export function TabLexicalProfile({ analyzeRef }: TabLexicalProfileProps) {
               </TabsContent>
             )}
           </Tabs>
+
+          {/* Painel de reprocessamento */}
+          <div className="mt-8">
+            <ReprocessingPanel />
+          </div>
         </>
       )}
     </div>

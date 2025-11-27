@@ -2087,6 +2087,66 @@ export type Database = {
         }
         Relationships: []
       }
+      semantic_reprocess_jobs: {
+        Row: {
+          artist_id: string | null
+          chunks_processed: number | null
+          completed_at: string | null
+          created_at: string | null
+          criteria: Json
+          current_offset: number | null
+          error_message: string | null
+          failed: number | null
+          id: string
+          improved: number | null
+          last_chunk_at: string | null
+          processed: number | null
+          started_at: string | null
+          status: string
+          total_candidates: number | null
+          unchanged: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          artist_id?: string | null
+          chunks_processed?: number | null
+          completed_at?: string | null
+          created_at?: string | null
+          criteria?: Json
+          current_offset?: number | null
+          error_message?: string | null
+          failed?: number | null
+          id?: string
+          improved?: number | null
+          last_chunk_at?: string | null
+          processed?: number | null
+          started_at?: string | null
+          status?: string
+          total_candidates?: number | null
+          unchanged?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          artist_id?: string | null
+          chunks_processed?: number | null
+          completed_at?: string | null
+          created_at?: string | null
+          criteria?: Json
+          current_offset?: number | null
+          error_message?: string | null
+          failed?: number | null
+          id?: string
+          improved?: number | null
+          last_chunk_at?: string | null
+          processed?: number | null
+          started_at?: string | null
+          status?: string
+          total_candidates?: number | null
+          unchanged?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       semantic_tagset: {
         Row: {
           aprovado_em: string | null
