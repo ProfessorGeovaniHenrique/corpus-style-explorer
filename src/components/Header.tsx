@@ -4,7 +4,7 @@ import { useAuthContext } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { User, LogOut, Users, Key, BarChart3, Database, BookOpen, CircuitBoard, History, Telescope, Moon, Sun, Music, Library, Tags } from "lucide-react";
+import { User, LogOut, Users, Key, BarChart3, Database, BookOpen, CircuitBoard, History, Telescope, Moon, Sun, Music, Library, Tags, Activity } from "lucide-react";
 import logoVersoAustral from "@/assets/logo-versoaustral-completo.png";
 import logoUfrgs from "@/assets/logo-ufrgs-oficial.png";
 import logoPpglet from "@/assets/logo-ppglet.png";
@@ -120,6 +120,12 @@ const Header = () => {
                     <Tags className="mr-2 h-4 w-4" />
                     <span>Validação de Domínios</span>
                     {isActiveRoute("/admin/semantic-tagset-validation") && <span className="ml-auto text-xs">●</span>}
+                  </DropdownMenuItem>
+                  
+                  <DropdownMenuItem onClick={() => navigate("/admin/semantic-pipeline")} className={isActiveRoute("/admin/semantic-pipeline") ? "bg-accent text-accent-foreground" : ""}>
+                    <Activity className="mr-2 h-4 w-4" />
+                    <span>Pipeline Semântica</span>
+                    {isActiveRoute("/admin/semantic-pipeline") && <span className="ml-auto text-xs">●</span>}
                   </DropdownMenuItem>
                   
                   <DropdownMenuSeparator />
