@@ -2,7 +2,7 @@ import { useState } from "react";
 import { KeywordEntry, CorpusType, CorpusWord } from "@/data/types/corpus-tools.types";
 import { parseTSVCorpus } from "@/lib/corpusParser";
 import { generateKeywords } from "@/services/keywordService";
-import { loadFullTextCorpus } from "@/lib/fullTextParser";
+import { loadCorpusFromCatalog } from "@/services/catalogCorpusService";
 
 export function useKeywords() {
   const [keywords, setKeywords] = useState<KeywordEntry[]>([]);
@@ -27,19 +27,20 @@ export function useKeywords() {
           const [corpusBase, artist] = id.split('-');
           console.log(`📚 Carregando subcorpus: ${corpusBase} - Artista: ${artist}`);
           
-          const fullCorpus = await loadFullTextCorpus(corpusBase as CorpusType);
+          // Carregar DIRETAMENTE do catálogo com filtro de artista
+          const fullCorpus = await loadCorpusFromCatalog(corpusBase as CorpusType, {
+            artistNames: [artist]
+          });
           
-          // Filtrar músicas do artista
-          const artistSongs = fullCorpus.musicas.filter(m => m.metadata.artista === artist);
-          console.log(`🎵 Músicas de ${artist}: ${artistSongs.length}`);
+          console.log(`🎵 Músicas de ${artist}: ${fullCorpus.musicas.length}`);
           
-          if (artistSongs.length === 0) {
+          if (fullCorpus.musicas.length === 0) {
             throw new Error(`Nenhuma música encontrada para o artista ${artist}`);
           }
           
           // Converter para CorpusWord[] contando frequências
           const wordFreqMap = new Map<string, number>();
-          artistSongs.forEach(song => {
+          fullCorpus.musicas.forEach(song => {
             song.palavras.forEach(word => {
               const cleaned = word.toLowerCase();
               if (cleaned) {

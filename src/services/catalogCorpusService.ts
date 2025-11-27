@@ -30,7 +30,7 @@ export async function loadCorpusFromCatalog(
   log.info('Loading corpus from catalog', { corpusType, filters });
   
   try {
-    // Query base: buscar songs com lyrics não-nulas
+    // Query base: buscar songs com lyrics não-nulas E filtrar pelo corpusType
     let query = supabase
       .from('songs')
       .select(`
@@ -49,7 +49,8 @@ export async function loadCorpusFromCatalog(
           )
         )
       `)
-      .not('lyrics', 'is', null);
+      .not('lyrics', 'is', null)
+      .eq('artists.corpora.normalized_name', corpusType); // ← FILTRO OBRIGATÓRIO pelo corpus type
     
     // Aplicar filtros
     if (filters?.corpusId) {
