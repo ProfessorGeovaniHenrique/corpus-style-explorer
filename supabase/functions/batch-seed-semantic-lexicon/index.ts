@@ -43,11 +43,13 @@ serve(async (req) => {
     const offset = body.offset || 0;
     const source = body.source || 'all';
 
-    console.log(`[batch-seed] Mode: ${mode}, Limit: ${limit}, Offset: ${offset}, Source: ${source}`);
+    console.log(`🚀 [batch-seed] INÍCIO - Mode: ${mode}, Limit: ${limit}, Offset: ${offset}, Source: ${source}`);
 
     // MODO ANALYZE: Identifica candidatos sem processar
     if (mode === 'analyze') {
+      console.log(`🔍 [batch-seed] ANALYZE - Buscando candidatos...`);
       const candidates = await getCandidateWords(supabase, limit, offset, source);
+      console.log(`✅ [batch-seed] ANALYZE - Encontrados ${candidates.length} candidatos`);
       
       return new Response(JSON.stringify({
         mode: 'analyze',
@@ -64,9 +66,13 @@ serve(async (req) => {
     // MODO SEED: Processa chunk e auto-invoca para próximo
     if (mode === 'seed' || mode === 'continue') {
       const startTime = Date.now();
+      console.log(`⚙️ [batch-seed] PROCESSING - Offset: ${offset}, Limit: ${limit}`);
+      
       const candidates = await getCandidateWords(supabase, limit, offset, source);
+      console.log(`📥 [batch-seed] Candidatos obtidos: ${candidates.length}`);
       
       if (candidates.length === 0) {
+        console.log(`🏁 [batch-seed] COMPLETE - Nenhum candidato restante`);
         clearMemoryCache(); // Limpa cache ao finalizar
         return new Response(JSON.stringify({
           mode: 'complete',
@@ -79,13 +85,22 @@ serve(async (req) => {
       }
 
       // Processar palavras
+      console.log(`🔄 [batch-seed] Iniciando processamento de ${candidates.length} palavras...`);
       const results = await processWordsChunk(candidates, supabase);
+      
+      const morfologico = results.filter(r => r.fonte === 'morfologico').length;
+      const heranca = results.filter(r => r.fonte === 'heranca').length;
+      const gemini = results.filter(r => r.fonte === 'gemini').length;
+      const failed = results.filter(r => !r.success).length;
+      
+      console.log(`✅ [batch-seed] Chunk concluído: Morfológico=${morfologico}, Herança=${heranca}, Gemini=${gemini}, Falhas=${failed}`);
 
       // Auto-invocar para próximo chunk
       const nextOffset = offset + candidates.length;
       const hasMore = candidates.length === limit;
 
       if (hasMore) {
+        console.log(`🔁 [batch-seed] Auto-invocando próximo chunk: offset=${nextOffset}`);
         // Fire-and-forget: invoca próximo chunk
         fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/batch-seed-semantic-lexicon`, {
           method: 'POST',
@@ -99,7 +114,9 @@ serve(async (req) => {
             offset: nextOffset,
             source
           })
-        }).catch(err => console.error('[batch-seed] Auto-invoke failed:', err));
+        }).catch(err => console.error('❌ [batch-seed] Auto-invoke failed:', err));
+      } else {
+        console.log(`🎉 [batch-seed] Último chunk processado!`);
       }
 
       return new Response(JSON.stringify({
@@ -109,10 +126,10 @@ serve(async (req) => {
         next_offset: nextOffset,
         has_more: hasMore,
         results: {
-          morfologico: results.filter(r => r.fonte === 'morfologico').length,
-          heranca: results.filter(r => r.fonte === 'heranca').length,
-          gemini: results.filter(r => r.fonte === 'gemini').length,
-          failed: results.filter(r => !r.success).length
+          morfologico,
+          heranca,
+          gemini,
+          failed
         },
         processing_time_ms: Date.now() - startTime
       }), {
@@ -126,9 +143,11 @@ serve(async (req) => {
     });
 
   } catch (error) {
-    console.error('[batch-seed] Error:', error);
+    console.error('❌ [batch-seed] ERRO FATAL:', error);
+    console.error('❌ [batch-seed] Stack:', error instanceof Error ? error.stack : 'No stack');
     return new Response(JSON.stringify({ 
-      error: error instanceof Error ? error.message : 'Unknown error' 
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }

@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import { Play, Trash2, Database } from 'lucide-react';
+import { Play, Trash2, Database, Activity } from 'lucide-react';
 import { useBatchSeedingExecution } from '@/hooks/useBatchSeedingExecution';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -52,7 +52,7 @@ export function BatchSeedingControl({ semanticLexiconCount, status }: BatchSeedi
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-3 gap-4">
           <div className="space-y-1">
             <p className="text-sm text-muted-foreground">Entradas no Léxico</p>
             <p className="text-2xl font-bold">{semanticLexiconCount.toLocaleString()}</p>
@@ -61,7 +61,25 @@ export function BatchSeedingControl({ semanticLexiconCount, status }: BatchSeedi
             <p className="text-sm text-muted-foreground">Meta</p>
             <p className="text-2xl font-bold">2.000+</p>
           </div>
+          <div className="space-y-1">
+            <p className="text-sm text-muted-foreground">Restantes</p>
+            <p className="text-2xl font-bold text-muted-foreground">
+              ~{Math.max(0, 2000 - semanticLexiconCount).toLocaleString()}
+            </p>
+          </div>
         </div>
+
+        {isExecuting && (
+          <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
+            <Activity className="h-4 w-4 animate-pulse text-primary" />
+            <div className="flex-1">
+              <p className="text-sm font-medium">Processamento em andamento</p>
+              <p className="text-xs text-muted-foreground">
+                Aplicando regras morfológicas e classificação Gemini batch
+              </p>
+            </div>
+          </div>
+        )}
 
         <div className="space-y-2">
           <div className="flex items-center justify-between text-sm">

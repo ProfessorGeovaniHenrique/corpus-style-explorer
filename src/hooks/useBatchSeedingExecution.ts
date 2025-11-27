@@ -26,44 +26,52 @@ export function useBatchSeedingExecution() {
     setLogs([]);
     setProgress(0);
     
-    addLog('Iniciando batch seeding do léxico semântico...', 'info');
+    addLog('🚀 Iniciando batch seeding do léxico semântico...', 'info');
 
     try {
-      // Invoke edge function
+      // Invoke edge function com parâmetros corretos
       const { data, error } = await supabase.functions.invoke('batch-seed-semantic-lexicon', {
         body: {
-          wave: 1, // Start with wave 1
-          chunkSize: 50
+          mode: 'seed',
+          limit: 50,
+          offset: 0,
+          source: 'all'
         }
       });
 
       if (error) {
-        addLog(`Erro ao executar batch seeding: ${error.message}`, 'error');
+        addLog(`❌ Erro ao executar batch seeding: ${error.message}`, 'error');
         toast.error('Erro ao executar batch seeding');
         throw error;
       }
 
-      addLog(`Batch seeding iniciado: ${data.message}`, 'success');
-      
-      // Start polling for progress
-      const jobId = data.jobId;
-      if (jobId) {
-        pollJobProgress(jobId);
-      } else {
+      // Parse resposta correta da edge function
+      if (data.mode === 'processing') {
+        addLog(`✅ Chunk processado: ${data.chunk_processed} palavras`, 'success');
+        addLog(`📊 Morfológico: ${data.results.morfologico}, Herança: ${data.results.heranca}, Gemini: ${data.results.gemini}`, 'info');
+        if (data.results.failed > 0) {
+          addLog(`⚠️ Falhas: ${data.results.failed}`, 'warning');
+        }
+        
+        // Iniciar polling de progresso
+        pollJobProgress();
+      } else if (data.mode === 'complete') {
+        addLog('✅ Batch seeding concluído!', 'success');
         setProgress(100);
-        addLog('Batch seeding concluído', 'success');
         toast.success('Batch seeding concluído com sucesso');
         setIsExecuting(false);
       }
 
     } catch (error) {
       console.error('Batch seeding error:', error);
-      addLog(`Erro fatal: ${error}`, 'error');
+      addLog(`❌ Erro fatal: ${error}`, 'error');
       setIsExecuting(false);
     }
   };
 
-  const pollJobProgress = async (jobId: string) => {
+  const pollJobProgress = async () => {
+    let previousCount = 0;
+    
     const pollInterval = setInterval(async () => {
       try {
         const { count: lexiconCount, error } = await supabase
@@ -77,18 +85,25 @@ export function useBatchSeedingExecution() {
         const newProgress = Math.min((currentCount / estimatedTotal) * 100, 100);
         
         setProgress(newProgress);
-        addLog(`Progresso: ${currentCount}/${estimatedTotal} palavras processadas`, 'info');
+        
+        // Só loga se houve mudança
+        if (currentCount !== previousCount) {
+          const delta = currentCount - previousCount;
+          addLog(`📈 Progresso: ${currentCount}/${estimatedTotal} palavras (+${delta})`, 'info');
+          previousCount = currentCount;
+        }
 
-        if (newProgress >= 100) {
+        // Considera completo quando atingir 95% ou mais (2000 palavras)
+        if (newProgress >= 95) {
           clearInterval(pollInterval);
-          addLog('Batch seeding concluído com sucesso!', 'success');
-          toast.success('Batch seeding concluído');
+          addLog('✅ Batch seeding concluído com sucesso!', 'success');
+          toast.success(`Batch seeding concluído: ${currentCount} palavras processadas`);
           setIsExecuting(false);
         }
       } catch (error) {
         console.error('Polling error:', error);
         clearInterval(pollInterval);
-        addLog('Erro ao monitorar progresso', 'error');
+        addLog('❌ Erro ao monitorar progresso', 'error');
         setIsExecuting(false);
       }
     }, 5000); // Poll every 5s
@@ -97,7 +112,7 @@ export function useBatchSeedingExecution() {
     setTimeout(() => {
       clearInterval(pollInterval);
       if (isExecuting) {
-        addLog('Timeout: processo excedeu 30 minutos', 'warning');
+        addLog('⏱️ Timeout: processo excedeu 30 minutos', 'warning');
         setIsExecuting(false);
       }
     }, 30 * 60 * 1000);
