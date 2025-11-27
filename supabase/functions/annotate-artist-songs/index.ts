@@ -353,61 +353,44 @@ async function processChunk(
       chunksProcessed 
     });
 
-    // Se não terminou, auto-invocar para próximo chunk com retry (ASSÍNCRONO)
+    // Se não terminou, auto-invocar para próximo chunk (ASSÍNCRONO com delay)
     if (!isCompleted) {
       const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
       const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
-      const invokeNextChunk = async (retries = 3) => {
-        for (let attempt = 1; attempt <= retries; attempt++) {
-          try {
-            const response = await fetch(`${SUPABASE_URL}/functions/v1/annotate-artist-songs`, {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                jobId: jobId,
-                continueFrom: {
-                  songIndex: currentSongIndex,
-                  wordIndex: currentWordIndex,
-                }
-              }),
-            });
-            
-            if (response.ok) {
-              logger.info('Auto-invocação bem-sucedida', { jobId, attempt });
-              return;
+      // Aguardar 2 segundos antes de disparar (permitir timestamp "envelhecer")
+      setTimeout(() => {
+        fetch(`${SUPABASE_URL}/functions/v1/annotate-artist-songs`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            jobId: jobId,
+            continueFrom: {
+              songIndex: currentSongIndex,
+              wordIndex: currentWordIndex,
             }
-            
-            logger.warn('Auto-invocação falhou, tentando novamente', { 
-              jobId, attempt, status: response.status 
-            });
-          } catch (err) {
-            logger.warn('Erro na auto-invocação', { 
-              jobId, 
-              attempt, 
-              error: err instanceof Error ? err.message : String(err) 
-            });
+          }),
+        })
+        .then(response => {
+          if (response.ok) {
+            logger.info('Auto-invocação bem-sucedida', { jobId });
+          } else {
+            logger.warn('Auto-invocação falhou', { jobId, status: response.status });
           }
-          
-          // Aguardar antes de retry (backoff exponencial)
-          if (attempt < retries) {
-            await new Promise(resolve => setTimeout(resolve, 2000 * attempt));
-          }
-        }
-        
-        // Todos os retries falharam, marcar como pausado
-        logger.error('Auto-invocação falhou após todos os retries', { jobId });
-        await supabase
-          .from('semantic_annotation_jobs')
-          .update({ status: 'pausado' })
-          .eq('id', jobId);
-      };
-
-      // Disparo assíncrono sem await (não bloqueia resposta HTTP)
-      invokeNextChunk().catch(err => logger.error('invokeNextChunk error', err));
+        })
+        .catch(err => {
+          logger.error('Auto-invoke failed', err);
+          // Marcar job como pausado se auto-invocação falhar
+          supabase
+            .from('semantic_annotation_jobs')
+            .update({ status: 'pausado' })
+            .eq('id', jobId)
+            .then(() => logger.warn('Job marcado como pausado', { jobId }));
+        });
+      }, 2000); // 2 segundos de delay
     }
 
   } catch (error) {
