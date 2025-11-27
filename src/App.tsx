@@ -36,6 +36,7 @@ import AdminMetricsRealtime from "./pages/AdminMetricsRealtime";
 import MusicEnrichment from "./pages/MusicEnrichment";
 import MusicCatalog from "./pages/MusicCatalog";
 import AdminSemanticTagsetValidation from "./pages/AdminSemanticTagsetValidation";
+import AdminSemanticPipeline from "./pages/AdminSemanticPipeline";
 import ApiUsage from "./pages/ApiUsage";
 import DashboardExpandido from "./pages/DashboardExpandido";
 import NotFound from "./pages/NotFound";
@@ -144,6 +145,14 @@ const RouterContent = () => {
             element={
               <ProtectedRoute requiredRole="admin">
                 <AdminSemanticTagsetValidation />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/admin/semantic-pipeline" 
+            element={
+              <ProtectedRoute requiredRole="admin">
+                <AdminSemanticPipeline />
               </ProtectedRoute>
             } 
           />

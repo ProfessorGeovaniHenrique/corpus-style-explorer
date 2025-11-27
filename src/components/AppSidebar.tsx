@@ -1,4 +1,4 @@
-import { LayoutDashboard, FolderOpen, Sparkles, FileText, CircuitBoard, Info, BookOpen, History as HistoryIcon } from "lucide-react";
+import { LayoutDashboard, FolderOpen, Sparkles, FileText, CircuitBoard, Info, BookOpen, History as HistoryIcon, Activity } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
 import { useFeatureAccess } from "@/hooks/useFeatureAccess";
@@ -41,6 +41,10 @@ const advancedItems = [
     { title: "Developer Logs", url: "/developer-logs", icon: BookOpen },
     { title: "Developer History", url: "/developer-history", icon: HistoryIcon },
     { title: "DevOps Metrics", url: "/devops-metrics", icon: CircuitBoard },
+  ];
+
+  const administrationItems = [
+    { title: "Pipeline Semântica", url: "/admin/semantic-pipeline", icon: Activity },
   ];
 
 export function AppSidebar() {
@@ -116,6 +120,31 @@ export function AppSidebar() {
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        {/* Administration Tools */}
+        <SidebarGroup>
+          <SidebarGroupLabel className="text-xs uppercase tracking-wider text-muted-foreground">
+            Administração
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {administrationItems.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton asChild>
+                    <NavLink 
+                      to={item.url} 
+                      className="flex items-center gap-2 hover:bg-muted/50"
+                      activeClassName="bg-muted text-primary font-medium"
+                    >
+                      <item.icon className="h-4 w-4" />
+                      {open && <span>{item.title}</span>}
+                    </NavLink>
+                  </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
             </SidebarMenu>
