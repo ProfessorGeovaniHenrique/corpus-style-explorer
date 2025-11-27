@@ -388,6 +388,32 @@ function buildDomainsFromCache(cacheData: any[]): DominioSemantico[] {
 }
 
 /**
+ * Limpar cache de uma música específica do banco de dados
+ * Usado para permitir reprocessamento com domínios atualizados
+ */
+export async function clearDemoSongCache(songId: string): Promise<boolean> {
+  try {
+    log.info('Clearing demo song cache', { songId });
+    
+    const { error } = await supabase
+      .from('semantic_disambiguation_cache')
+      .delete()
+      .eq('song_id', songId);
+    
+    if (error) {
+      log.error('Error clearing cache', error);
+      return false;
+    }
+    
+    log.info('Cache cleared successfully', { songId });
+    return true;
+  } catch (error) {
+    log.error('Error in clearDemoSongCache', error as Error);
+    return false;
+  }
+}
+
+/**
  * Disparar anotação on-demand via edge function
  * Retorna jobId para polling
  */

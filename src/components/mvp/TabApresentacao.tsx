@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { LogIn, Mail, Send } from "lucide-react";
+import { LogIn, Mail, Send, RefreshCw } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -29,6 +29,9 @@ import { useStatisticsTour } from "@/hooks/useStatisticsTour";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useAnalytics } from '@/hooks/useAnalytics';
 import { CorpusLoadingModal } from './CorpusLoadingModal';
+import { clearDemoSongCache } from '@/services/semanticDomainsService';
+import { clearDemoCache } from '@/services/demoCorpusService';
+import { useQueryClient } from '@tanstack/react-query';
 
 // Schema de validação com Zod
 const accessRequestSchema = z.object({
@@ -71,11 +74,13 @@ export function TabApresentacao() {
   const { user } = useAuthContext();
   const [showAccessForm, setShowAccessForm] = useState(false);
   const tabsRef = useRef<HTMLDivElement>(null);
+  const queryClient = useQueryClient();
 
   // Estado para carregamento do corpus demo
   const [corpusLoaded, setCorpusLoaded] = useState(false);
   const [showLoadingModal, setShowLoadingModal] = useState(false);
   const [demoSongId] = useState('d045622c-58a0-47c0-b113-1e58d7420647');
+  const [isReprocessing, setIsReprocessing] = useState(false);
 
   // Form com validação Zod
   const form = useForm<AccessRequestFormData>({
@@ -117,12 +122,44 @@ export function TabApresentacao() {
   const handleLoadingComplete = () => {
     setShowLoadingModal(false);
     setCorpusLoaded(true);
+    setIsReprocessing(false);
     toast.success('Corpus processado! Explore as abas para ver a análise.');
     
     // Scroll para as tabs
     setTimeout(() => {
       tabsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, 300);
+  };
+
+  const handleReprocessCorpus = async () => {
+    try {
+      setIsReprocessing(true);
+      
+      // 1. Limpar cache do banco
+      const cleared = await clearDemoSongCache(demoSongId);
+      if (!cleared) {
+        throw new Error('Falha ao limpar cache do banco');
+      }
+      
+      // 2. Limpar cache em memória
+      clearDemoCache();
+      
+      // 3. Invalidar React Query cache
+      queryClient.invalidateQueries({ queryKey: ['song-domains', demoSongId] });
+      queryClient.invalidateQueries({ queryKey: ['song-domains-stats', demoSongId] });
+      
+      // 4. Reset estado
+      setCorpusLoaded(false);
+      
+      // 5. Abrir modal de processamento
+      setShowLoadingModal(true);
+      
+      toast.success('Cache limpo! Reprocessando com novos domínios...');
+    } catch (error) {
+      console.error('Error reprocessing corpus:', error);
+      toast.error('Erro ao limpar cache');
+      setIsReprocessing(false);
+    }
   };
   const { startTour } = useApresentacaoTour({ autoStart: true });
   
@@ -505,17 +542,32 @@ E uma saudade redomona pelos cantos do galpão`}
                     através do pipeline completo de anotação semântica.
                   </p>
                 </div>
-                <Button 
-                  size="lg" 
-                  onClick={handleLoadCorpus}
-                  disabled={corpusLoaded}
-                >
-                  <Play className="mr-2 h-4 w-4" />
-                  {corpusLoaded 
-                    ? '✓ Corpus Processado' 
-                    : 'Processar Corpus "Quando o Verso vem pras Casa"'
-                  }
-                </Button>
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <Button 
+                    size="lg" 
+                    onClick={handleLoadCorpus}
+                    disabled={corpusLoaded}
+                  >
+                    <Play className="mr-2 h-4 w-4" />
+                    {corpusLoaded 
+                      ? '✓ Corpus Processado' 
+                      : 'Processar Corpus "Quando o Verso vem pras Casa"'
+                    }
+                  </Button>
+                  
+                  {corpusLoaded && (
+                    <Button 
+                      size="lg"
+                      variant="outline"
+                      onClick={handleReprocessCorpus}
+                      disabled={isReprocessing}
+                      className="gap-2"
+                    >
+                      <RefreshCw className={`w-4 h-4 ${isReprocessing ? 'animate-spin' : ''}`} />
+                      Reprocessar com Novos Domínios
+                    </Button>
+                  )}
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
