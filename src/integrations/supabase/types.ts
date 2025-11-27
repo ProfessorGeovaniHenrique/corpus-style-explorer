@@ -1958,65 +1958,57 @@ export type Database = {
       }
       semantic_lexicon: {
         Row: {
-          atualizado_em: string | null
-          confianca: number
-          contexto_exemplo: string | null
-          criado_em: string | null
-          fonte: string | null
+          confianca: number | null
+          created_at: string | null
+          fonte: string
+          frequencia_corpus: number | null
           id: string
-          insignias_culturais: string[] | null
           lema: string | null
+          origem_lexicon: string | null
           palavra: string
           pos: string | null
-          prosody: number
-          tagset_codigo: string | null
-          tagset_primario: string | null
-          tagsets: Json | null
-          validado: boolean | null
+          tagset_n1: string
+          tagset_n2: string | null
+          tagset_n3: string | null
+          tagset_n4: string | null
+          validated_at: string | null
+          validated_by: string | null
         }
         Insert: {
-          atualizado_em?: string | null
-          confianca?: number
-          contexto_exemplo?: string | null
-          criado_em?: string | null
-          fonte?: string | null
+          confianca?: number | null
+          created_at?: string | null
+          fonte: string
+          frequencia_corpus?: number | null
           id?: string
-          insignias_culturais?: string[] | null
           lema?: string | null
+          origem_lexicon?: string | null
           palavra: string
           pos?: string | null
-          prosody: number
-          tagset_codigo?: string | null
-          tagset_primario?: string | null
-          tagsets?: Json | null
-          validado?: boolean | null
+          tagset_n1: string
+          tagset_n2?: string | null
+          tagset_n3?: string | null
+          tagset_n4?: string | null
+          validated_at?: string | null
+          validated_by?: string | null
         }
         Update: {
-          atualizado_em?: string | null
-          confianca?: number
-          contexto_exemplo?: string | null
-          criado_em?: string | null
-          fonte?: string | null
+          confianca?: number | null
+          created_at?: string | null
+          fonte?: string
+          frequencia_corpus?: number | null
           id?: string
-          insignias_culturais?: string[] | null
           lema?: string | null
+          origem_lexicon?: string | null
           palavra?: string
           pos?: string | null
-          prosody?: number
-          tagset_codigo?: string | null
-          tagset_primario?: string | null
-          tagsets?: Json | null
-          validado?: boolean | null
+          tagset_n1?: string
+          tagset_n2?: string | null
+          tagset_n3?: string | null
+          tagset_n4?: string | null
+          validated_at?: string | null
+          validated_by?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "semantic_lexicon_tagset_codigo_fkey"
-            columns: ["tagset_codigo"]
-            isOneToOne: false
-            referencedRelation: "semantic_tagset"
-            referencedColumns: ["codigo"]
-          },
-        ]
+        Relationships: []
       }
       semantic_networks: {
         Row: {

@@ -113,3 +113,12 @@ verify_jwt = false
 
 [functions.get-job-songs-progress]
 verify_jwt = false
+
+[functions.batch-seed-semantic-lexicon]
+verify_jwt = false
+
+[functions.process-single-song-demo]
+verify_jwt = false
+
+[functions.reprocess-unclassified]
+verify_jwt = false

@@ -5,6 +5,8 @@ import { getLexiconRule, GUTENBERG_POS_TO_DOMAIN } from "../_shared/semantic-rul
 import { propagateSemanticDomain, inheritDomainFromSynonyms } from "../_shared/synonym-propagation.ts";
 import { getGutenbergPOS } from "../_shared/gutenberg-pos-lookup.ts";
 import { classifySafeStopword, isContextDependent } from "../_shared/stopwords-classifier.ts";
+import { getLexiconClassification, getLexiconBase } from "../_shared/semantic-lexicon-lookup.ts";
+import { applyMorphologicalRules, hasMorphologicalPattern } from "../_shared/morphological-rules.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -117,7 +119,72 @@ serve(async (req) => {
       );
     }
 
-    // 2️⃣ Verificar regras do léxico dialetal
+    // 2️⃣ NOVA CAMADA: Verificar semantic_lexicon (léxico pré-classificado)
+    const lexiconResult = await getLexiconClassification(palavra.toLowerCase());
+    if (lexiconResult) {
+      logger.info('Semantic lexicon hit', {
+        palavra,
+        tagset: lexiconResult.tagset_n1,
+        fonte: lexiconResult.fonte,
+        confianca: lexiconResult.confianca
+      });
+
+      const result = {
+        tagset_codigo: lexiconResult.tagset_n1,
+        confianca: lexiconResult.confianca,
+        fonte: 'rule_based' as const,
+        justificativa: `Lexicon pré-classificado (${lexiconResult.fonte})`,
+      };
+
+      await saveToCache(supabaseClient, palavra, contextoHash, lema, pos, result);
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          result,
+          processingTime: Date.now() - startTime,
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // 2.5️⃣ NOVA CAMADA: Aplicar regras morfológicas (zero-cost)
+    if (hasMorphologicalPattern(palavra.toLowerCase())) {
+      const morphResult = await applyMorphologicalRules(
+        palavra.toLowerCase(),
+        pos,
+        getLexiconBase
+      );
+
+      if (morphResult) {
+        logger.info('Morphological rule applied', {
+          palavra,
+          tagset: morphResult.tagset_n1,
+          fonte: morphResult.fonte,
+          rule: morphResult.rule_description
+        });
+
+        const result = {
+          tagset_codigo: morphResult.tagset_n1,
+          confianca: morphResult.confianca,
+          fonte: 'rule_based' as const,
+          justificativa: `Regra morfológica: ${morphResult.rule_description}`,
+        };
+
+        await saveToCache(supabaseClient, palavra, contextoHash, lema, pos, result);
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            result,
+            processingTime: Date.now() - startTime,
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
+    // 4️⃣ Verificar regras do léxico dialetal
     const lexiconRule = await getLexiconRule(palavra);
     if (lexiconRule) {
       logger.info('Lexicon rule matched', { palavra, tagset: lexiconRule.tagset_codigo });
@@ -155,7 +222,7 @@ serve(async (req) => {
       );
     }
 
-    // 2.5️⃣ FASE 2: Tentar herdar domínio de sinônimos
+    // 4.5️⃣ Tentar herdar domínio de sinônimos
     const inheritedDomain = await inheritDomainFromSynonyms(palavra);
     if (inheritedDomain) {
       logger.info('Domain inherited from synonym', { 
@@ -176,7 +243,7 @@ serve(async (req) => {
       );
     }
 
-    // 3️⃣ Aplicar regras contextuais (fallback rápido)
+    // 5️⃣ Aplicar regras contextuais (fallback rápido)
     const ruleBasedResult = applyContextualRules(palavra, lema, pos);
     if (ruleBasedResult) {
       logger.info('Rule-based classification', { palavra, tagset: ruleBasedResult.tagset_codigo });
@@ -208,7 +275,7 @@ serve(async (req) => {
       );
     }
 
-    // 3.5️⃣ FASE 3: Tentar mapear via classe gramatical do Gutenberg
+    // 5.5️⃣ Tentar mapear via classe gramatical do Gutenberg
     const gutenbergPOS = await getGutenbergPOS(palavra);
     if (gutenbergPOS) {
       const gutenbergMapping = GUTENBERG_POS_TO_DOMAIN[gutenbergPOS.pos];
@@ -240,7 +307,7 @@ serve(async (req) => {
       }
     }
 
-    // 4️⃣ Chamar Gemini Flash via Lovable AI Gateway
+    // 6️⃣ Chamar Gemini Flash via Lovable AI Gateway (fallback final)
     const geminiResult = await classifyWithGemini(
       palavra,
       lema || palavra,
