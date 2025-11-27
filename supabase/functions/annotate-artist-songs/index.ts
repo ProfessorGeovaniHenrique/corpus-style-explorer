@@ -126,7 +126,7 @@ serve(async (req) => {
         current_word_index: 0,
         chunk_size: CHUNK_SIZE,
         chunks_processed: 0,
-        last_chunk_at: new Date().toISOString(),
+        last_chunk_at: new Date(Date.now() - 5000).toISOString(), // 5s no passado para passar na validação anti-duplicação do primeiro chunk
       })
       .select()
       .single();
@@ -181,6 +181,12 @@ async function processChunk(
   logger: any
 ) {
   const startTime = Date.now();
+  
+  logger.info('processChunk iniciado', { 
+    jobId, 
+    continueFrom,
+    timestamp: new Date().toISOString()
+  });
   
   try {
     // Proteção anti-duplicação: verificar se outro chunk está rodando
