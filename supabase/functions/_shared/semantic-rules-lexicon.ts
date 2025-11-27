@@ -30,6 +30,14 @@ const CATEGORY_TO_DOMAIN_MAP: Record<string, { codigo: string; nome: string }> =
   'gastronomia': { codigo: 'AP.ALI', nome: 'Alimentação e Culinária' },
   'transporte': { codigo: 'AP.DES', nome: 'Transporte e Deslocamento' },
   
+  // Ações e Processos (Ações Concretas) - NOVO
+  'movimento': { codigo: 'AC.MD', nome: 'Movimento e Deslocamento' },
+  'locomocao': { codigo: 'AC.MD.LOC', nome: 'Locomoção' },
+  'manipulacao': { codigo: 'AC.MI', nome: 'Manipulação e Interação' },
+  'transformacao_fisica': { codigo: 'AC.TR', nome: 'Transformação' },
+  'percepcao_ativa': { codigo: 'AC.PS', nome: 'Percepção Sensorial Ativa' },
+  'expressao_fisica': { codigo: 'AC.EC', nome: 'Expressão e Comunicação Física' },
+  
   // Cultura e Conhecimento - EXPANDIDO
   'musica_danca': { codigo: 'CC.ART.MUS', nome: 'Música' },
   'literatura': { codigo: 'CC.ART', nome: 'Arte e Expressão Cultural' },

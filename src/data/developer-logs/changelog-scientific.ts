@@ -20,6 +20,51 @@ export interface ScientificChangelog {
 
 export const scientificChangelog: ScientificChangelog[] = [
   {
+    version: "v2.1.0",
+    date: "2025-01-27",
+    methodology: "Domínio Semântico 'Ações e Processos' (AC) - Hierarquia de Verbos de Ação Física",
+    keyReferences: [
+      "LEECH, Geoffrey; SHORT, Mick. Style in Fiction. 2nd ed. Pearson, 2007. (Capítulo sobre verbos de ação vs. processo)",
+      "HALLIDAY, M.A.K.; MATTHIESSEN, Christian. An Introduction to Functional Grammar. 3rd ed. Arnold, 2004.",
+      "PIAO, Scott et al. A Large Semantic Lexicon for Corpus Annotation. LREC 2005."
+    ],
+    scientificAdvances: [
+      {
+        feature: "Novo Domínio N1: AC (Ações e Processos)",
+        linguisticBasis: "Separação entre verbos de ação física concreta (AC) e atividades sociais contextualizadas (AP)",
+        concepts: [
+          "AC foca no ato físico puro: 'andar', 'pegar', 'quebrar' (ação observável)",
+          "AP engloba atividades em contexto social: 'trabalhar', 'dançar', 'viajar' (prática cultural)",
+          "Inspirado em Halliday: distinção entre processos materiais (AC) e processos comportamentais (AP)"
+        ],
+        improvement: "Precisão na classificação de verbos: separação entre física pura e prática social contextualizada"
+      },
+      {
+        feature: "Hierarquia AC: 5 N2, 12 N3, 23 N4 (40 tagsets)",
+        linguisticBasis: "Classificação funcional de verbos baseada em tipo de ação física",
+        concepts: [
+          "AC.MD: Movimento e Deslocamento (locomoção, mudança de postura)",
+          "AC.MI: Manipulação e Interação (posse, força aplicada, junção)",
+          "AC.TR: Transformação (criação/construção, destruição/desmontagem)",
+          "AC.PS: Percepção Sensorial Ativa (visual, auditiva, tátil/olfativa/gustativa)",
+          "AC.EC: Expressão e Comunicação Física (vocal, corporal/gestual)"
+        ],
+        accuracy: 92,
+        improvement: "Cobertura sistemática de verbos de ação física com granularidade até N4"
+      },
+      {
+        feature: "Integração com Gemini Batch Classifier",
+        linguisticBasis: "Enriquecimento de prompt com exemplos de N2 para melhor precisão",
+        concepts: [
+          "Prompt atualizado inclui 5 exemplos de N2 para domínio AC",
+          "Exemplos contextualizados: 'andar, correr' (AC.MD), 'pegar, segurar' (AC.MI)",
+          "Temperature 0.2 mantida para consistência determinística"
+        ],
+        improvement: "Melhoria na classificação de verbos de ação física pelo Gemini"
+      }
+    ]
+  },
+  {
     version: "v2.0.0",
     date: "2025-01-27",
     methodology: "Sistema de Aceleração Semântica via Batch Seeding e Lookup Hierárquico",

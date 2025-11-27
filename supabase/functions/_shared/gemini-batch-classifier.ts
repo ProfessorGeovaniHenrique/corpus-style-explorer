@@ -104,6 +104,12 @@ DOMÍNIOS DISPONÍVEIS:
 - SH (Ser Humano): corpo, pessoa, características humanas
 - NA (Natureza): animais, plantas, paisagem, clima
 - AP (Atividades): trabalho, alimentação, transporte, lazer
+- AC (Ações e Processos): verbos de ação física concreta
+  - AC.MD: Movimento - andar, correr, pular, sentar, virar
+  - AC.MI: Manipulação - pegar, segurar, empurrar, amarrar, abrir
+  - AC.TR: Transformação - construir, quebrar, cortar, limpar, escrever
+  - AC.PS: Percepção - olhar, escutar, cheirar, provar
+  - AC.EC: Expressão - falar, cantar, gritar, acenar, abraçar
 - OA (Objetos e Artefatos): ferramentas, equipamentos, construções
 - AB (Abstrações): conceitos filosóficos, valores, ideias
 - SA (Sentimentos): emoções, estados mentais
