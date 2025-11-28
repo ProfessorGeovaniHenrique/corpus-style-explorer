@@ -43,6 +43,7 @@ import AdminSemanticPipeline from "./pages/AdminSemanticPipeline";
 import ApiUsage from "./pages/ApiUsage";
 import DashboardExpandido from "./pages/DashboardExpandido";
 import NotFound from "./pages/NotFound";
+import AuthCallback from "./pages/AuthCallback";
 import { lazy, Suspense } from "react";
 
 // Lazy load archived prototypes
@@ -59,10 +60,11 @@ const queryClient = new QueryClient();
 const RouterContent = () => {
   return (
     <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/auth" element={<Auth />} />
-          <Route path="/forgot-password" element={<ForgotPassword />} />
-          <Route path="/reset-password" element={<ResetPassword />} />
+              <Route path="/" element={<Index />} />
+              <Route path="/auth" element={<Auth />} />
+              <Route path="/auth/callback" element={<AuthCallback />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
           <Route element={<AppLayout />}>
             {/* Archived dashboards - removed from public access */}
             <Route 

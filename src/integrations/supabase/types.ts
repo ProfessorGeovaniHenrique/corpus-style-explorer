@@ -1636,7 +1636,11 @@ export type Database = {
           id: string
           is_active: boolean | null
           key_code: string
+          magic_link_sent_at: string | null
+          magic_link_token: string | null
           notes: string | null
+          recipient_email: string | null
+          recipient_name: string | null
           role: Database["public"]["Enums"]["app_role"] | null
           used_at: string | null
           used_by: string | null
@@ -1648,7 +1652,11 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           key_code: string
+          magic_link_sent_at?: string | null
+          magic_link_token?: string | null
           notes?: string | null
+          recipient_email?: string | null
+          recipient_name?: string | null
           role?: Database["public"]["Enums"]["app_role"] | null
           used_at?: string | null
           used_by?: string | null
@@ -1660,7 +1668,11 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           key_code?: string
+          magic_link_sent_at?: string | null
+          magic_link_token?: string | null
           notes?: string | null
+          recipient_email?: string | null
+          recipient_name?: string | null
           role?: Database["public"]["Enums"]["app_role"] | null
           used_at?: string | null
           used_by?: string | null

@@ -66,6 +66,8 @@ export default function AdminDashboard() {
   const [notes, setNotes] = useState("");
   const [roleForInvite, setRoleForInvite] = useState<AppRole>("evaluator");
   const [filterTab, setFilterTab] = useState("all");
+  const [recipientEmail, setRecipientEmail] = useState("");
+  const [recipientName, setRecipientName] = useState("");
 
   useEffect(() => {
     fetchInvites();
@@ -137,6 +139,36 @@ export default function AdminDashboard() {
     }
   };
 
+  const sendMagicLink = async () => {
+    setCreatingInvite(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Não autenticado");
+
+      const response = await supabase.functions.invoke("send-invite-magic-link", {
+        body: {
+          recipientEmail,
+          recipientName,
+          role: roleForInvite,
+        },
+      });
+
+      if (response.error) throw response.error;
+
+      toast.success(`Magic link enviado para ${recipientEmail}!`);
+      setIsDialogOpen(false);
+      setRecipientEmail("");
+      setRecipientName("");
+      setRoleForInvite("evaluator");
+      fetchInvites();
+    } catch (error: any) {
+      toast.error(error.message || "Erro ao enviar magic link");
+      log.error('Erro ao enviar magic link', error);
+    } finally {
+      setCreatingInvite(false);
+    }
+  };
+
   const copyToClipboard = async (code: string, id: string) => {
     try {
       await navigator.clipboard.writeText(code);
@@ -196,50 +228,97 @@ export default function AdminDashboard() {
               <DialogHeader>
                 <DialogTitle>Criar Novo Convite</DialogTitle>
                 <DialogDescription>
-                  Gere um código de convite para novos usuários
+                  Escolha o método de envio do convite
                 </DialogDescription>
               </DialogHeader>
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="role">Role a Atribuir</Label>
-                  <Select value={roleForInvite} onValueChange={(value) => setRoleForInvite(value as AppRole)}>
-                    <SelectTrigger id="role">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="evaluator">Avaliador</SelectItem>
-                      <SelectItem value="admin">Administrador</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="expires">Data de Expiração (Opcional)</Label>
-                  <Input
-                    id="expires"
-                    type="datetime-local"
-                    value={expiresAt}
-                    onChange={(e) => setExpiresAt(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="notes">Notas (Opcional)</Label>
-                  <Input
-                    id="notes"
-                    placeholder="Ex: Convite para pesquisador fulano"
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                  />
-                </div>
-              </div>
-              <DialogFooter>
-                <Button
-                  onClick={generateInvite}
-                  disabled={creatingInvite}
-                  className="w-full"
-                >
-                  {creatingInvite ? "Gerando..." : "Gerar Convite"}
-                </Button>
-              </DialogFooter>
+              
+              <Tabs defaultValue="magic-link" className="w-full">
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="magic-link">✨ Magic Link</TabsTrigger>
+                  <TabsTrigger value="manual">📋 Código Manual</TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="magic-link" className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="recipientEmail">Email do Destinatário *</Label>
+                    <Input
+                      id="recipientEmail"
+                      type="email"
+                      placeholder="usuario@exemplo.com"
+                      value={recipientEmail}
+                      onChange={(e) => setRecipientEmail(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="recipientName">Nome do Destinatário *</Label>
+                    <Input
+                      id="recipientName"
+                      placeholder="Nome Completo"
+                      value={recipientName}
+                      onChange={(e) => setRecipientName(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="roleMagic">Role a Atribuir</Label>
+                    <Select value={roleForInvite} onValueChange={(value) => setRoleForInvite(value as AppRole)}>
+                      <SelectTrigger id="roleMagic">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="evaluator">Avaliador</SelectItem>
+                        <SelectItem value="admin">Administrador</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button
+                    onClick={sendMagicLink}
+                    disabled={creatingInvite || !recipientEmail || !recipientName}
+                    className="w-full"
+                  >
+                    {creatingInvite ? "Enviando..." : "Enviar Magic Link"}
+                  </Button>
+                </TabsContent>
+                
+                <TabsContent value="manual" className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="role">Role a Atribuir</Label>
+                    <Select value={roleForInvite} onValueChange={(value) => setRoleForInvite(value as AppRole)}>
+                      <SelectTrigger id="role">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="evaluator">Avaliador</SelectItem>
+                        <SelectItem value="admin">Administrador</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="expires">Data de Expiração (Opcional)</Label>
+                    <Input
+                      id="expires"
+                      type="datetime-local"
+                      value={expiresAt}
+                      onChange={(e) => setExpiresAt(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="notes">Notas (Opcional)</Label>
+                    <Input
+                      id="notes"
+                      placeholder="Ex: Convite para pesquisador fulano"
+                      value={notes}
+                      onChange={(e) => setNotes(e.target.value)}
+                    />
+                  </div>
+                  <Button
+                    onClick={generateInvite}
+                    disabled={creatingInvite}
+                    className="w-full"
+                  >
+                    {creatingInvite ? "Gerando..." : "Gerar Convite"}
+                  </Button>
+                </TabsContent>
+              </Tabs>
             </DialogContent>
           </Dialog>
         }
