@@ -79,12 +79,18 @@ export function TabOrigensChamamé() {
               </div>
               <div>
                 <h2 className="text-2xl font-bold mb-2">As Raízes Guaranis</h2>
-                <p className="text-muted-foreground leading-relaxed">
+                <p className="text-muted-foreground leading-relaxed mb-4">
                   O Chamamé possui profunda <strong>carga cosmológica guarani</strong>, originando-se 
                   das práticas musicais dos povos originários da região do Prata. O nome deriva de 
                   <em> "che ama amé"</em>, expressão guarani que significa "estou à sombra" ou "estou 
                   debaixo da ramada", referindo-se aos espaços de encontro comunitário.
                 </p>
+                <div className="mt-4 p-4 bg-primary/10 rounded-lg border border-primary/20">
+                  <p className="text-sm text-foreground font-medium">
+                    📺 <strong>Assista ao vídeo abaixo:</strong> "A Identidade Roubada do Chamamé" 
+                    para compreender profundamente as origens guaranis deste gênero musical.
+                  </p>
+                </div>
               </div>
             </div>
           </CardContent>
