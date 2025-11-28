@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 import { MVPHeader } from "@/components/mvp/MVPHeader";
 import { MVPFooter } from "@/components/mvp/MVPFooter";
-import { TabApresentacao } from "@/components/mvp/TabApresentacao";
+import { TabApresentacaoSimples } from "@/components/mvp/TabApresentacaoSimples";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { CorpusProvider } from "@/contexts/CorpusContext";
 import { SubcorpusProvider } from "@/contexts/SubcorpusContext";
@@ -26,7 +26,7 @@ export default function DashboardMVPDefinitivo() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3 }}
             >
-              <TabApresentacao />
+              <TabApresentacaoSimples />
             </motion.div>
           </main>
 
