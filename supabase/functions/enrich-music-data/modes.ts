@@ -179,12 +179,11 @@ export async function handleLegacyMode(body: any, log: EdgeLogger) {
   log.info('Legacy mode enrichment started', { itemCount: musicsToProcess.length });
 
   const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
-  const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
   
-  if (!GEMINI_API_KEY && !LOVABLE_API_KEY) {
-    log.error('No AI API keys configured', new Error('Missing API keys'));
+  if (!GEMINI_API_KEY) {
+    log.error('Gemini API key not configured', new Error('Missing API key'));
     return new Response(
-      JSON.stringify({ error: 'No AI API keys configured' }),
+      JSON.stringify({ error: 'Gemini API key not configured' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
@@ -207,13 +206,12 @@ export async function handleLegacyMode(body: any, log: EdgeLogger) {
         }
       }
 
-      // Enrich with AI
       const metadata = await enrichWithAI(
         music.titulo,
         music.artista,
         youtubeData,
         GEMINI_API_KEY,
-        LOVABLE_API_KEY
+        undefined
       );
 
       let result = {
@@ -237,10 +235,10 @@ export async function handleLegacyMode(body: any, log: EdgeLogger) {
         result.compositor_encontrado === 'Não Identificado' ||
         result.ano_lancamento === '0000';
 
-      if (needsWebSearch && (LOVABLE_API_KEY || GEMINI_API_KEY)) {
+      if (needsWebSearch && GEMINI_API_KEY) {
       try {
         const webData = await webSearchLimiter.schedule(() =>
-          searchWithAI(music.titulo, music.artista || '', LOVABLE_API_KEY!, GEMINI_API_KEY)
+          searchWithAI(music.titulo, music.artista || '', undefined, GEMINI_API_KEY)
         );
 
         if (webData.compositor && webData.compositor !== 'Não Identificado') {
@@ -386,15 +384,14 @@ async function enrichSingleSong(
 
     // 2. Enrich with AI (skip if mode is youtube-only)
     const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     
-    if (enrichmentMode !== 'youtube-only' && !song.composer && (GEMINI_API_KEY || LOVABLE_API_KEY)) {
+    if (enrichmentMode !== 'youtube-only' && !song.composer && GEMINI_API_KEY) {
       const metadata = await enrichWithAI(
         song.title,
         artistName,
         youtubeContext,
         GEMINI_API_KEY,
-        LOVABLE_API_KEY
+        undefined
       );
 
       if (metadata.composer || metadata.compositor) {
@@ -411,10 +408,10 @@ async function enrichSingleSong(
 
     // 3. Web search fallback (skip if mode is youtube-only)
     const needsWebSearch = enrichmentMode !== 'youtube-only' && (!enrichedData.composer || !enrichedData.releaseYear);
-    if (needsWebSearch && (LOVABLE_API_KEY || GEMINI_API_KEY)) {
+    if (needsWebSearch && GEMINI_API_KEY) {
       try {
         const webData = await webSearchLimiter.schedule(() =>
-          searchWithAI(song.title, artistName, LOVABLE_API_KEY!, GEMINI_API_KEY)
+          searchWithAI(song.title, artistName, undefined, GEMINI_API_KEY)
         );
 
         if (!enrichedData.composer && webData.compositor !== 'Não Identificado') {
@@ -434,12 +431,12 @@ async function enrichSingleSong(
     }
 
     // 4. Search lyrics if blank (new feature for Phase 3)
-    const shouldSearchLyrics = !song.lyrics && LOVABLE_API_KEY && enrichmentMode === 'full';
+    const shouldSearchLyrics = !song.lyrics && GEMINI_API_KEY && enrichmentMode === 'full';
 
     if (shouldSearchLyrics) {
       try {
         log.info('Searching lyrics', { songId, title: song.title });
-        const lyrics = await searchLyrics(song.title, artistName, LOVABLE_API_KEY, log);
+        const lyrics = await searchLyrics(song.title, artistName, GEMINI_API_KEY, log);
         if (lyrics) {
           enrichedData.lyrics = lyrics;
           confidenceScore += 10;
@@ -563,7 +560,7 @@ async function enrichSingleSong(
 async function searchLyrics(
   songTitle: string,
   artistName: string,
-  lovableApiKey: string,
+  geminiApiKey: string,
   log: EdgeLogger
 ): Promise<string | null> {
   const prompt = `Você é um sistema de busca de letras de músicas.
@@ -582,31 +579,32 @@ Retorne APENAS a letra ou "LETRA_NAO_DISPONIVEL".`;
 
   try {
     const apiTimer = log.startTimer();
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${lovableApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0.1,
-        max_tokens: 2000
-      }),
-    });
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: {
+            temperature: 0.1,
+            maxOutputTokens: 2000
+          }
+        }),
+      }
+    );
 
-    const duration = apiTimer.end('lovable-ai-lyrics');
+    const duration = apiTimer.end('gemini-lyrics');
 
     if (!response.ok) {
-      log.logApiCall('lovable-ai', 'lyrics', 'POST', response.status, duration);
+      log.logApiCall('gemini', 'lyrics', 'POST', response.status, duration);
       return null;
     }
 
-    log.logApiCall('lovable-ai', 'lyrics', 'POST', 200, duration);
+    log.logApiCall('gemini', 'lyrics', 'POST', 200, duration);
 
     const data = await response.json();
-    const lyrics = data.choices?.[0]?.message?.content?.trim();
+    const lyrics = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
 
     if (!lyrics || lyrics === 'LETRA_NAO_DISPONIVEL' || lyrics.length < 50) {
       log.debug('Lyrics not available', { songTitle, artistName });
@@ -670,53 +668,7 @@ Saída Obrigatória (JSON):
 }
 Não adicione markdown \`\`\`json ou explicações. Apenas o objeto JSON cru.`;
 
-  // 1️⃣ PRIMEIRA TENTATIVA: Lovable AI com Gemini Pro
-  if (lovableApiKey) {
-    try {
-      const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${lovableApiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'google/gemini-2.5-pro',
-          messages: [{ role: 'user', content: systemPrompt }],
-          temperature: 0.1,
-          max_tokens: 200,
-        }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        const rawText = data.choices?.[0]?.message?.content;
-        
-        if (rawText) {
-          const metadata = JSON.parse(rawText);
-          console.log('[enrichWithAI] ✅ Lovable AI (Gemini Pro) success');
-          return {
-            artista: artista,
-            composer: metadata.composer !== 'null' ? metadata.composer : undefined,
-            compositor: metadata.composer !== 'null' ? metadata.composer : undefined,
-            releaseYear: metadata.release_year !== 'null' ? metadata.release_year : undefined,
-            ano: metadata.release_year !== 'null' ? metadata.release_year : undefined,
-            observacoes: '',
-            source: 'lovable_ai_gemini_pro'
-          };
-        }
-      }
-      
-      if (response.status === 429 || response.status === 402) {
-        console.warn('[enrichWithAI] Lovable AI rate limited/credits, trying Google API');
-      } else {
-        console.warn('[enrichWithAI] Lovable AI failed, trying Google API fallback');
-      }
-    } catch (error) {
-      console.warn('[enrichWithAI] Lovable AI error:', error);
-    }
-  }
-
-  // 2️⃣ FALLBACK: Google API Direta com Gemini Pro
+  // Use Google API directly
   if (geminiApiKey) {
     try {
       const geminiTimer = performance.now();
@@ -746,7 +698,7 @@ Não adicione markdown \`\`\`json ou explicações. Apenas o objeto JSON cru.`;
         
         if (rawText) {
           const metadata = JSON.parse(rawText);
-          console.log('[enrichWithAI] ✅ Google API (Gemini Pro) fallback success');
+          console.log('[enrichWithAI] ✅ Google API (Gemini Pro) success');
           return {
             artista: artista,
             composer: metadata.composer !== 'null' ? metadata.composer : undefined,
@@ -759,7 +711,7 @@ Não adicione markdown \`\`\`json ou explicações. Apenas o objeto JSON cru.`;
         }
       }
     } catch (geminiError) {
-      console.error('[enrichWithAI] Google API fallback failed:', geminiError);
+      console.error('[enrichWithAI] Google API failed:', geminiError);
     }
   }
 

@@ -70,7 +70,7 @@ const Header = () => {
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => navigate("/dashboard-mvp")}>
+              <DropdownMenuItem onClick={() => navigate("/dashboard-mvp-definitivo")}>
                 <User className="mr-2 h-4 w-4" />
                 <span>Dashboard</span>
               </DropdownMenuItem>

@@ -144,23 +144,9 @@ Retorne APENAS o texto da biografia, sem aspas ou formatação JSON.`;
               throw new Error('Gemini API error');
             }
           } catch (geminiError) {
-            log.warn('Gemini failed, falling back to Lovable AI', { artistName, error: geminiError instanceof Error ? geminiError.message : String(geminiError) });
-            
-            // Step 3: Fallback to Lovable AI
-            if (lovableApiKey) {
-              biography = await fetchAIBiography(artistName, lovableApiKey, log);
-              source = 'lovable_ai';
-              log.info('Lovable AI biography generated', { artistName });
-            } else {
-              throw new Error('No AI API keys configured');
-            }
+            log.error('Gemini API failed', geminiError instanceof Error ? geminiError : new Error(String(geminiError)), { artistName });
+            throw new Error('Gemini API key configured but request failed');
           }
-        } else if (lovableApiKey) {
-          // No Gemini key, use Lovable AI directly
-          log.info('No Gemini key, using Lovable AI', { artistName });
-          biography = await fetchAIBiography(artistName, lovableApiKey, log);
-          source = 'lovable_ai';
-          log.info('Lovable AI biography generated', { artistName });
         } else {
           throw new Error('No API keys configured for biography generation');
         }

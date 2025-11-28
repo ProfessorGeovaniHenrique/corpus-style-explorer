@@ -27,7 +27,7 @@ export function useBreadcrumbs(): Breadcrumb[] {
     const pathSegments = location.pathname.split('/').filter(Boolean);
     
     const routes: Record<string, { label: string; icon?: LucideIcon }> = {
-      'dashboard-mvp': { label: 'Dashboard MVP', icon: Home },
+      'dashboard-mvp-definitivo': { label: 'Dashboard', icon: Home },
       'ferramentas': { label: 'Ferramentas', icon: Wrench },
       'advanced-mode': { label: 'Modo Avançado', icon: Sparkles },
       'admin': { label: 'Administração', icon: Shield },

@@ -100,14 +100,14 @@ const onboardingSteps = [
           <Button size="lg" className="gap-2" onClick={() => {
             localStorage.setItem('onboarding_completed', 'true');
             localStorage.setItem('show_quick_tour', 'true');
-            window.location.href = '/dashboard-mvp';
+            window.location.href = '/dashboard-mvp-definitivo';
           }}>
             <Sparkles className="w-5 h-5" />
             Ver demo rápida (30s)
           </Button>
           <Button variant="outline" size="lg" className="gap-2" onClick={() => {
             localStorage.setItem('onboarding_completed', 'true');
-            window.location.href = '/dashboard-mvp';
+            window.location.href = '/dashboard-mvp-definitivo';
           }}>
             <ArrowRight className="w-5 h-5" />
             Explorar sozinho
@@ -150,7 +150,7 @@ export default function Onboarding() {
   
   const handleComplete = () => {
     localStorage.setItem('onboarding_completed', 'true');
-    navigate('/dashboard-mvp');
+    navigate('/dashboard-mvp-definitivo');
   };
   
   const handleSkip = () => {

@@ -64,7 +64,7 @@ const HowItWorksSection = () => {
 
         <div className="text-center">
           <Button asChild size="lg" className="text-lg px-8 py-6">
-            <Link to="/dashboard-mvp">
+            <Link to="/dashboard-mvp-definitivo">
               <Sparkles className="mr-2 h-5 w-5" />
               Testar Agora Gratuitamente
             </Link>

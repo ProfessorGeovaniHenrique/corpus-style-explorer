@@ -51,7 +51,7 @@ export default function Auth() {
   useEffect(() => {
     if (user) {
       const hasSeenOnboarding = localStorage.getItem('onboarding_completed');
-      const redirectPath = !hasSeenOnboarding ? "/onboarding" : "/dashboard-mvp";
+      const redirectPath = !hasSeenOnboarding ? "/onboarding" : "/dashboard-mvp-definitivo";
       
       log.logNavigation('/auth', redirectPath);
       
@@ -81,7 +81,7 @@ export default function Auth() {
 
       log.success('Login successful', { email: data.email });
       toast.success("Login realizado com sucesso!");
-      navigate("/dashboard-mvp");
+      navigate("/dashboard-mvp-definitivo");
     } catch (error: any) {
       log.error('Login failed', error, { email: data.email });
       toast.error(error.message || "Erro ao fazer login");

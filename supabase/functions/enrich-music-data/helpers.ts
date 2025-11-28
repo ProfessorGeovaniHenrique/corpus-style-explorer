@@ -178,7 +178,7 @@ export async function searchYouTube(
 export async function searchWithAI(
   titulo: string,
   artista: string,
-  lovableApiKey: string,
+  lovableApiKey: string | undefined,
   geminiApiKey?: string
 ): Promise<{ compositor: string; ano: string; fonte?: string }> {
   const searchPrompt = `Você é um especialista em metadados musicais brasileiros.
@@ -203,45 +203,7 @@ Retorne APENAS um objeto JSON válido:
   "fonte": "Base de Conhecimento Digital"
 }`;
 
-  // 1️⃣ PRIMEIRA TENTATIVA: Lovable AI com Gemini Pro
-  if (lovableApiKey) {
-    try {
-      const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${lovableApiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'google/gemini-2.5-pro',
-          messages: [{ role: 'user', content: searchPrompt }],
-          temperature: 0.2,
-          max_tokens: 300,
-        }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        const rawText = data.choices?.[0]?.message?.content;
-        
-        if (rawText) {
-          const parsedData = JSON.parse(rawText);
-          console.log('[searchWithAI] ✅ Lovable AI (Gemini Pro) success');
-          return {
-            compositor: parsedData.compositor || 'Não Identificado',
-            ano: validateYear(parsedData.ano),
-            fonte: parsedData.fonte || 'Base de Conhecimento Digital'
-          };
-        }
-      }
-      
-      console.warn('[searchWithAI] Lovable AI failed, trying Google API fallback');
-    } catch (error) {
-      console.warn('[searchWithAI] Lovable AI error:', error);
-    }
-  }
-
-  // 2️⃣ FALLBACK: Google API Direta
+  // Use Google API directly
   if (geminiApiKey) {
     try {
       const response = await fetch(
@@ -263,10 +225,10 @@ Retorne APENAS um objeto JSON válido:
       if (response.ok) {
         const data = await response.json();
         const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-
+        
         if (rawText) {
           const parsedData = JSON.parse(rawText);
-          console.log('[searchWithAI] ✅ Google API (Gemini Pro) fallback success');
+          console.log('[searchWithAI] ✅ Google API (Gemini Pro) success');
           return {
             compositor: parsedData.compositor || 'Não Identificado',
             ano: validateYear(parsedData.ano),
@@ -275,7 +237,7 @@ Retorne APENAS um objeto JSON válido:
         }
       }
     } catch (error) {
-      console.error('[searchWithAI] Google API fallback failed:', error);
+      console.error('[searchWithAI] Google API failed:', error);
     }
   }
 

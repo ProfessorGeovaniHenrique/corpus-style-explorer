@@ -83,11 +83,11 @@ export function MobileMenu() {
             <>
               <Button 
                 variant="ghost" 
-                onClick={() => handleNavigate('/dashboard-mvp')}
+                onClick={() => handleNavigate('/dashboard-mvp-definitivo')}
                 className="justify-start gap-2"
               >
                 <Home className="h-4 w-4" />
-                <span>Dashboard MVP</span>
+                <span>Dashboard</span>
               </Button>
               
               <Button 
