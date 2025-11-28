@@ -126,7 +126,7 @@ Retorne APENAS um JSON válido no formato:
     {
       "palavra": "banco",
       "tagset_codigo": "OA",
-      "tagsets_alternativos": ["AP", "NA"],
+      "tagsets_alternativos": ["AP", "EL"],
       "is_polysemous": true,
       "confianca": 0.85
     }
@@ -141,29 +141,45 @@ function buildBatchPrompt(words: WordToClassify[]): string {
 
   return `Classifique as seguintes palavras nos domínios semânticos:
 
-DOMÍNIOS DISPONÍVEIS:
-- SH (Ser Humano): corpo, pessoa, características humanas
-- NA (Natureza): animais, plantas, paisagem, clima
-- AP (Atividades): trabalho, alimentação, transporte, lazer
-- AC (Ações e Processos): verbos de ação física concreta
-  - AC.MD: Movimento - andar, correr, pular, sentar, virar
-  - AC.MI: Manipulação - pegar, segurar, empurrar, amarrar, abrir
-  - AC.TR: Transformação - construir, quebrar, cortar, limpar, escrever
-  - AC.PS: Percepção - olhar, escutar, cheirar, provar
-  - AC.EC: Expressão - falar, cantar, gritar, acenar, abraçar
-- OA (Objetos e Artefatos): ferramentas, equipamentos, construções
-- AB (Abstrações): conceitos filosóficos, valores, ideias
-- SA (Sentimentos): emoções, estados mentais
-- TM (Tempo): cronologia, períodos, momentos
-- ES (Espaço): lugares, direções, distâncias
-- MG (Medidas e Grandezas): quantidades, dimensões
-- MV (Movimento): ações, deslocamentos
-- RE (Relações): vínculos sociais, familiares
-- CM (Comunicação): linguagem, mídia, informação
-- CC (Cultura): arte, educação, ciência, religião
-- SP (Sociedade): política, governo, lei
-- SB (Saúde): doenças, tratamentos, bem-estar
+**14 DOMÍNIOS SEMÂNTICOS N1:**
+- AB (Abstrações): ideias abstratas, conceitos filosóficos, valores morais
+- AC (Ações e Processos): verbos de ação física concreta (andar, pegar, construir, olhar, falar)
+- AP (Atividades e Práticas Sociais): trabalho, alimentação, vestuário, lazer, transporte
+- CC (Cultura e Conhecimento): arte, educação, religião, ciência, comunicação
+- EL (Estruturas e Lugares): construções, locais físicos, espaços arquitetônicos
+- EQ (Estados, Qualidades e Medidas): adjetivos, características, tempo, dimensões
+- MG (Marcadores Gramaticais): artigos, preposições, conjunções, palavras funcionais
+- NA (Natureza e Paisagem): flora, fauna, clima, geografia, elementos naturais
 - NC (Não Classificado): use apenas se nenhum domínio se aplica
+- OA (Objetos e Artefatos): ferramentas, utensílios, equipamentos, vestimenta
+- SB (Saúde e Bem-Estar): doenças humanas/animais, tratamentos, bem-estar, saúde mental
+- SE (Sentimentos): amor, saudade, alegria, tristeza, emoções
+- SH (Indivíduo): pessoa, corpo humano, características humanas, identidade
+- SP (Sociedade e Organização Política): governo, lei, relações sociais, política
+
+**SUBDOMÍNIOS IMPORTANTES N2:**
+- AC.MD (Movimento): andar, correr, pular, sentar, virar, saltar
+- AC.MI (Manipulação): pegar, segurar, empurrar, amarrar, abrir, fechar
+- AC.TR (Transformação): construir, quebrar, cortar, limpar, escrever, pintar
+- AC.PS (Percepção): olhar, ver, escutar, cheirar, provar, sentir
+- AC.EC (Expressão): falar, cantar, gritar, acenar, abraçar, beijar
+- AP.TRA (Trabalho/Economia): plantar, colher, comprar, vender, tropeiro, médico
+- AP.ALI (Alimentação): cozinhar, churrasco, chimarrão, mate, cuia
+- AP.VES (Vestuário): vestir, costurar, bombacha, bota, poncho
+- AP.LAZ (Lazer/Esportes): festa, fandango, rodeio, futebol, dança
+- CC.ART (Arte): música, poesia, pintura, dança, literatura
+- CC.REL (Religiosidade): Deus, fé, alma, reza, igreja
+- SB.DOE (Doenças): gripe, diabetes, febre, dor, ferida, cinomose
+- SB.TRA (Tratamentos): remédio, cirurgia, hospital, vacina, vermífugo
+- SB.05 (Saúde Animal - Veterinária): veterinário, castração, febre aftosa, raiva
+  - SB.05.01 (Doenças Animais): cinomose, raiva, febre aftosa, parvovirose
+  - SB.05.02 (Tratamentos Veterinários): vermífugo, castração, vacinação animal
+  - SB.05.03 (Sistema de Saúde Animal): veterinário, clínica veterinária, zootecnista
+- SP.GOV (Governo): democracia, ministério, eleição, imposto
+- SP.LEI (Lei/Justiça): lei, julgamento, crime, polícia, prisão
+
+**IMPORTANTE - SAÚDE ANIMAL:**
+Use SB ou SB.05 para termos veterinários (veterinário, vermífugo, castração de animais, doenças animais como cinomose, raiva, febre aftosa).
 
 PALAVRAS:
 ${wordsList}

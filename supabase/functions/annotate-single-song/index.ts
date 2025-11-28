@@ -460,22 +460,33 @@ async function batchClassifyWithGemini(
     return `${i + 1}. Palavra: "${p.palavra}" | Contexto: "${sentenca}"`;
   }).join('\n');
 
-  const prompt = `Classifique CADA palavra em um dos 13 domínios semânticos.
+  const prompt = `Classifique CADA palavra em um dos 14 domínios semânticos.
 
-**13 DOMÍNIOS SEMÂNTICOS:**
-- AB (Abstrações): conceitos abstratos
-- AP (Atividades): ações, trabalho, alimentação
-- CC (Cultura): arte, música, literatura
-- EL (Estruturas): construções, locais
-- EQ (Qualidades): adjetivos, características
-- MG (Marcadores): artigos, preposições
-- NA (Natureza): flora, fauna, elementos naturais
+**14 DOMÍNIOS SEMÂNTICOS N1:**
+- AB (Abstrações): ideias abstratas, conceitos filosóficos, valores
+- AC (Ações e Processos): verbos de ação física (andar, pegar, construir, olhar, falar)
+- AP (Atividades e Práticas): trabalho, alimentação, vestuário, lazer, transporte
+- CC (Cultura e Conhecimento): arte, educação, religião, ciência, comunicação
+- EL (Estruturas e Lugares): construções, locais físicos, espaços
+- EQ (Estados e Qualidades): adjetivos, características, tempo, medidas
+- MG (Marcadores Gramaticais): artigos, preposições, conjunções
+- NA (Natureza e Paisagem): flora, fauna, clima, geografia
 - NC (Não Classificado): não se encaixa
-- OA (Objetos): ferramentas, artefatos
-- SB (Saúde): corpo, doenças
-- SE (Sentimentos): emoções
-- SH (Ser Humano): aspectos humanos
-- SP (Sociedade): relações sociais
+- OA (Objetos e Artefatos): ferramentas, utensílios, equipamentos
+- SB (Saúde e Bem-Estar): doenças humanas/animais, tratamentos, bem-estar
+- SE (Sentimentos): amor, saudade, alegria, emoções
+- SH (Indivíduo): pessoa, corpo humano, características humanas
+- SP (Sociedade e Política): governo, lei, relações sociais
+
+**SUBDOMÍNIOS IMPORTANTES:**
+- AP.ALI (Alimentação): mate, churrasco, cuia
+- NA.FAU (Fauna): cavalo, gado, ovelha
+- OA (Objetos Campeiros): arreio, espora, laço
+- SB.05 (Saúde Animal): veterinário, vermífugo, castração animal
+- SE (Sentimentos): saudade, querência, paixão
+
+**IMPORTANTE - SAÚDE ANIMAL:**
+Use SB ou SB.05 para termos veterinários (veterinário, vermífugo, castração animal, cinomose, raiva).
 
 **PALAVRAS:**
 ${palavrasList}

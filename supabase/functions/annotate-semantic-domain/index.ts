@@ -514,57 +514,59 @@ async function batchClassifyWithGemini(
     return `${i + 1}. Palavra: "${p.palavra}" | Lema: "${p.lema}" | POS: ${p.pos} | Contexto: "${sentenca}"`;
   }).join('\n');
 
-  const prompt = `Você é um especialista em análise semântica de texto. Classifique CADA palavra abaixo em um dos 13 domínios semânticos.
+  const prompt = `Você é um especialista em análise semântica de texto. Classifique CADA palavra abaixo em um dos 14 domínios semânticos.
 
-**13 DOMÍNIOS SEMÂNTICOS N1:**
-- AB (Abstrações): ideias abstratas, conceitos filosóficos
-- AP (Atividades): trabalho, lida campeira, alimentação, lazer
-- CC (Cultura): arte, música, literatura, educação
-- EL (Estruturas): construções, locais físicos
-- EQ (Qualidades): adjetivos, qualidades, medidas, tempo
-- MG (Marcadores): artigos, preposições, conjunções
-- NA (Natureza): flora, fauna, elementos naturais
-- NC (Não Classificado): não se encaixa
-- OA (Objetos): ferramentas, utensílios, artefatos
-- SB (Saúde): corpo humano, doenças, tratamentos, bem-estar, saúde mental
-- SE (Sentimentos): amor, saudade, emoções
-- SH (Ser Humano): aspectos da humanidade
-- SP (Sociedade): relações sociais, política
+**14 DOMÍNIOS SEMÂNTICOS N1:**
+- AB (Abstrações): ideias abstratas, conceitos filosóficos, valores morais
+- AC (Ações e Processos): verbos de ação física concreta (andar, pegar, construir, olhar, falar)
+- AP (Atividades e Práticas Sociais): trabalho, alimentação, vestuário, lazer, transporte
+- CC (Cultura e Conhecimento): arte, educação, religião, ciência, comunicação
+- EL (Estruturas e Lugares): construções, locais físicos, espaços arquitetônicos
+- EQ (Estados, Qualidades e Medidas): adjetivos, características, tempo, dimensões
+- MG (Marcadores Gramaticais): artigos, preposições, conjunções, palavras funcionais
+- NA (Natureza e Paisagem): flora, fauna, clima, geografia, elementos naturais
+- NC (Não Classificado): use apenas se nenhum domínio se aplica
+- OA (Objetos e Artefatos): ferramentas, utensílios, equipamentos, vestimenta
+- SB (Saúde e Bem-Estar): doenças humanas/animais, tratamentos, bem-estar, saúde mental
+- SE (Sentimentos): amor, saudade, alegria, tristeza, emoções
+- SH (Indivíduo): pessoa, corpo humano, características humanas, identidade
+- SP (Sociedade e Organização Política): governo, lei, relações sociais, política
 
-**SUBDOMÍNIOS IMPORTANTES:**
-- SH.COG.EMO (Emoções): amor, ódio, saudade, tristeza, alegria
-- SH.COG.EST (Estados Mentais): sono, sonho, memória, lembrança
-- NA.AMB.PAI (Paisagens): pampa, coxilha, várzea, campo, planície
-- NA.FEN.MET (Meteorologia): chuva, vento, sol, seca, tempestade
-- CL.VIV.PEC (Animais de Criação): gado, ovelha, cavalo, boi
-- OA.EQU.MON (Equipamentos de Montaria): arreios, laço, rédeas
-- CC.ART.LIT.POE (Poesia): poema, verso, estrofe, rima, haicai
+**SUBDOMÍNIOS IMPORTANTES N2:**
+- AC.MD (Movimento): andar, correr, pular, sentar, virar
+- AC.MI (Manipulação): pegar, segurar, empurrar, amarrar, abrir
+- AC.TR (Transformação): construir, quebrar, cortar, limpar, escrever
+- AC.PS (Percepção): olhar, ver, escutar, cheirar, provar
+- AC.EC (Expressão): falar, cantar, gritar, acenar, abraçar
 - AB.FIL (Filosofia/Ética): liberdade, justiça, verdade, virtude, honra
 - AB.SOC (Social/Político): poder, direito, democracia, cidadania, paz
 - AB.EXI (Existencial/Metafísico): destino, vida, morte, eternidade, sorte
 - AB.LOG (Lógico/Matemático): lógica, razão, infinito, proporção
 - AP.TRA (Trabalho/Economia): plantar, colher, comprar, vender, médico, tropeiro
-- AP.ALI (Alimentação): cozinhar, churrasco, chimarrão, almoço
-- AP.VES (Vestuário): vestir, costurar, moda, estilo
-- AP.LAZ (Lazer/Esportes): festa, fandango, rodeio, futebol, pesca
-- AP.DES (Transporte): cavalgar, viajar, rota, destino
-- SB.DOE (Doença/Condições): gripe, diabetes, febre, dor, ferida
+- AP.ALI (Alimentação/Culinária): cozinhar, churrasco, chimarrão, mate, cuia
+- AP.VES (Vestuário/Moda): vestir, costurar, bombacha, bota, poncho
+- AP.LAZ (Lazer/Esportes): festa, fandango, rodeio, futebol, dança
+- AP.DES (Transporte/Deslocamento): cavalgar, viajar, rota, destino
+- CC.ART (Arte/Expressão): poesia, música, pintura, dança, literatura
+- CC.EDU (Educação/Aprendizado): estudar, escola, professor, ensinar
+- CC.REL (Religiosidade/Espiritualidade): Deus, fé, alma, reza, igreja
+- CC.COM (Comunicação/Mídia): jornal, mensagem, conversa, notícia
+- SB.DOE (Doenças/Condições): gripe, diabetes, febre, dor, ferida
 - SB.TRA (Tratamentos/Cuidados): remédio, cirurgia, hospital, médico, vacina
 - SB.BEM (Bem-Estar/Estilo de Vida): dieta, exercício, higiene, descanso
 - SB.MEN (Saúde Mental): depressão, ansiedade, memória, personalidade
-- AP.VES (Vestuário): vestir, costurar, moda, estilo
-- AP.LAZ (Lazer/Esportes): festa, fandango, rodeio, futebol, pesca
-- AP.DES (Transporte): cavalgar, viajar, rota, destino
+- SB.05 (Saúde Animal - Veterinária): veterinário, castração animal, doenças animais
+  - SB.05.01 (Doenças Animais): cinomose, raiva, febre aftosa, parvovirose
+  - SB.05.02 (Tratamentos Veterinários): vermífugo, castração, vacinação animal
+  - SB.05.03 (Sistema de Saúde Animal): veterinário, clínica veterinária, zootecnista
 - SP.GOV (Governo/Estado): democracia, ministério, imposto, eleição
 - SP.LEI (Lei/Justiça): lei, julgamento, crime, polícia, prisão
-- SP.REL (Relações Internacionais): fronteira, tratado, embaixada
-- SP.GUE (Guerra/Conflito): guerra, batalha, atacar, defender, estratégia
-- SP.POL (Processos Políticos): voto, protesto, liberalismo, cidadania
-- SP.EST (Estrutura Social): elite, classe, desigualdade, racismo
-- AB.FIL (Filosofia/Ética): liberdade, justiça, verdade, virtude, honra
-- AB.SOC (Social/Político): poder, direito, democracia, cidadania, paz
-- AB.EXI (Existencial/Metafísico): destino, vida, morte, eternidade, sorte
-- AB.LOG (Lógico/Matemático): lógica, razão, infinito, proporção
+- SP.GUE (Guerra/Conflito): guerra, batalha, atacar, defender
+- SP.POL (Processos Políticos): voto, protesto, cidadania
+- SP.EST (Estrutura Social): elite, classe, desigualdade
+
+**IMPORTANTE - SAÚDE ANIMAL:**
+Use SB ou SB.05 para termos veterinários relacionados à saúde de animais (veterinário, vermífugo, castração de animais, cinomose, raiva, febre aftosa).
 
 **PALAVRAS A CLASSIFICAR:**
 ${palavrasList}

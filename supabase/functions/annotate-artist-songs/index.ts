@@ -1003,29 +1003,43 @@ async function batchClassifyWithGemini(
     return info;
   }).join('\n');
 
-  const prompt = `Você é um especialista em análise semântica de texto. Classifique CADA palavra abaixo em um dos 13 domínios semânticos.
+  const prompt = `Você é um especialista em análise semântica de texto. Classifique CADA palavra abaixo em um dos 14 domínios semânticos.
 
-**13 DOMÍNIOS SEMÂNTICOS N1:**
-- AB (Abstrações): ideias abstratas, conceitos filosóficos
-- AP (Atividades): trabalho, lida campeira, alimentação, lazer
-- CC (Cultura): arte, música, literatura, educação
-- EL (Estruturas): construções, locais físicos
-- EQ (Qualidades): adjetivos, qualidades, medidas, tempo
-- MG (Marcadores): artigos, preposições, conjunções
-- NA (Natureza): flora, fauna, elementos naturais
-- NC (Não Classificado): não se encaixa
-- OA (Objetos): ferramentas, utensílios, artefatos
-- SB (Saúde): corpo humano, doenças
-- SE (Sentimentos): amor, saudade, emoções
-- SH (Ser Humano): aspectos da humanidade
-- SP (Sociedade): relações sociais, política
+**14 DOMÍNIOS SEMÂNTICOS N1:**
+- AB (Abstrações): ideias abstratas, conceitos filosóficos, valores morais
+- AC (Ações e Processos): verbos de ação física concreta (andar, pegar, construir, olhar, falar)
+- AP (Atividades e Práticas Sociais): trabalho, alimentação, vestuário, lazer, transporte
+- CC (Cultura e Conhecimento): arte, educação, religião, ciência, comunicação
+- EL (Estruturas e Lugares): construções, locais físicos, espaços (galpão, rancho, estância)
+- EQ (Estados, Qualidades e Medidas): adjetivos, características, tempo, dimensões
+- MG (Marcadores Gramaticais): artigos, preposições, conjunções, palavras funcionais
+- NA (Natureza e Paisagem): flora, fauna, clima, geografia, elementos naturais
+- NC (Não Classificado): use apenas se nenhum domínio se aplica
+- OA (Objetos e Artefatos): ferramentas, utensílios, equipamentos, vestimenta
+- SB (Saúde e Bem-Estar): doenças humanas/animais, tratamentos, bem-estar, saúde mental
+- SE (Sentimentos): amor, saudade, alegria, tristeza, emoções
+- SH (Indivíduo): pessoa, corpo humano, características humanas, identidade (gaúcho, prenda)
+- SP (Sociedade e Organização Política): governo, lei, relações sociais, política
 
-**SUBDOMÍNIOS IMPORTANTES:**
-- AP.ALI (Alimentação): mate, churrasco, cuia
-- NA.FAU (Fauna): cavalo, gado, galo
-- NA.GEO (Geografia): coxilha, várzea, pampa
-- OA.FER (Ferramentas): arreio, espora, laço
-- SE.NOS (Nostalgia): saudade, querência
+**SUBDOMÍNIOS IMPORTANTES (Contexto Gaúcho):**
+- AC.MD (Movimento): cavalgar, galopar, trotar, caminhar, montar
+- AC.MI (Manipulação): laçar, domar, encilhar, arrear
+- AP.TRA (Trabalho/Lida): campear, tropear, marcar, castrar, tosquiar
+- AP.ALI (Alimentação): mate, chimarrão, churrasco, carreteiro, charque
+- AP.VES (Vestuário): bombacha, bota, poncho, lenço, chapéu
+- AP.LAZ (Lazer): fandango, rodeio, vanerão, trova, payada
+- NA.FAU (Fauna): cavalo, gado, ovelha, potro, égua, gateado, tordilho
+- NA.GEO (Geografia): coxilha, várzea, pampa, campanha, fronteira
+- OA (Objetos Campeiros): arreio, espora, laço, rebenque, facão, boleadeira
+- EL (Estruturas Gaúchas): galpão, rancho, estância, mangueira, curral
+- SB.05 (Saúde Animal): veterinário, vermífugo, castração, cinomose, raiva, febre aftosa
+  - SB.05.01 (Doenças Animais): cinomose, raiva, febre aftosa, parvovirose
+  - SB.05.02 (Tratamentos Veterinários): vermífugo, castração, vacinação animal
+  - SB.05.03 (Sistema de Saúde Animal): veterinário, clínica veterinária, zootecnista
+- SE (Sentimentos): saudade, querência, paixão, dor, alegria
+
+**IMPORTANTE - SAÚDE ANIMAL:**
+Use SB ou SB.05 para termos veterinários relacionados à saúde de animais (veterinário, vermífugo, castração de animais, doenças como cinomose, raiva, febre aftosa).
 
 **PALAVRAS A CLASSIFICAR:**
 ${palavrasList}
