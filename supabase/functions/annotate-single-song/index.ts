@@ -180,7 +180,7 @@ serve(async (req) => {
           hash,
           wordCache.tagset_codigo,
           wordCache.confianca,
-          'cache',
+          'rule_based',
           wordCache.justificativa || 'Cache palavra',
           artist.id,
           songId
@@ -201,7 +201,7 @@ serve(async (req) => {
           hash,
           contextCache.tagset_codigo,
           contextCache.confianca,
-          'cache',
+          'rule_based',
           contextCache.justificativa || 'Cache contexto',
           artist.id,
           songId
