@@ -218,18 +218,19 @@ export default function MusicCatalog() {
 
   // ✅ REMOVIDO - Agora usa exclusivamente useCatalogData hook
 
-  const handleEnrichSong = async (songId: string): Promise<{ success: boolean; message?: string; error?: string }> => {
-    log.info('Starting song enrichment', { songId });
+  const handleEnrichSong = async (songId: string, forceReenrich?: boolean): Promise<{ success: boolean; message?: string; error?: string }> => {
+    log.info('Starting song enrichment', { songId, forceReenrich });
     
     try {
       log.debug('Invoking enrich-music-data edge function', { 
         songId,
+        forceReenrich,
         supabaseUrl: import.meta.env.VITE_SUPABASE_URL 
       });
       
       // Timeout de 30s
       const enrichPromise = supabase.functions.invoke('enrich-music-data', {
-        body: { songId }
+        body: { songId, forceReenrich: forceReenrich || false }
       });
       
       const timeoutPromise = new Promise((_, reject) => 
@@ -1610,8 +1611,8 @@ export default function MusicCatalog() {
         open={isEnrichmentModalOpen}
         onOpenChange={setIsEnrichmentModalOpen}
         songs={songsToEnrich}
-        onEnrich={async (songId: string) => {
-          const result = await enrichmentService.enrichSong(songId, 'metadata-only');
+        onEnrich={async (songId: string, forceReenrich?: boolean) => {
+          const result = await enrichmentService.enrichSong(songId, 'metadata-only', forceReenrich || false);
           return {
             success: result.success,
             message: result.success ? 'Música enriquecida com sucesso' : undefined,

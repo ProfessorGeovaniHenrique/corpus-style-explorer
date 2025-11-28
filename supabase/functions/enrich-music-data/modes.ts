@@ -30,6 +30,7 @@ const corsHeaders = {
 export async function handleSingleMode(body: any, supabase: any, log: EdgeLogger) {
   const songId = body.songId;
   const enrichmentMode = body.mode || 'full';
+  const forceReenrich = body.forceReenrich || false;
   
   if (!songId) {
     log.warn('Single mode called without songId');
@@ -39,9 +40,9 @@ export async function handleSingleMode(body: any, supabase: any, log: EdgeLogger
     );
   }
 
-  log.info('Single mode enrichment started', { songId, enrichmentMode });
+  log.info('Single mode enrichment started', { songId, enrichmentMode, forceReenrich });
 
-  const result = await enrichSingleSong(songId, supabase, enrichmentMode, log);
+  const result = await enrichSingleSong(songId, supabase, enrichmentMode, log, forceReenrich);
 
   return new Response(
     JSON.stringify(result),
@@ -302,7 +303,8 @@ async function enrichSingleSong(
   songId: string, 
   supabase: any,
   enrichmentMode: 'full' | 'metadata-only' | 'youtube-only' = 'full',
-  log: EdgeLogger
+  log: EdgeLogger,
+  forceReenrich: boolean = false
 ): Promise<EnrichmentResult> {
   const timer = log.startTimer();
   
@@ -385,7 +387,11 @@ async function enrichSingleSong(
     // 2. Enrich with AI (skip if mode is youtube-only)
     const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
     
-    if (enrichmentMode !== 'youtube-only' && !song.composer && GEMINI_API_KEY) {
+    if (forceReenrich) {
+      log.info('Force re-enrich enabled - will call AI even if composer exists', { songId, currentComposer: song.composer });
+    }
+    
+    if (enrichmentMode !== 'youtube-only' && (!song.composer || forceReenrich) && GEMINI_API_KEY) {
       const metadata = await enrichWithAI(
         song.title,
         artistName,

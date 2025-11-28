@@ -1,4 +1,4 @@
-import { useEffect, useReducer, useRef } from 'react';
+import { useEffect, useReducer, useRef, useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -10,6 +10,8 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 import { 
   Sparkles, 
   Pause, 
@@ -117,7 +119,7 @@ interface EnrichmentBatchModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   songs: Array<{ id: string; title: string; artist: string }>;
-  onEnrich: (songId: string) => Promise<{ success: boolean; message?: string; error?: string }>;
+  onEnrich: (songId: string, forceReenrich?: boolean) => Promise<{ success: boolean; message?: string; error?: string }>;
   onComplete: () => void;
 }
 
@@ -138,6 +140,7 @@ export function EnrichmentBatchModal({
     logs: [],
   });
 
+  const [forceReenrich, setForceReenrich] = useState(false);
   const isPausedRef = useRef(false);
   const isCancelledRef = useRef(false);
 
@@ -229,7 +232,7 @@ export function EnrichmentBatchModal({
         dispatch({ type: 'SONG_START', songId: song.id, title: song.title });
 
         try {
-          const result = await onEnrich(song.id);
+          const result = await onEnrich(song.id, forceReenrich);
 
           if (result.success) {
             dispatch({
@@ -311,6 +314,26 @@ export function EnrichmentBatchModal({
         </DialogHeader>
 
         <div className="space-y-4">
+          {/* Force Re-enrich Option */}
+          {state.status === 'idle' && (
+            <div className="flex items-center space-x-2 p-3 border rounded-md bg-muted/30">
+              <Checkbox 
+                id="force-reenrich"
+                checked={forceReenrich}
+                onCheckedChange={(checked) => setForceReenrich(checked as boolean)}
+              />
+              <Label 
+                htmlFor="force-reenrich" 
+                className="text-sm cursor-pointer leading-tight"
+              >
+                <div className="font-medium">Forçar re-enriquecimento</div>
+                <div className="text-xs text-muted-foreground">
+                  Buscar co-autores mesmo em músicas que já possuem compositor
+                </div>
+              </Label>
+            </div>
+          )}
+
           {/* Progress Bar */}
           <div className="space-y-2">
             <div className="flex justify-between text-sm">
