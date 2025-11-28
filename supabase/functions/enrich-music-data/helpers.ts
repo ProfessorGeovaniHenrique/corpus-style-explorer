@@ -196,9 +196,15 @@ REGRAS CRÍTICAS:
 - Se não tiver certeza, retorne "Não Identificado" para compositor e "0000" para ano
 - Priorize música brasileira (forró, piseiro, sertanejo, gaúcha)
 
+REGRAS PARA COMPOSITORES:
+- Se houver MÚLTIPLOS compositores, liste TODOS separados por " / "
+- Não confunda intérprete com compositor
+- Formato: "Compositor 1 / Compositor 2 / Compositor 3"
+- Exemplo: "Luiz Marenco / Gujo Teixeira"
+
 Retorne APENAS um objeto JSON válido:
 {
-  "compositor": "Nome do Compositor",
+  "compositor": "Nome(s) do(s) Compositor(es) separados por ' / ' se houver mais de um",
   "ano": "YYYY",
   "fonte": "Base de Conhecimento Digital"
 }`;

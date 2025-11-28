@@ -662,10 +662,17 @@ ${youtubeContextText}
 
 Saída Obrigatória (JSON):
 {
-  "composer": "Nome do Compositor (ou null)",
+  "composer": "Nome(s) do(s) Compositor(es) separados por ' / ' se houver mais de um. Exemplo: 'Luiz Marenco / Gujo Teixeira'. Retorne null se desconhecido.",
   "release_year": "Ano YYYY (ou null)",
   "confidence": "high/medium/low"
 }
+
+REGRAS PARA COMPOSITORES:
+- Se houver MÚLTIPLOS compositores, liste TODOS separados por " / "
+- Não confunda intérprete com compositor
+- Priorize a composição original, não arranjos
+- Formato: "Compositor 1 / Compositor 2 / Compositor 3"
+
 Não adicione markdown \`\`\`json ou explicações. Apenas o objeto JSON cru.`;
 
   // Use Google API directly
