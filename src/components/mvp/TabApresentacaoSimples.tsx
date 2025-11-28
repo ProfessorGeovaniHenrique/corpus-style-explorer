@@ -51,10 +51,10 @@ export function TabApresentacaoSimples() {
           </AlertDescription>
         </Alert>
 
-        {/* Letra da música + Player */}
+        {/* Letra da música + Player + Glossário */}
         <div className="grid gap-6 lg:grid-cols-3">
           <div className="lg:col-span-2">
-            <Card className="card-academic">
+            <Card className="card-academic h-full">
               <CardHeader>
                 <CardTitle className="text-lg">Letra da Música</CardTitle>
                 <CardDescription>Luiz Marenco - Quando o verso vem pras casa</CardDescription>
@@ -95,7 +95,7 @@ E uma saudade redomona pelos cantos do galpão`}
             </Card>
           </div>
 
-          <div>
+          <div className="space-y-6">
             <Card className="card-academic">
               <CardHeader>
                 <CardTitle className="text-base">Ouça a canção</CardTitle>
@@ -116,48 +116,28 @@ E uma saudade redomona pelos cantos do galpão`}
                 </div>
               </CardContent>
             </Card>
-          </div>
-        </div>
 
-        {/* Glossário do Verso */}
-        <Card className="border-primary/20 bg-card/50">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <BookOpen className="h-5 w-5 text-primary" />
-              Glossário do Verso: Termos Regionais
-            </CardTitle>
-            <CardDescription>
-              Compreenda o vocabulário gaúcho presente na canção
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="grid gap-6 md:grid-cols-2">
-              {/* Natureza */}
-              <div className="space-y-3">
-                <h4 className="font-semibold text-primary">Termos da Natureza</h4>
-                <div className="space-y-2 text-sm">
-                  <div><strong>Tarumã:</strong> Árvore nativa do Sul (Vitex megapotamica), conhecida por sua sombra generosa</div>
-                  <div><strong>Coxilha:</strong> Elevação suave e ondulada típica do pampa gaúcho</div>
+            {/* Glossário do Verso - Lateral com scroll */}
+            <Card className="border-primary/20 bg-card/50">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <BookOpen className="h-4 w-4 text-primary" />
+                  Glossário do Verso
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  Termos regionais da canção
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="max-h-[500px] overflow-y-auto pr-2 space-y-2 text-sm">
+                  <div><strong>Tarumã:</strong> Árvore nativa do Sul com sombra generosa</div>
+                  <div><strong>Coxilha:</strong> Elevação suave do pampa gaúcho</div>
                   <div><strong>Várzea:</strong> Planície alagadiça às margens de rios</div>
-                </div>
-              </div>
-
-              {/* Cavalo e Lida */}
-              <div className="space-y-3">
-                <h4 className="font-semibold text-primary">Termos do Cavalo e Lida</h4>
-                <div className="space-y-2 text-sm">
                   <div><strong>Gateado/gateada:</strong> Cavalo com pelagem amarelada e listras escuras</div>
-                  <div><strong>Arreios:</strong> Conjunto de equipamentos para montar o cavalo</div>
+                  <div><strong>Arreios:</strong> Equipamentos para montar o cavalo</div>
                   <div><strong>Lombo:</strong> Dorso do cavalo onde vai a sela</div>
-                  <div><strong>Encilhar/Desencilhar:</strong> Colocar/retirar a sela e arreios</div>
+                  <div><strong>Encilhar/Desencilhar:</strong> Colocar/retirar sela e arreios</div>
                   <div><strong>Tropa:</strong> Grupo de cavalos ou bois</div>
-                </div>
-              </div>
-
-              {/* Cultura Gaúcha */}
-              <div className="space-y-3">
-                <h4 className="font-semibold text-primary">Termos da Cultura Gaúcha</h4>
-                <div className="space-y-2 text-sm">
                   <div><strong>Maragato:</strong> Gaúcho ligado às tradições federalistas</div>
                   <div><strong>Pañuelo:</strong> Lenço tradicional, símbolo político/cultural</div>
                   <div><strong>Querência:</strong> Lugar de origem; onde o coração pertence</div>
@@ -165,34 +145,20 @@ E uma saudade redomona pelos cantos do galpão`}
                   <div><strong>Prenda:</strong> Mulher gaúcha, companheira</div>
                   <div><strong>Ramada:</strong> Estrutura coberta de galhos</div>
                   <div><strong>Cancela:</strong> Porteira de madeira</div>
-                </div>
-              </div>
-
-              {/* Chimarrão */}
-              <div className="space-y-3">
-                <h4 className="font-semibold text-primary">Termos do Chimarrão</h4>
-                <div className="space-y-2 text-sm">
-                  <div><strong>Cuia:</strong> Recipiente de porongo para tomar chimarrão</div>
+                  <div><strong>Cuia:</strong> Recipiente de porongo para chimarrão</div>
                   <div><strong>Bomba:</strong> Canudo de metal com filtro</div>
                   <div><strong>Cevou um mate:</strong> Preparou o chimarrão</div>
                   <div><strong>Pura-folha:</strong> Erva-mate de qualidade, sem palitos</div>
                   <div><strong>Jujado:</strong> Temperado, preparado com cuidado</div>
-                </div>
-              </div>
-
-              {/* Poéticos */}
-              <div className="space-y-3">
-                <h4 className="font-semibold text-primary">Termos Poéticos</h4>
-                <div className="space-y-2 text-sm">
                   <div><strong>Redomona:</strong> Cavalo não domado; algo rebelde</div>
                   <div><strong>Templado:</strong> Afinado, em temperatura ideal</div>
                   <div><strong>Açoite:</strong> Chicote; algo que atinge com força</div>
                   <div><strong>Lonjuras:</strong> Distâncias, lugares longínquos</div>
                 </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
       </TabsContent>
 
       <TabsContent value="aprendizado">
