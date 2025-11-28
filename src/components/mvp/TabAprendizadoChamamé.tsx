@@ -49,6 +49,14 @@ export function TabAprendizadoChamamé() {
                   criando uma <strong>acentuação no 3° tempo</strong> do compasso, ao invés do 1°. Esta particularidade 
                   o diferencia de outros gêneros, como a rancheira.
                 </p>
+                <div className="mt-2 p-3 bg-muted/30 rounded-lg border-l-4 border-primary">
+                  <p className="text-xs text-muted-foreground">
+                    <strong>Nota técnica:</strong> O chamamé pode ser escrito tanto em <strong>3/4 (ternário simples)</strong> 
+                    quanto em <strong>6/8 (binário composto)</strong>. A notação em 6/8 reflete subdivisões 
+                    rítmicas herdadas das tradições guaranis, enquanto 3/4 é mais comum em partituras modernas. 
+                    A característica acentuação no tempo fraco permanece em ambas as notações.
+                  </p>
+                </div>
               </div>
             </div>
 
