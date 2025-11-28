@@ -603,9 +603,18 @@ export default function MusicCatalog() {
     );
   });
 
-  // ✅ Filtrar artistas por letra e busca
+  // ✅ Filtrar artistas por corpus, letra e busca
   const filteredArtists = useMemo(() => {
     let filtered = artistsWithStats;
+    
+    // Filtrar por corpus
+    if (selectedCorpusFilter !== 'all') {
+      if (selectedCorpusFilter === 'null') {
+        filtered = filtered.filter(artist => !artist.corpus_id);
+      } else {
+        filtered = filtered.filter(artist => artist.corpus_id === selectedCorpusFilter);
+      }
+    }
     
     // Filtrar por letra
     if (selectedLetter !== 'all') {
@@ -621,9 +630,13 @@ export default function MusicCatalog() {
       );
     }
     
-    log.debug('Artists filtered', { count: filtered.length, selectedLetter });
+    log.debug('Artists filtered', { 
+      count: filtered.length, 
+      selectedLetter,
+      selectedCorpusFilter 
+    });
     return filtered;
-  }, [artistsWithStats, selectedLetter, debouncedSearchQuery]);
+  }, [artistsWithStats, selectedLetter, debouncedSearchQuery, selectedCorpusFilter]);
 
   // ✅ Paginated artists
   const paginatedArtists = useMemo(() => {
@@ -637,7 +650,7 @@ export default function MusicCatalog() {
   // ✅ Reset to page 1 when filters change
   useEffect(() => {
     setCurrentArtistPage(1);
-  }, [selectedLetter, debouncedSearchQuery]);
+  }, [selectedLetter, debouncedSearchQuery, selectedCorpusFilter]);
 
   // ✅ CORRIGIDO: Conta músicas pendentes via query direta (não limitada a 1000)
   const [pendingCountForLetter, setPendingCountForLetter] = useState<number>(0);
