@@ -32,13 +32,16 @@ export default function ResetPassword() {
 
   useEffect(() => {
     const checkAccess = async () => {
-      console.log('[ResetPassword] URL completa:', window.location.href);
-      console.log('[ResetPassword] Hash:', window.location.hash);
+      console.log('[ResetPassword] 🔍 URL completa:', window.location.href);
+      console.log('[ResetPassword] 🔍 Hash:', window.location.hash);
 
       // Verificação 1: Hash da URL (fluxo padrão)
       const hashParams = new URLSearchParams(window.location.hash.substring(1));
       const accessToken = hashParams.get("access_token");
       const type = hashParams.get("type");
+
+      console.log('[ResetPassword] 🔍 Access Token:', accessToken ? 'presente' : 'ausente');
+      console.log('[ResetPassword] 🔍 Type:', type);
 
       if (accessToken && type === "recovery") {
         console.log('[ResetPassword] ✅ Acesso via hash válido');
@@ -47,18 +50,24 @@ export default function ResetPassword() {
       }
 
       // Verificação 2: Sessão existente (fallback)
-      const { data: { session } } = await supabase.auth.getSession();
+      console.log('[ResetPassword] 🔍 Verificando sessão...');
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      console.log('[ResetPassword] 🔍 Sessão:', session ? 'existe' : 'não existe');
+      if (sessionError) {
+        console.error('[ResetPassword] ❌ Erro ao buscar sessão:', sessionError);
+      }
       
       if (session) {
-        console.log('[ResetPassword] ✅ Acesso via sessão existente');
+        console.log('[ResetPassword] ✅ Acesso via sessão existente', session.user.email);
         setIsValidToken(true);
         return;
       }
 
       // Nenhuma das verificações passou
-      console.log('[ResetPassword] ❌ Sem hash válido e sem sessão');
-      toast.error("Link de recuperação inválido ou expirado");
-      setTimeout(() => navigate("/auth"), 3000);
+      console.log('[ResetPassword] ❌ Sem hash válido e sem sessão - redirecionando');
+      toast.error("Link de recuperação inválido ou expirado. Solicite um novo link.");
+      setTimeout(() => navigate("/forgot-password"), 3000);
     };
 
     checkAccess();
