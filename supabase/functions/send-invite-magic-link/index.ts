@@ -2,6 +2,8 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createSupabaseClient } from "../_shared/supabase.ts";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
+const RESEND_FROM_EMAIL = Deno.env.get("RESEND_FROM_EMAIL") || "Verso Austral <onboarding@resend.dev>";
+const RESEND_REPLY_TO = Deno.env.get("RESEND_REPLY_TO");
 const SITE_URL = Deno.env.get("SITE_URL") || Deno.env.get("SUPABASE_URL");
 
 const corsHeaders = {
@@ -176,7 +178,7 @@ const handler = async (req: Request): Promise<Response> => {
     `;
 
     // Tentar enviar para o destinatário
-    console.log(`Attempting to send email to ${recipientEmail}`);
+    console.log(`Attempting to send email to ${recipientEmail} from ${RESEND_FROM_EMAIL}`);
     
     let emailResponse = await fetch("https://api.resend.com/emails", {
       method: "POST",
@@ -185,8 +187,9 @@ const handler = async (req: Request): Promise<Response> => {
         "Authorization": `Bearer ${RESEND_API_KEY}`,
       },
       body: JSON.stringify({
-        from: "Verso Austral <onboarding@resend.dev>",
+        from: RESEND_FROM_EMAIL,
         to: [recipientEmail],
+        reply_to: RESEND_REPLY_TO || undefined,
         subject: `🎵 Convite para Verso Austral - ${role === "evaluator" ? "Avaliador" : "Usuário"}`,
         html: generateEmailHTML(false),
       }),
@@ -209,8 +212,9 @@ const handler = async (req: Request): Promise<Response> => {
             "Authorization": `Bearer ${RESEND_API_KEY}`,
           },
           body: JSON.stringify({
-            from: "Verso Austral <onboarding@resend.dev>",
+            from: RESEND_FROM_EMAIL,
             to: [emailTo],
+            reply_to: RESEND_REPLY_TO || undefined,
             subject: `[DEV] 🎵 Convite para ${recipientName} - Verso Austral`,
             html: generateEmailHTML(true),
           }),
