@@ -18,6 +18,7 @@ import AdminMetrics from "./pages/AdminMetrics";
 import AdminPrototypeGallery from "./pages/AdminPrototypeGallery";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import DashboardMVP from "./pages/DashboardMVP";
+import DashboardMVPDefinitivo from "./pages/DashboardMVPDefinitivo";
 import Onboarding from "./pages/Onboarding";
 import AdvancedMode from "./pages/AdvancedMode";
 import DevOpsMetrics from "./pages/DevOpsMetrics";
@@ -74,6 +75,7 @@ const RouterContent = () => {
 
         {/* Rota independente para DashboardMVP (sem AppLayout para evitar duplo header) */}
         <Route path="/dashboard-mvp" element={<DashboardMVP />} />
+        <Route path="/dashboard-mvp-definitivo" element={<DashboardMVPDefinitivo />} />
         <Route path="/dashboard-expandido" element={<DashboardExpandido />} />
         <Route path="/onboarding" element={<Onboarding />} />
         
