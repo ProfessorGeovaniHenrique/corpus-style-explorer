@@ -9,6 +9,7 @@ import { SongSearchInput } from './SongSearchInput';
 import { useProcessamentoTour } from '@/hooks/useProcessamentoTour';
 import { useCorpusArtistsAndSongs } from '@/hooks/useCorpusArtistsAndSongs';
 import { useDashboardAnaliseContext } from '@/contexts/DashboardAnaliseContext';
+import { REFERENCE_CORPORA } from '@/data/miniCorpusNordestino';
 import { HelpCircle, Users, FileMusic, Microscope, Loader2, InfoIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -18,6 +19,7 @@ export function TabProcessamento() {
   const [studyMode, setStudyMode] = useState(processamentoData.studyMode);
   const [studyArtist, setStudyArtist] = useState(processamentoData.studyArtist);
   const [studySong, setStudySong] = useState(processamentoData.studySong);
+  const [referenceCorpus, setReferenceCorpus] = useState(processamentoData.referenceCorpus);
   const [isProcessing, setIsProcessing] = useState(false);
 
   // Sincronizar estado com contexto ao mudar
@@ -26,8 +28,9 @@ export function TabProcessamento() {
       studyMode,
       studyArtist,
       studySong,
+      referenceCorpus,
     });
-  }, [studyMode, studyArtist, studySong]);
+  }, [studyMode, studyArtist, studySong, referenceCorpus]);
 
   // Carregar artistas e músicas do catálogo (corpus gaucho)
   const { artists, songs, setSelectedArtist, isLoadingArtists, isLoadingSongs } = useCorpusArtistsAndSongs('gaucho');
@@ -75,7 +78,7 @@ export function TabProcessamento() {
     }
   };
 
-  const canProcess = studyMode === 'song' && studyArtist && studySong;
+  const canProcess = studyMode === 'song' && studyArtist && studySong && referenceCorpus;
 
   return (
     <div className="space-y-4">
@@ -192,11 +195,46 @@ export function TabProcessamento() {
             </div>
           )}
 
-          {/* PASSO 4: Processar Corpus */}
+          {/* PASSO 4: Escolher Corpus de Referência */}
+          {studyMode === 'song' && studySong && (
+            <div className="space-y-2">
+              <Label className="text-sm font-medium flex items-center gap-2">
+                <Badge variant="outline" className="rounded-full w-6 h-6 flex items-center justify-center p-0">
+                  4
+                </Badge>
+                Escolha o Corpus de Referência
+              </Label>
+              <Select 
+                value={referenceCorpus} 
+                onValueChange={setReferenceCorpus}
+              >
+                <SelectTrigger data-tour="reference-corpus-select">
+                  <SelectValue placeholder="Selecione o corpus de referência..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {REFERENCE_CORPORA.map(corpus => (
+                    <SelectItem key={corpus.id} value={corpus.id}>
+                      <div className="flex items-center gap-2">
+                        <span>{corpus.name}</span>
+                        <Badge variant="secondary" className="text-xs">
+                          {corpus.totalSongs} músicas
+                        </Badge>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Corpus usado para comparação estatística (Log-likelihood)
+              </p>
+            </div>
+          )}
+
+          {/* PASSO 5: Processar Corpus */}
           <div className="pt-4 border-t space-y-3">
             <Label className="text-sm font-medium flex items-center gap-2">
               <Badge variant="outline" className="rounded-full w-6 h-6 flex items-center justify-center p-0">
-                4
+                5
               </Badge>
               Iniciar Processamento
             </Label>
