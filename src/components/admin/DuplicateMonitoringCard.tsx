@@ -157,18 +157,22 @@ export function DuplicateMonitoringCard() {
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>Confirmar Deduplicação</AlertDialogTitle>
-              <AlertDialogDescription>
-                Esta ação irá consolidar {result?.duplicatesRemoved} registros duplicados em {result?.consolidated} músicas únicas.
-                <br /><br />
-                <strong>Metadados preservados:</strong>
-                <ul className="list-disc list-inside mt-2">
-                  <li>{result?.releasesPreserved} releases serão armazenados em JSONB</li>
-                  <li>Compositor, letra, YouTube URL serão mesclados</li>
-                  <li>Ano de lançamento será o mais antigo</li>
-                  <li>Constraint UNIQUE será adicionada</li>
-                </ul>
-                <br />
-                Deseja continuar?
+              <AlertDialogDescription asChild>
+                <div className="space-y-2">
+                  <p>
+                    Esta ação irá consolidar {result?.duplicatesRemoved} registros duplicados em {result?.consolidated} músicas únicas.
+                  </p>
+                  <div>
+                    <p className="font-semibold mb-1">Metadados preservados:</p>
+                    <div className="space-y-1 text-sm">
+                      <div>• {result?.releasesPreserved} releases serão armazenados em JSONB</div>
+                      <div>• Compositor, letra, YouTube URL serão mesclados</div>
+                      <div>• Ano de lançamento será o mais antigo</div>
+                      <div>• Constraint UNIQUE será adicionada</div>
+                    </div>
+                  </div>
+                  <p className="mt-2">Deseja continuar?</p>
+                </div>
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>

@@ -48,38 +48,61 @@ serve(async (req) => {
 
     log.info('Starting deduplication', { dryRun, corpusIds });
 
-    // 1. Find duplicate groups
-    const query = supabase
-      .from('songs')
-      .select('id, title, normalized_title, artist_id, composer, release_year, lyrics, status, youtube_url, confidence_score, created_at, corpus_id');
+    // 1. Fetch ALL songs with pagination (Supabase has 1000 row default limit)
+    const BATCH_SIZE = 10000;
+    let allSongs: Song[] = [];
+    let offset = 0;
+    let hasMore = true;
 
-    if (corpusIds.length > 0) {
-      query.in('corpus_id', corpusIds);
+    log.info('Starting batch fetch', { batchSize: BATCH_SIZE });
+
+    while (hasMore) {
+      const query = supabase
+        .from('songs')
+        .select('id, title, normalized_title, artist_id, composer, release_year, lyrics, status, youtube_url, confidence_score, created_at, corpus_id')
+        .range(offset, offset + BATCH_SIZE - 1);
+
+      if (corpusIds.length > 0) {
+        query.in('corpus_id', corpusIds);
+      }
+
+      const { data, error } = await query;
+      
+      if (error) throw error;
+      
+      if (data && data.length > 0) {
+        // Add default releases/total_releases to match Song interface
+        const songsWithDefaults = data.map(song => ({
+          ...song,
+          releases: [] as SongRelease[],
+          total_releases: 1
+        }));
+        allSongs = [...allSongs, ...songsWithDefaults];
+        offset += BATCH_SIZE;
+        log.info('Batch fetched', { batchSize: data.length, totalSoFar: allSongs.length, offset });
+      }
+      
+      hasMore = data && data.length === BATCH_SIZE;
     }
 
-    const { data: allSongs, error: fetchError } = await query;
-
-    if (fetchError) throw fetchError;
-
-    log.info('Songs fetched', { totalSongs: allSongs?.length || 0 });
+    log.info('All songs fetched', { totalSongs: allSongs.length });
 
     // Group by (normalized_title, artist_id)
     const groups: Record<string, Song[]> = {};
     
-    for (const song of allSongs || []) {
+    for (const song of allSongs) {
       const key = `${song.normalized_title}|${song.artist_id}`;
       if (!groups[key]) groups[key] = [];
-      groups[key].push({
-        ...song,
-        releases: [],
-        total_releases: 1
-      } as Song);
+      groups[key].push(song);
     }
 
     // Filter only groups with duplicates
     const duplicateGroups = Object.entries(groups).filter(([_, songs]) => songs.length > 1);
 
-    log.info('Duplicate groups found', { totalGroups: duplicateGroups.length });
+    log.info('Duplicate groups found', { 
+      totalGroups: duplicateGroups.length,
+      totalDuplicates: duplicateGroups.reduce((sum, [_, songs]) => sum + (songs.length - 1), 0)
+    });
 
     let consolidated = 0;
     let duplicatesRemoved = 0;
@@ -138,6 +161,12 @@ serve(async (req) => {
       };
 
       if (!dryRun) {
+        log.info('Processing group', { 
+          title: primarySong.title, 
+          primaryId: primarySong.id, 
+          duplicateCount: duplicates.length 
+        });
+
         // Update primary song with merged data
         const { error: updateError } = await supabase
           .from('songs')
@@ -149,14 +178,25 @@ serve(async (req) => {
           continue;
         }
 
+        log.info('Primary song updated', { songId: primarySong.id });
+
         // Migrate foreign key references
         for (const duplicate of duplicates) {
           // Update semantic_disambiguation_cache
-          await supabase
+          const { error: cacheUpdateError } = await supabase
             .from('semantic_disambiguation_cache')
             .update({ song_id: primarySong.id })
             .eq('song_id', duplicate.id);
+
+          if (cacheUpdateError) {
+            log.warn('Failed to migrate cache references', { 
+              duplicateId: duplicate.id, 
+              error: cacheUpdateError.message 
+            });
+          }
         }
+
+        log.info('Foreign keys migrated', { duplicateCount: duplicates.length });
 
         // Delete duplicates
         const duplicateIds = duplicates.map(d => d.id);
@@ -167,6 +207,8 @@ serve(async (req) => {
 
         if (deleteError) {
           log.error('Failed to delete duplicates', deleteError, { duplicateIds });
+        } else {
+          log.info('Duplicates deleted', { count: duplicateIds.length });
         }
       }
 
@@ -183,16 +225,8 @@ serve(async (req) => {
       }
     }
 
-    // Add unique constraint if not dry run
-    if (!dryRun) {
-      try {
-        await supabase.rpc('execute', { 
-          sql: 'ALTER TABLE songs ADD CONSTRAINT IF NOT EXISTS songs_unique_title_artist UNIQUE (normalized_title, artist_id);' 
-        });
-      } catch (e) {
-        log.warn('Constraint may already exist', { error: String(e) });
-      }
-    }
+    // Note: UNIQUE constraint should be added via SQL migration, not via RPC
+    // Migration will handle: ALTER TABLE songs ADD CONSTRAINT songs_unique_title_artist UNIQUE (normalized_title, artist_id);
 
     const result = {
       dryRun,
