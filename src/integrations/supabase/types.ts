@@ -3024,6 +3024,17 @@ export type Database = {
       normalize_text: { Args: { "": string }; Returns: string }
       truncate_gutenberg_table: { Args: never; Returns: undefined }
       unaccent: { Args: { "": string }; Returns: string }
+      verify_invite_token: {
+        Args: { p_invite_code: string; p_token: string }
+        Returns: {
+          id: string
+          is_valid: boolean
+          key_code: string
+          recipient_email: string
+          recipient_name: string
+          role: Database["public"]["Enums"]["app_role"]
+        }[]
+      }
     }
     Enums: {
       app_role: "admin" | "evaluator" | "user"

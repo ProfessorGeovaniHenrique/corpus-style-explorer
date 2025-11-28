@@ -22,21 +22,29 @@ export default function AuthCallback() {
           return;
         }
 
-        // Verify and consume invite
-        const { data: invite, error: inviteError } = await supabase
-          .from("invite_keys")
-          .select("*")
-          .eq("magic_link_token", token)
-          .eq("key_code", inviteCode)
-          .is("used_by", null)
+        // Verify invite using SECURITY DEFINER function (bypasses RLS)
+        const { data: inviteData, error: inviteError } = await supabase
+          .rpc('verify_invite_token', {
+            p_token: token,
+            p_invite_code: inviteCode
+          })
           .maybeSingle();
 
-        if (inviteError || !invite) {
+        if (inviteError || !inviteData || !inviteData.is_valid) {
           setStatus("error");
           setMessage("Convite não encontrado ou já utilizado.");
           setTimeout(() => navigate("/auth"), 3000);
           return;
         }
+
+        // Extract invite data from RPC response
+        const invite = {
+          id: inviteData.id,
+          key_code: inviteData.key_code,
+          recipient_email: inviteData.recipient_email,
+          recipient_name: inviteData.recipient_name,
+          role: inviteData.role
+        };
 
         if (!invite.recipient_email) {
           setStatus("error");
