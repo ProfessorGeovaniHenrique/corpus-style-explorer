@@ -21,7 +21,8 @@ import {
   XCircle, 
   Clock,
   Zap,
-  AlertCircle
+  AlertCircle,
+  RotateCcw
 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { supabase } from '@/integrations/supabase/client';
@@ -341,6 +342,24 @@ export function EnrichmentBatchModal({
     }
   };
 
+  const handleRestart = () => {
+    dispatch({ type: 'START', total: 0 });
+    dispatch({ type: 'CANCEL' });
+    localStorage.removeItem('enrichment-progress');
+    // Reset to idle
+    setTimeout(() => {
+      dispatch({ type: 'RESTORE', state: {
+        status: 'idle',
+        total: 0,
+        completed: 0,
+        succeeded: 0,
+        failed: 0,
+        startTime: null,
+        logs: [],
+      }});
+    }, 100);
+  };
+
   return (
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-2xl max-h-[80vh]">
@@ -386,9 +405,9 @@ export function EnrichmentBatchModal({
                   htmlFor="clear-before" 
                   className="text-sm cursor-pointer leading-tight"
                 >
-                  <div className="font-medium text-destructive">🗑️ Limpar metadados antes</div>
+                  <div className="font-medium text-destructive">🗑️ Limpar TODOS os metadados antes</div>
                   <div className="text-xs text-muted-foreground">
-                    Remove compositor, ano e confidence existentes para forçar busca completa (recomendado para re-enriquecimento)
+                    Remove compositor, ano, álbum e confidence de TODAS as músicas selecionadas (pendentes ou já enriquecidas)
                   </div>
                 </Label>
               </div>
@@ -535,7 +554,13 @@ export function EnrichmentBatchModal({
               </>
             )}
             {(state.status === 'completed' || state.status === 'cancelled') && (
-              <Button onClick={handleClose}>Fechar</Button>
+              <>
+                <Button variant="outline" onClick={handleRestart}>
+                  <RotateCcw className="h-4 w-4 mr-2" />
+                  Reiniciar
+                </Button>
+                <Button onClick={handleClose}>Fechar</Button>
+              </>
             )}
           </div>
         </div>
