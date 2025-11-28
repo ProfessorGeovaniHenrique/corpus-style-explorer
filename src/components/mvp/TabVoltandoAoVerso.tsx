@@ -24,9 +24,9 @@ const questions: Question[] = [
   {
     id: "panuelo",
     verse: "Um pañuelo maragato se abriu no horizonte",
-    question: "O que o lenço maragato simboliza no contexto histórico que você estudou?",
-    connection: "O pañuelo maragato é um símbolo político e cultural ligado ao movimento federalista gaúcho. Representa identidade, pertencimento e resistência histórica. No contexto da canção, marca a chegada de um elemento culturalmente significativo no horizonte.",
-    context: "Conexão com origens e identidade política gaúcha"
+    question: "O que você imagina quando lê 'se abriu no horizonte'? Que momento do dia e que sentimento essa imagem evoca?",
+    connection: "O pañuelo vermelho 'se abrindo no horizonte' é uma imagem poética do pôr do sol — o céu avermelhado que anuncia o fim da jornada. É o momento sagrado do retorno: quando o campeiro volta para casa após um dia de lida. O horizonte tingido de vermelho simboliza não apenas o fim do dia, mas o início do encontro com a querência.",
+    context: "Imagens poéticas e o ciclo do dia na cultura campeira"
   },
   {
     id: "mate",
@@ -36,18 +36,18 @@ const questions: Question[] = [
     context: "Cultura gaúcha - rituais de pertencimento"
   },
   {
-    id: "gateada",
-    verse: "No lombo de uma gateada frente aberta de respeito",
-    question: "O que significa a postura 'frente aberta de respeito' na lida campeira?",
-    connection: "A expressão 'frente aberta de respeito' refere-se à postura digna e altiva do cavaleiro, que demonstra conhecimento e domínio da lida. É uma ética do comportamento campeiro: mostrar-se presente com confiança, mas sem arrogância. A gateada (cavalo) bem montada é símbolo de respeito mútuo entre homem e animal.",
-    context: "Cultura equestre e ética gaúcha"
+    id: "acordeao",
+    verse: "🎵 Abertura instrumental — primeiros segundos da canção",
+    question: "Ouça os primeiros segundos da canção. Como você descreveria a sonoridade do acordeão na abertura? Ela transmite uma sensação dramática, épica, melancólica, ou algo diferente?",
+    connection: "O acordeão que abre a canção com notas longas e sustentadas cria uma atmosfera de nostalgia épica — não é tristeza pura, mas uma melancolia altiva, como o campeiro que contempla o horizonte com orgulho de sua jornada. O timbre do acordeão, típico do Chamamé, evoca a vastidão dos campos e a grandeza silenciosa da vida rural.",
+    context: "Sonoridade do acordeão e atmosfera emocional"
   },
   {
-    id: "templado",
+    id: "ritmo",
     verse: "Templado a luz de candeeiro",
-    question: "Qual a função do rasguear no violão que você aprendeu? Como ele 'templa' a atmosfera?",
-    connection: "O rasguear chamamecero, com sua função percussiva e rítmica repetitiva, cria um estado de concentração e transe — semelhante a um mantra. Assim como o candeeiro 'templa' (afina, ajusta) a luz do ambiente, o violão ajusta a atmosfera emocional e espiritual do espaço. É o rito sagrado guarani perpetuado através da música.",
-    context: "Técnica do violão chamamecero"
+    question: "Preste atenção no ritmo do violão ao longo da canção. O Chamamé tradicional costuma ser mais acelerado — por que você acha que esta canção tem um andamento mais lento e constante? O que esse ritmo pode representar na narrativa da letra?",
+    connection: "O ritmo cadenciado e mais lento desta canção é uma escolha poética deliberada. Enquanto o Chamamé tradicional tem um andamento mais vivo e dançante, aqui o violão marca um ritmo de cavalgada tranquila — o passo calmo do cavalo que retorna para casa. A constância rítmica evoca o movimento do animal, e a velocidade reduzida transmite a serenidade de quem está chegando, não partindo. O 'verso vindo pras casa' chega no tempo dele, sem pressa.",
+    context: "Ritmo, andamento e narrativa: o violão como cavalgada"
   },
   {
     id: "saudade",
