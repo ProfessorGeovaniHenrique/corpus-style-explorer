@@ -35,8 +35,8 @@ serve(async (req) => {
       .update({
         composer: null,
         release_year: null,
+        album: null,
         confidence_score: 0,
-        metadata_confidence_score: null,
         enrichment_source: null,
         status: 'pending'
       })
