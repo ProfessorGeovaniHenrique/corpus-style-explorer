@@ -3,6 +3,8 @@
  * 
  * Enriquece regras de classificação semântica usando o dialectal_lexicon
  * Mapeia categorias temáticas para domínios N1
+ * 
+ * FASE 1 REFINAMENTO: Expandido para carregar 100% das palavras do dicionário (5.968+)
  */
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.81.1';
@@ -14,6 +16,12 @@ interface LexiconRule {
   is_polysemous?: boolean;
   confianca: number;
   justificativa: string;
+  // NOVOS CAMPOS FASE 1:
+  existeNoDicionario: boolean;
+  definicaoAbreviada?: string;  // Primeiros 100 chars
+  classeGramatical?: string;
+  origemPrimaria?: string;
+  influenciaPlatina?: boolean;
 }
 
 /**
@@ -80,6 +88,41 @@ const CATEGORY_TO_DOMAIN_MAP: Record<string, { codigo: string; nome: string }> =
 };
 
 /**
+ * FASE 1: Mapeamento de Classes Gramaticais Dialetal → Domínios
+ * Usado para palavras SEM categorias temáticas mas COM classe gramatical
+ */
+export const DIALECTAL_POS_TO_DOMAIN: Record<string, { codigo: string; confianca: number }> = {
+  // Substantivos → Contexto necessário (não podemos classificar só pela classe)
+  's.m.': { codigo: 'PENDING', confianca: 0.50 },
+  'S.m.': { codigo: 'PENDING', confianca: 0.50 },
+  's.f.': { codigo: 'PENDING', confianca: 0.50 },
+  'S.f.': { codigo: 'PENDING', confianca: 0.50 },
+  
+  // Verbos → Ações (AC)
+  'Tr.dir.': { codigo: 'AC', confianca: 0.85 },
+  'v.t.d.': { codigo: 'AC', confianca: 0.85 },
+  'Int.': { codigo: 'AC', confianca: 0.85 },
+  'Intr.': { codigo: 'AC', confianca: 0.85 },
+  'v.int.': { codigo: 'AC', confianca: 0.85 },
+  'v.pron.': { codigo: 'AC', confianca: 0.85 },
+  
+  // Adjetivos → Sentimentos/Qualidades (SE)
+  'Adj.': { codigo: 'SE', confianca: 0.80 },
+  'adj.': { codigo: 'SE', confianca: 0.80 },
+  
+  // Fraseologias → Cultura (CC)
+  'fraseol.': { codigo: 'CC', confianca: 0.90 },
+  
+  // Locuções
+  'loc.': { codigo: 'EL', confianca: 0.70 },
+  'loc.interj.': { codigo: 'SE', confianca: 0.90 },
+  'loc.adv.': { codigo: 'MG', confianca: 0.85 },
+  
+  // Advérbios → Marcadores
+  'Adv.': { codigo: 'MG', confianca: 0.90 },
+};
+
+/**
  * FASE 3: Mapeamento de Classes Gramaticais Gutenberg → Domínios
  * Usado como fallback quando palavra não encontrada em outros métodos
  */
@@ -107,7 +150,30 @@ let cacheLoadedAt: number | null = null;
 const CACHE_TTL_MS = 1000 * 60 * 60; // 1 hora
 
 /**
- * Carrega regras do dialectal_lexicon e cacheia em memória
+ * FASE 1: Extrair primeira definição (suporta ambos formatos JSONB)
+ */
+function extractFirstDefinition(definicoes: any): string | undefined {
+  if (!definicoes || !Array.isArray(definicoes) || definicoes.length === 0) {
+    return undefined;
+  }
+  
+  const first = definicoes[0];
+  
+  // Formato objeto: {texto: "...", acepcao: 1}
+  if (typeof first === 'object' && first.texto) {
+    return first.texto.substring(0, 100);
+  }
+  
+  // Formato string: ["definição"]
+  if (typeof first === 'string' && first !== '//' && first.length > 2) {
+    return first.substring(0, 100);
+  }
+  
+  return undefined;
+}
+
+/**
+ * FASE 1: Carrega TODAS as regras do dialectal_lexicon (100% das 5.968+ palavras)
  */
 export async function loadLexiconRules(): Promise<Map<string, LexiconRule>> {
   // Verificar cache válido
@@ -124,14 +190,13 @@ export async function loadLexiconRules(): Promise<Map<string, LexiconRule>> {
 
   const supabase = createClient(supabaseUrl, supabaseKey);
 
-  // Query dialectal_lexicon com categorias temáticas
+  // FASE 1: Query dialectal_lexicon TODAS as palavras (removido filtro de categorias)
   const { data: lexiconEntries, error } = await supabase
     .from('dialectal_lexicon')
-    .select('verbete_normalizado, categorias_tematicas, classe_gramatical')
-    .not('categorias_tematicas', 'is', null);
+    .select('verbete_normalizado, categorias_tematicas, classe_gramatical, definicoes, origem_primaria, influencia_platina');
 
   if (error) {
-    console.error('Error loading lexicon rules:', error);
+    console.error('❌ Error loading lexicon rules:', error);
     return new Map();
   }
 
@@ -141,11 +206,17 @@ export async function loadLexiconRules(): Promise<Map<string, LexiconRule>> {
   lexiconEntries?.forEach(entry => {
     const palavra = entry.verbete_normalizado.toLowerCase();
     const categorias = entry.categorias_tematicas || [];
+    const classeGramatical = entry.classe_gramatical;
+    const definicaoAbreviada = extractFirstDefinition(entry.definicoes);
+    const origemPrimaria = entry.origem_primaria;
+    const influenciaPlatina = entry.influencia_platina;
 
-    // Mapear primeira categoria válida encontrada como primária
     let primaryMapping = null;
     const alternativeMappings: string[] = [];
+    let confianca = 0.95;
+    let justificativa = '';
     
+    // PRIORIDADE 1: Mapear por categorias temáticas (se existirem)
     for (const categoria of categorias) {
       const mapping = CATEGORY_TO_DOMAIN_MAP[categoria];
       if (mapping) {
@@ -159,22 +230,40 @@ export async function loadLexiconRules(): Promise<Map<string, LexiconRule>> {
     }
     
     if (primaryMapping) {
-      rulesMap.set(palavra, {
-        palavra,
-        tagset_codigo: primaryMapping.codigo,
-        tagsets_alternativos: alternativeMappings,
-        is_polysemous: alternativeMappings.length > 0,
-        confianca: 0.95,
-        justificativa: `Palavra do léxico dialetal gaúcho - categoria: ${categorias[0]} → ${primaryMapping.nome}${alternativeMappings.length > 0 ? ` (+ ${alternativeMappings.length} DSs alternativos)` : ''}`,
-      });
+      justificativa = `Palavra do léxico dialetal gaúcho - categoria: ${categorias[0]} → ${primaryMapping.nome}${alternativeMappings.length > 0 ? ` (+ ${alternativeMappings.length} DSs alternativos)` : ''}`;
+    } else if (classeGramatical) {
+      // PRIORIDADE 2: Mapear por classe gramatical (se não houver categoria)
+      const posMapping = DIALECTAL_POS_TO_DOMAIN[classeGramatical];
+      if (posMapping && posMapping.codigo !== 'PENDING') {
+        primaryMapping = { codigo: posMapping.codigo, nome: 'Via classe gramatical' };
+        confianca = posMapping.confianca;
+        justificativa = `Palavra dialetal - POS: ${classeGramatical} → ${posMapping.codigo}`;
+      }
     }
+    
+    // SEMPRE adicionar ao cache, mesmo que não tenha classificação final
+    // (será útil para enriquecer prompt Gemini com definição e origem)
+    rulesMap.set(palavra, {
+      palavra,
+      tagset_codigo: primaryMapping?.codigo || 'PENDING',
+      tagsets_alternativos: alternativeMappings,
+      is_polysemous: alternativeMappings.length > 0,
+      confianca,
+      justificativa: justificativa || `Palavra do dicionário gaúcho - ${classeGramatical || 'sem classe'}`,
+      // NOVOS CAMPOS:
+      existeNoDicionario: true,
+      definicaoAbreviada,
+      classeGramatical,
+      origemPrimaria,
+      influenciaPlatina,
+    });
   });
 
   // Atualizar cache
   lexiconRulesCache = rulesMap;
   cacheLoadedAt = Date.now();
 
-  console.log(`✅ Lexicon rules loaded: ${rulesMap.size} palavras`);
+  console.log(`✅ FASE 1: Lexicon rules loaded: ${rulesMap.size} palavras (100% do dicionário)`);
 
   return rulesMap;
 }

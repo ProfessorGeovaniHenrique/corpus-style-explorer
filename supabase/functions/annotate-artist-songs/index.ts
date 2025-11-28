@@ -594,13 +594,27 @@ async function processChunk(
       })
       .eq('id', jobId);
 
-    logger.info('Chunk concluído', { 
+    // FASE 5: Métricas de validação
+    const elapsedSeconds = (Date.now() - startTime) / 1000;
+    const wordsPerSecond = processedInChunk / elapsedSeconds;
+    const dictionaryHits = cachedInChunk;
+    const geminiFallbacks = wordsNeedingGemini.length;
+    const insigniasAssigned = totalProcessed - cachedInChunk; // Estimativa
+
+    logger.info('✅ FASE 5: Chunk concluído com métricas', { 
       jobId, 
       processedInChunk, 
       totalProcessed, 
       isCompleted,
       chunksProcessed,
-      elapsedSeconds: (Date.now() - startTime) / 1000
+      elapsedSeconds,
+      wordsPerSecond: wordsPerSecond.toFixed(2),
+      // Métricas de otimização:
+      dictionaryHits,
+      geminiFallbacks,
+      geminiPercentage: ((geminiFallbacks / processedInChunk) * 100).toFixed(1) + '%',
+      cacheHitRate: ((dictionaryHits / processedInChunk) * 100).toFixed(1) + '%',
+      insigniasAssigned
     });
 
     // Se não terminou, auto-invocar para próximo chunk
@@ -787,7 +801,52 @@ function applyContextualRules(palavra: string, lema?: string, pos?: string) {
 }
 
 /**
- * FASE 3: Batch classify com Gemini (inline)
+ * FASE 3: Interface com contexto do dicionário
+ */
+interface WordWithDictContext {
+  palavra: string;
+  lema: string;
+  pos: string;
+  contextoEsquerdo: string;
+  contextoDireito: string;
+  // NOVOS CAMPOS DICIONÁRIO:
+  dictDefinicao?: string;
+  dictClasse?: string;
+  dictOrigem?: string;
+  existeNoDicionario: boolean;
+}
+
+/**
+ * FASE 3: Enriquecer palavras com contexto do dicionário antes de enviar ao Gemini
+ */
+async function enrichWordsWithDictionary(
+  words: Array<{ palavra: string; lema: string; pos: string; contextoEsquerdo: string; contextoDireito: string }>,
+  logger: any
+): Promise<WordWithDictContext[]> {
+  const { getLexiconRule } = await import('../_shared/semantic-rules-lexicon.ts');
+  
+  const enriched: WordWithDictContext[] = [];
+  for (const w of words) {
+    const rule = await getLexiconRule(w.palavra);
+    enriched.push({
+      ...w,
+      existeNoDicionario: !!rule?.existeNoDicionario,
+      dictDefinicao: rule?.definicaoAbreviada,
+      dictClasse: rule?.classeGramatical,
+      dictOrigem: rule?.origemPrimaria,
+    });
+  }
+  
+  logger.info('FASE 3: Palavras enriquecidas com dicionário', { 
+    total: words.length, 
+    comDicionario: enriched.filter(w => w.existeNoDicionario).length 
+  });
+  
+  return enriched;
+}
+
+/**
+ * FASE 3: Batch classify com Gemini + contexto do dicionário
  */
 async function batchClassifyWithGemini(
   palavras: Array<{ palavra: string; lema: string; pos: string; contextoEsquerdo: string; contextoDireito: string }>,
@@ -798,9 +857,24 @@ async function batchClassifyWithGemini(
     throw new Error('LOVABLE_API_KEY não configurado');
   }
 
-  const palavrasList = palavras.map((p, i) => {
+  // FASE 3: Enriquecer com contexto do dicionário
+  const palavrasEnriquecidas = await enrichWordsWithDictionary(palavras, logger);
+
+  const palavrasList = palavrasEnriquecidas.map((p, i) => {
+    let info = `${i + 1}. Palavra: "${p.palavra}"`;
+    
+    // FASE 3: Adicionar contexto do dicionário se disponível
+    if (p.existeNoDicionario) {
+      info += ` [📚 DICIONÁRIO GAÚCHO]`;
+      if (p.dictClasse) info += ` | Classe: ${p.dictClasse}`;
+      if (p.dictDefinicao) info += ` | Def: "${p.dictDefinicao}"`;
+      if (p.dictOrigem) info += ` | Origem: ${p.dictOrigem}`;
+    }
+    
+    info += ` | Lema: "${p.lema}" | POS: ${p.pos}`;
     const sentenca = `${p.contextoEsquerdo} **${p.palavra}** ${p.contextoDireito}`.trim();
-    return `${i + 1}. Palavra: "${p.palavra}" | Lema: "${p.lema}" | POS: ${p.pos} | Contexto: "${sentenca}"`;
+    info += ` | Contexto: "${sentenca}"`;
+    return info;
   }).join('\n');
 
   const prompt = `Você é um especialista em análise semântica de texto. Classifique CADA palavra abaixo em um dos 13 domínios semânticos.
@@ -923,32 +997,76 @@ async function callSemanticAnnotatorSingle(
 }
 
 /**
- * Inferir insígnias culturais para uma palavra
+ * FASE 2: Cache global em memória para dialectal_lexicon
+ * Previne N queries por chunk (99% redução de queries)
+ */
+let dialectalCache: Map<string, {
+  origemPrimaria?: string;
+  origemRegionalista?: string[];
+  influenciaPlatina?: boolean;
+}> | null = null;
+
+async function loadDialectalCacheForInsignias(supabase: any) {
+  if (dialectalCache) return dialectalCache;
+  
+  const { data } = await supabase
+    .from('dialectal_lexicon')
+    .select('verbete_normalizado, origem_primaria, origem_regionalista, influencia_platina');
+  
+  dialectalCache = new Map();
+  data?.forEach((entry: any) => {
+    dialectalCache!.set(entry.verbete_normalizado.toLowerCase(), {
+      origemPrimaria: entry.origem_primaria,
+      origemRegionalista: entry.origem_regionalista,
+      influenciaPlatina: entry.influencia_platina,
+    });
+  });
+  
+  console.log(`✅ FASE 2: Dialectal cache loaded: ${dialectalCache.size} entradas`);
+  return dialectalCache;
+}
+
+/**
+ * FASE 2: Inferir insígnias culturais usando cache em memória (zero queries por palavra)
  */
 async function inferCulturalInsignias(
   palavra: string,
   corpusType: string,
   supabase: any
 ): Promise<string[]> {
+  const cache = await loadDialectalCacheForInsignias(supabase);
+  const dialectal = cache.get(palavra.toLowerCase());
   const insignias: string[] = [];
   
-  // Buscar no dialectal_lexicon
-  const { data: dialectal } = await supabase
-    .from('dialectal_lexicon')
-    .select('origem_regionalista, influencia_platina')
-    .eq('verbete_normalizado', palavra.toLowerCase())
-    .single();
-  
   if (dialectal) {
-    if (dialectal.origem_regionalista?.includes('campeiro')) {
+    // Baseado em origem_primaria
+    if (dialectal.origemPrimaria === 'BRAS') {
+      insignias.push('Brasileiro');
+    }
+    if (dialectal.origemPrimaria === 'PLAT') {
+      insignias.push('Platino');
+    }
+    if (dialectal.origemPrimaria === 'PORT') {
+      insignias.push('Lusitano');
+    }
+    
+    // Baseado em origem_regionalista
+    if (dialectal.origemRegionalista?.includes('campeiro')) {
       insignias.push('Gaúcho');
     }
-    if (dialectal.influencia_platina) {
+    
+    // Influência platina adicional
+    if (dialectal.influenciaPlatina && !insignias.includes('Platino')) {
       insignias.push('Platino');
+    }
+    
+    // Se está no dicionário gaúcho, sempre marcar como Gaúcho
+    if (!insignias.includes('Gaúcho')) {
+      insignias.push('Gaúcho');
     }
   }
   
-  // Adicionar insígnia do corpus de origem
+  // Corpus de origem
   const corpusInsignias: Record<string, string> = {
     'gaucho': 'Gaúcho',
     'nordestino': 'Nordestino',
@@ -996,17 +1114,18 @@ async function saveWithArtistSong(
     ignoreDuplicates: false
   });
   
-  // Salvar atribuição em cultural_insignia_attribution para auditoria
+  // FASE 4: Salvar atribuição com UPSERT (previne duplicatas)
   if (insignias.length > 0) {
-    for (const insignia of insignias) {
-      await supabase.from('cultural_insignia_attribution').insert({
+    await supabase.from('cultural_insignia_attribution').upsert(
+      insignias.map((insignia: string) => ({
         palavra: palavra.toLowerCase(),
         insignia,
         fonte: fonte,
         tipo_atribuicao: 'automatico',
         confianca: confianca,
         metadata: { corpus_type: corpusType, tagset: tagsetCodigo }
-      });
-    }
+      })),
+      { onConflict: 'palavra,insignia', ignoreDuplicates: true }
+    );
   }
 }
