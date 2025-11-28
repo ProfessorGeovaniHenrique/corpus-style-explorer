@@ -50,9 +50,10 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Users, Shield, Edit, Trash2, Search, UserPlus } from "lucide-react";
+import { Users, Shield, Edit, Trash2, Search, UserPlus, KeyRound } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import type { Database } from "@/integrations/supabase/types";
@@ -85,6 +86,12 @@ export default function AdminUsers() {
   const [deleteAlertOpen, setDeleteAlertOpen] = useState(false);
   const [deletingUser, setDeletingUser] = useState<UserWithRole | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  // Reset password dialog
+  const [resetPasswordDialogOpen, setResetPasswordDialogOpen] = useState(false);
+  const [resettingPasswordUser, setResettingPasswordUser] = useState<UserWithRole | null>(null);
+  const [newPassword, setNewPassword] = useState("");
+  const [resettingPassword, setResettingPassword] = useState(false);
 
   useEffect(() => {
     fetchUsers();
@@ -193,6 +200,62 @@ export default function AdminUsers() {
       log.error('Erro ao remover role', error, { userId: deletingUser?.id });
     } finally {
       setDeleting(false);
+    }
+  };
+
+  const openResetPasswordDialog = (user: UserWithRole) => {
+    setResettingPasswordUser(user);
+    setNewPassword("");
+    setResetPasswordDialogOpen(true);
+  };
+
+  const closeResetPasswordDialog = () => {
+    setResetPasswordDialogOpen(false);
+    setResettingPasswordUser(null);
+    setNewPassword("");
+  };
+
+  const resetPassword = async () => {
+    if (!resettingPasswordUser || !newPassword) return;
+
+    if (newPassword.length < 6) {
+      toast.error("A senha deve ter no mínimo 6 caracteres");
+      return;
+    }
+
+    setResettingPassword(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Not authenticated");
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-reset-user-password`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            userId: resettingPasswordUser.id,
+            newPassword: newPassword,
+          }),
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Failed to reset password');
+      }
+
+      toast.success(`Senha de ${resettingPasswordUser.email} redefinida com sucesso!`);
+      closeResetPasswordDialog();
+    } catch (error: any) {
+      toast.error(error.message || "Erro ao redefinir senha");
+      log.error('Erro ao redefinir senha', error, { userId: resettingPasswordUser?.id });
+    } finally {
+      setResettingPassword(false);
     }
   };
 
@@ -404,14 +467,24 @@ export default function AdminUsers() {
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => openEditDialog(user)}
+                                title="Editar role"
                               >
                                 <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => openResetPasswordDialog(user)}
+                                title="Resetar senha"
+                              >
+                                <KeyRound className="h-4 w-4 text-amber-500" />
                               </Button>
                               {user.role && (
                                 <Button
                                   variant="ghost"
                                   size="sm"
                                   onClick={() => openDeleteAlert(user)}
+                                  title="Remover role"
                                 >
                                   <Trash2 className="h-4 w-4 text-destructive" />
                                 </Button>
@@ -455,6 +528,41 @@ export default function AdminUsers() {
             </Button>
             <Button onClick={saveRole} disabled={saving} className="btn-versoaustral-secondary">
               {saving ? "Salvando..." : "Salvar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog de Reset de Senha */}
+      <Dialog open={resetPasswordDialogOpen} onOpenChange={setResetPasswordDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Resetar Senha do Usuário</DialogTitle>
+            <DialogDescription>
+              Defina uma nova senha temporária para {resettingPasswordUser?.email}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="new-password">
+                Nova Senha (mínimo 6 caracteres)
+              </Label>
+              <Input
+                id="new-password"
+                type="text"
+                placeholder="Digite a nova senha..."
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                disabled={resettingPassword}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={closeResetPasswordDialog} disabled={resettingPassword}>
+              Cancelar
+            </Button>
+            <Button onClick={resetPassword} disabled={resettingPassword || !newPassword} className="btn-versoaustral-secondary">
+              {resettingPassword ? "Resetando..." : "Resetar Senha"}
             </Button>
           </DialogFooter>
         </DialogContent>

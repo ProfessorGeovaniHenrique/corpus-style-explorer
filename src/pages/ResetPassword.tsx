@@ -31,17 +31,37 @@ export default function ResetPassword() {
   });
 
   useEffect(() => {
-    // Verificar se há um token de recuperação na URL
-    const hashParams = new URLSearchParams(window.location.hash.substring(1));
-    const accessToken = hashParams.get("access_token");
-    const type = hashParams.get("type");
+    const checkAccess = async () => {
+      console.log('[ResetPassword] URL completa:', window.location.href);
+      console.log('[ResetPassword] Hash:', window.location.hash);
 
-    if (accessToken && type === "recovery") {
-      setIsValidToken(true);
-    } else {
+      // Verificação 1: Hash da URL (fluxo padrão)
+      const hashParams = new URLSearchParams(window.location.hash.substring(1));
+      const accessToken = hashParams.get("access_token");
+      const type = hashParams.get("type");
+
+      if (accessToken && type === "recovery") {
+        console.log('[ResetPassword] ✅ Acesso via hash válido');
+        setIsValidToken(true);
+        return;
+      }
+
+      // Verificação 2: Sessão existente (fallback)
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (session) {
+        console.log('[ResetPassword] ✅ Acesso via sessão existente');
+        setIsValidToken(true);
+        return;
+      }
+
+      // Nenhuma das verificações passou
+      console.log('[ResetPassword] ❌ Sem hash válido e sem sessão');
       toast.error("Link de recuperação inválido ou expirado");
-      setTimeout(() => navigate("/forgot-password"), 2000);
-    }
+      setTimeout(() => navigate("/auth"), 3000);
+    };
+
+    checkAccess();
   }, [navigate]);
 
   const handleSubmit = async (data: ResetPasswordFormData) => {
