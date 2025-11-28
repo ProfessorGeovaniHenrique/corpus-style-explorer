@@ -4,6 +4,7 @@ interface ProcessamentoData {
   studyMode: 'complete' | 'artist' | 'song';
   studyArtist: string;
   studySong: string;
+  referenceCorpus: string;
   isProcessed: boolean;
   processedAt?: string;
 }
@@ -20,6 +21,7 @@ const initialData: ProcessamentoData = {
   studyMode: 'artist',
   studyArtist: '',
   studySong: '',
+  referenceCorpus: 'mini-nordestino',
   isProcessed: false,
 };
 

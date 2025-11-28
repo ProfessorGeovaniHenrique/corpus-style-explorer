@@ -80,10 +80,31 @@ export function useProcessamentoTour(options: ProcessamentoTourOptions = {}) {
       }
     });
 
-    // PASSO 4: Processar
+    // PASSO 4: Escolher Corpus de Referência
+    tour.addStep({
+      id: 'select-reference-corpus',
+      title: '📊 Passo 4: Corpus de Referência',
+      text: `
+        <p>Selecione o <strong>Mini Corpus Cancioneiro Nordestino</strong> para comparação estatística.</p>
+        <p class="mt-2 text-sm text-muted-foreground">
+          Este corpus será usado como referência para calcular a relevância dos domínios semânticos.
+        </p>
+      `,
+      attachTo: { element: '[data-tour="reference-corpus-select"]', on: 'bottom' },
+      buttons: [
+        { text: 'Voltar', action: tour.back, secondary: true },
+        { text: 'Próximo', action: tour.next }
+      ],
+      beforeShowPromise: () => {
+        options.onStepChange?.('select-reference-corpus');
+        return Promise.resolve();
+      }
+    });
+
+    // PASSO 5: Processar
     tour.addStep({
       id: 'process-corpus',
-      title: '✅ Passo 4: Processar!',
+      title: '✅ Passo 5: Processar!',
       text: `
         <p><strong>Perfeito!</strong> Agora clique em "Processar Corpus" para iniciar a análise semântica.</p>
         <p class="mt-2 text-sm text-muted-foreground">
