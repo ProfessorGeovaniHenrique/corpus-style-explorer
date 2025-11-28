@@ -52,7 +52,7 @@ serve(withInstrumentation('process-corpus-analysis', async (req) => {
     const { data: corpus, error: corpusError } = await supabase
       .from('corpora')
       .select('id, name')
-      .eq('normalized_name', corpusType === 'gaucho' ? 'gaucho_music' : 'nordestino_music')
+      .eq('normalized_name', corpusType) // 'gaucho' ou 'nordestino' diretamente
       .single();
 
     if (corpusError || !corpus) {

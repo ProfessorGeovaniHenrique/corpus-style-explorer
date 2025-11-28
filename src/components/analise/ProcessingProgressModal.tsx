@@ -1,4 +1,4 @@
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { FileText, Target, BarChart3, Layers, Download, Cog, GitCompare, CheckCircle2, Loader2 } from 'lucide-react';
@@ -73,6 +73,9 @@ export function ProcessingProgressModal({
           <DialogTitle className="flex items-center gap-2">
             🔬 Processando Análise Semântica
           </DialogTitle>
+          <DialogDescription>
+            Aguarde enquanto processamos o corpus de estudo e referência
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6">

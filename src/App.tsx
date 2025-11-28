@@ -78,7 +78,14 @@ const RouterContent = () => {
         {/* Rota independente para DashboardMVPDefinitivo (sem AppLayout para evitar duplo header) */}
         <Route path="/dashboard-mvp-definitivo" element={<DashboardMVPDefinitivo />} />
         <Route path="/dashboard-expandido" element={<DashboardExpandido />} />
-        <Route path="/dashboard-analise" element={<DashboardAnalise />} />
+        <Route 
+          path="/dashboard-analise" 
+          element={
+            <ProtectedRoute>
+              <DashboardAnalise />
+            </ProtectedRoute>
+          } 
+        />
         <Route path="/onboarding" element={<Onboarding />} />
         
         {/* Admin Routes with AdminLayout for consistent navigation */}
