@@ -16,6 +16,24 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Paleta de cores para domínios semânticos
+const DOMAIN_COLORS: Record<string, string> = {
+  'AB': '#8B5CF6', // Abstrações - Roxo
+  'AC': '#F97316', // Ações - Laranja
+  'AP': '#10B981', // Atividades - Verde
+  'CC': '#EC4899', // Cultura - Rosa
+  'EL': '#6366F1', // Estruturas - Índigo
+  'EQ': '#14B8A6', // Estados - Teal
+  'MG': '#6B7280', // Gramaticais - Cinza
+  'NA': '#22C55E', // Natureza - Verde vivo
+  'NC': '#9CA3AF', // Não Classificado - Cinza claro
+  'OA': '#EAB308', // Objetos - Amarelo
+  'SB': '#EF4444', // Saúde - Vermelho
+  'SE': '#F43F5E', // Sentimentos - Rosa/Vermelho
+  'SH': '#3B82F6', // Indivíduo - Azul
+  'SP': '#A855F7', // Sociedade - Púrpura
+};
+
 // Mini Corpus Nordestino - 25 músicas fixas
 const MINI_CORPUS_IDS = [
   'e41be768-e70a-4510-b2f2-dbc32996980a', // Vaqueiro Velho
@@ -312,13 +330,16 @@ serve(withInstrumentation('process-corpus-analysis', async (req) => {
     // 3.1 Buscar tagsets para mapeamento
     const { data: tagsets } = await supabase
       .from('semantic_tagset')
-      .select('codigo, nome, cor')
+      .select('codigo, nome')
       .eq('status', 'ativo')
       .eq('nivel_profundidade', 1);
 
     const tagsetMap = new Map();
     (tagsets || []).forEach((t: any) => {
-      tagsetMap.set(t.codigo, { nome: t.nome, cor: t.cor });
+      tagsetMap.set(t.codigo, { 
+        nome: t.nome, 
+        cor: DOMAIN_COLORS[t.codigo] || '#6B7280' // Cor dinâmica baseada no código
+      });
     });
 
     // 3.2 Agregar frequências por domínio - CE
