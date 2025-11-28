@@ -2,7 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Sparkles, Box, Network, Globe, Telescope, Orbit, Scan } from "lucide-react";
+import { ArrowLeft, Sparkles, Box, Network, Globe, Telescope, Orbit, Scan, LayoutDashboard } from "lucide-react";
 
 interface PrototypeCard {
   id: string;
@@ -79,6 +79,16 @@ const prototypes: PrototypeCard[] = [
     tags: ["3D", "KWIC Funcional", "Probes", "Scanner"],
     status: "active",
     isStarred: true
+  },
+  {
+    id: "dashboard-mvp",
+    title: "Dashboard MVP (Original)",
+    description: "MVP original com tabs de Apresentação, Ferramentas e Validação. Referência arquivada do primeiro dashboard funcional.",
+    route: "/prototypes/dashboard-mvp",
+    icon: <LayoutDashboard className="h-6 w-6" />,
+    tags: ["MVP", "Tabs", "Original"],
+    status: "reference",
+    isStarred: false
   }
 ];
 

@@ -14,7 +14,7 @@ export function AdminBreadcrumb({ currentPage }: AdminBreadcrumbProps) {
       <Button
         variant="ghost"
         size="sm"
-        onClick={() => navigate("/dashboard-mvp")}
+        onClick={() => navigate("/dashboard-mvp-definitivo")}
         className="flex items-center gap-1 text-muted-foreground hover:text-foreground"
       >
         <Home className="h-4 w-4" />

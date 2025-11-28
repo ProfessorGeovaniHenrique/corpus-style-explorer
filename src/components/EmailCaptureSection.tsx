@@ -95,7 +95,7 @@ const EmailCaptureSection = () => {
                   Ou experimente a plataforma agora
                 </p>
                 <Button
-                  onClick={() => navigate("/dashboard-mvp")}
+                  onClick={() => navigate("/dashboard-mvp-definitivo")}
                   variant="outline"
                   size="lg"
                   className="w-full h-12 text-lg font-semibold"

@@ -50,7 +50,7 @@ export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) 
               Esta área requer privilégios de{" "}
               <strong>{requiredRole === "admin" ? "Administrador" : "Avaliador"}</strong>.
             </p>
-            <Button onClick={() => navigate("/dashboard-mvp")} className="w-full">
+            <Button onClick={() => navigate("/dashboard-mvp-definitivo")} className="w-full">
               Voltar ao Dashboard
             </Button>
           </AlertDescription>

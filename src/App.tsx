@@ -74,8 +74,7 @@ const RouterContent = () => {
             />
           </Route>
 
-        {/* Rota independente para DashboardMVP (sem AppLayout para evitar duplo header) */}
-        <Route path="/dashboard-mvp" element={<DashboardMVP />} />
+        {/* Rota independente para DashboardMVPDefinitivo (sem AppLayout para evitar duplo header) */}
         <Route path="/dashboard-mvp-definitivo" element={<DashboardMVPDefinitivo />} />
         <Route path="/dashboard-expandido" element={<DashboardExpandido />} />
         <Route path="/dashboard-analise" element={<DashboardAnalise />} />
@@ -374,6 +373,14 @@ const RouterContent = () => {
                   }>
                     <ArchivedDashboard8 />
                   </Suspense>
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/prototypes/dashboard-mvp" 
+              element={
+                <ProtectedRoute requiredRole="admin">
+                  <DashboardMVP />
                 </ProtectedRoute>
               } 
             />

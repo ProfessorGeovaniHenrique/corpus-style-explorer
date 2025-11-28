@@ -46,7 +46,7 @@ export default function DeveloperLogs() {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => navigate("/dashboard-mvp")}
+                onClick={() => navigate("/dashboard-mvp-definitivo")}
                 className="gap-2"
               >
                 <ArrowLeft className="w-4 h-4" />
