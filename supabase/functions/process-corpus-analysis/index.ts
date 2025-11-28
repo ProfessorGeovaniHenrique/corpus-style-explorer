@@ -401,6 +401,7 @@ serve(withInstrumentation('process-corpus-analysis', async (req) => {
           mi: llInfo.mi,
           significancia: llInfo.significance,
           dominio: tagsetInfo?.nome || 'Não Classificado',
+          dominioCodigo: domain, // ✅ Código real do domínio (ex: "NA", "AP.01")
           cor: tagsetInfo?.cor || '#6B7280',
           prosody: 'Neutra', // Prosódia não implementada ainda
           confianca: classification?.confianca || 0

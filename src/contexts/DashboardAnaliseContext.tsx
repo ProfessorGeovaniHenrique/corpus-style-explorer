@@ -20,6 +20,7 @@ export interface KeywordData {
   mi: number;
   significancia: string;
   dominio: string;
+  dominioCodigo: string; // Código do domínio semântico (ex: "NA", "AP.01")
   cor: string;
   prosody: string;
 }
@@ -71,7 +72,7 @@ interface DashboardAnaliseContextValue {
   clearProcessamentoData: () => void;
 }
 
-const CACHE_VERSION = '2.1'; // Incrementar após mudanças no formato de dados
+const CACHE_VERSION = '2.2'; // Incrementar após mudanças no formato de dados
 const STORAGE_KEY = 'dashboard_analise_processamento';
 const VERSION_KEY = 'dashboard_analise_version';
 

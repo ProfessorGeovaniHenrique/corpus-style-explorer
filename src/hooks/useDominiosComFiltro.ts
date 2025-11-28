@@ -27,7 +27,10 @@ export function useDominiosComFiltro() {
     }
 
     // Filtrar keywords removendo marcadores gramaticais (MG)
-    const keywordsFiltradas = originalKeywords.filter(k => !k.dominio.startsWith('MG'));
+    // Verificar tanto o código quanto o nome do domínio para compatibilidade
+    const keywordsFiltradas = originalKeywords.filter(k => 
+      !(k.dominioCodigo?.startsWith('MG') || k.dominio === 'Marcadores Gramaticais')
+    );
     
     // Filtrar cloudData removendo domínios MG
     const cloudDataFiltrado = originalCloudData.filter(c => !c.codigo.startsWith('MG'));
@@ -35,21 +38,25 @@ export function useDominiosComFiltro() {
     // Recalcular total de ocorrências sem MG
     const totalOcorrenciasSemMG = keywordsFiltradas.reduce((sum, k) => sum + k.frequencia, 0);
     
-    // Agrupar keywords por domínio
+    // Agrupar keywords por domínio usando código (com fallback para nome)
     const dominioMap = new Map<string, KeywordData[]>();
     keywordsFiltradas.forEach(k => {
-      const dominio = k.dominio;
-      if (!dominioMap.has(dominio)) {
-        dominioMap.set(dominio, []);
+      // Usar código se disponível, senão usar nome do domínio
+      const chave = k.dominioCodigo || k.dominio;
+      if (!dominioMap.has(chave)) {
+        dominioMap.set(chave, []);
       }
-      dominioMap.get(dominio)!.push(k);
+      dominioMap.get(chave)!.push(k);
     });
     
     // Recalcular métricas de cada domínio
     const dominiosRecalculados: DomainData[] = [];
     
     dominioMap.forEach((palavrasChave, codigoDominio) => {
-      const dominioOriginal = originalDominios.find(d => d.codigo === codigoDominio);
+      // Buscar por código OU por nome para compatibilidade com dados antigos
+      const dominioOriginal = originalDominios.find(d => 
+        d.codigo === codigoDominio || d.dominio === codigoDominio
+      );
       if (!dominioOriginal) return;
       
       const ocorrencias = palavrasChave.reduce((sum, k) => sum + k.frequencia, 0);
