@@ -62,15 +62,12 @@ export function useProcessamentoTour(options: ProcessamentoTourOptions = {}) {
       }
     });
 
-    // PASSO 3: Buscar Música
+    // PASSO 3: Selecionar Música
     tour.addStep({
-      id: 'search-song',
-      title: '🔍 Passo 3: Encontre a Música',
+      id: 'select-song',
+      title: '🎵 Passo 3: Selecione a Música',
       text: `
-        <p>Digite o nome da música aqui e ela vai aparecer automaticamente.</p>
-        <p class="mt-2 text-sm text-muted-foreground">
-          Experimente digitar: <strong>"Quando o verso"</strong>
-        </p>
+        <p>Clique aqui para abrir o menu e selecionar a música <strong>"Quando o verso vem pras casa"</strong>.</p>
       `,
       attachTo: { element: '[data-tour="song-search"]', on: 'bottom' },
       buttons: [
@@ -78,7 +75,7 @@ export function useProcessamentoTour(options: ProcessamentoTourOptions = {}) {
         { text: 'Próximo', action: tour.next }
       ],
       beforeShowPromise: () => {
-        options.onStepChange?.('search-song');
+        options.onStepChange?.('select-song');
         return Promise.resolve();
       }
     });

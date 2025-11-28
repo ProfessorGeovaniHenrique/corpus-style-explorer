@@ -185,7 +185,7 @@ export function TabProcessamento() {
                 songs={artistSongs}
                 value={studySong}
                 onChange={setStudySong}
-                placeholder="Digite o nome da música..."
+                placeholder="Selecione a música..."
                 isLoading={isLoadingSongs}
                 disabled={!studyArtist}
               />
