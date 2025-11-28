@@ -293,16 +293,37 @@ export function extractMetadataFromYouTube(youtubeResult: YouTubeSearchResult): 
     /Written by:\s*([^\n\r]+)/i,
     /Escrita por:\s*([^\n\r]+)/i,
     /Autor(?:es)?:\s*([^\n\r]+)/i,
+    /Letrista:\s*([^\n\r]+)/i,
+    /Letra:\s*([^\n\r]+)/i,
     /Music by:\s*([^\n\r]+)/i,
-    /℗.*?([A-ZÁÉÍÓÚ][a-záéíóú]+(?:\s+[A-ZÁÉÍÓÚ][a-záéíóú]+)*)/
+    /Lyrics by:\s*([^\n\r]+)/i,
+    /Música e letra:\s*([^\n\r]+)/i
+    // ❌ REMOVIDO: padrão problemático /℗.*?([A-ZÁÉÍÓÚ]...)/ que capturava "Released", "Gravadora"
+  ];
+  
+  // Lista de palavras inválidas que não são compositores
+  const invalidComposerWords = [
+    'released', 'gravadora', 'records', 'music', 'entertainment', 
+    'produções', 'studio', 'label', 'editora', 'distribuidora',
+    'copyright', 'rights', 'reserved', 'ltd', 'inc', 'ltda'
   ];
   
   for (const pattern of composerPatterns) {
     const match = description.match(pattern);
     if (match && match[1]) {
       let composer = match[1].trim();
+      
+      // Verificar se contém palavras inválidas
+      const composerLower = composer.toLowerCase();
+      const isInvalid = invalidComposerWords.some(word => composerLower.includes(word));
+      
+      if (isInvalid) {
+        continue; // Pular para o próximo padrão
+      }
+      
       // Limpar: remover "and", "e", vírgulas no final
       composer = composer.replace(/\s+and\s+/gi, ' / ').replace(/\s+e\s+/gi, ' / ').replace(/[,;]$/, '');
+      
       if (composer.length > 3 && composer.length < 100) {
         result.composer = composer;
         break;
