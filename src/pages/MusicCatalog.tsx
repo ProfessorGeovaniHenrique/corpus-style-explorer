@@ -21,6 +21,7 @@ import { EnrichmentBatchModal } from '@/components/music/EnrichmentBatchModal';
 import { YouTubeEnrichmentModal } from '@/components/music/YouTubeEnrichmentModal';
 import { EnrichmentMetricsDashboard } from '@/components/music/EnrichmentMetricsDashboard';
 import { EnrichmentValidationPanel } from '@/components/EnrichmentValidationPanel';
+import { DuplicateMonitoringCard } from '@/components/admin/DuplicateMonitoringCard';
 import { Song } from '@/components/music/SongCard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -80,7 +81,7 @@ export default function MusicCatalog() {
   } = useSemanticAnnotationCatalog();
   
   // States de UI
-  const [view, setView] = useState<'songs' | 'artists' | 'stats' | 'metrics' | 'validation'>('songs');
+  const [view, setView] = useState<'songs' | 'artists' | 'stats' | 'metrics' | 'validation' | 'deduplication'>('songs');
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
@@ -1058,6 +1059,7 @@ export default function MusicCatalog() {
           <TabsTrigger value="stats">Estatísticas</TabsTrigger>
           <TabsTrigger value="metrics">Métricas</TabsTrigger>
           <TabsTrigger value="validation">🧪 Validação</TabsTrigger>
+          <TabsTrigger value="deduplication">🗑️ Deduplicação</TabsTrigger>
         </TabsList>
 
         <TabsContent value="songs" className="space-y-4">
@@ -1495,6 +1497,33 @@ export default function MusicCatalog() {
                 </p>
               </div>
             </div>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="deduplication" className="space-y-4">
+          <div className="space-y-6">
+            <div className="space-y-2">
+              <h2 className="text-2xl font-bold">Deduplicação de Músicas</h2>
+              <p className="text-muted-foreground">
+                Identifique e consolide registros duplicados preservando todos os metadados de álbuns e releases
+              </p>
+            </div>
+            
+            <DuplicateMonitoringCard />
+            
+            <Alert className="border-blue-500/50 bg-blue-50/50 dark:bg-blue-950/20">
+              <AlertCircle className="h-4 w-4 text-blue-500" />
+              <AlertDescription>
+                <strong>Como funciona:</strong>
+                <ul className="list-disc list-inside mt-2 space-y-1">
+                  <li>O sistema identifica músicas com mesmo título e artista</li>
+                  <li>Consolida em um único registro preservando todos os metadados</li>
+                  <li>Múltiplos álbuns/releases são armazenados em JSONB</li>
+                  <li>Constraint UNIQUE previne novas duplicatas</li>
+                  <li>Processamento semântico futuro será otimizado</li>
+                </ul>
+              </AlertDescription>
+            </Alert>
           </div>
         </TabsContent>
       </Tabs>
