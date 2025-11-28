@@ -3,9 +3,10 @@ import { MVPFooter } from "@/components/mvp/MVPFooter";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
-import { Activity, BarChart3, Network, Target, ArrowLeft } from "lucide-react";
+import { Activity, BarChart3, Network, Target, ArrowLeft, Brain } from "lucide-react";
 import { TabProcessamento } from "@/components/mvp/TabProcessamento";
 import { TabDominios } from "@/components/analise/TabDominios";
+import { TabQuizInterpretacao } from "@/components/analise/TabQuizInterpretacao";
 import { TabEstatisticas } from "@/components/analise/TabEstatisticas";
 import { TabVisualizacoes } from "@/components/analise/TabVisualizacoes";
 import { Link, useSearchParams } from "react-router-dom";
@@ -14,11 +15,14 @@ import { DashboardAnaliseProvider } from "@/contexts/DashboardAnaliseContext";
 export default function DashboardAnalise() {
   const [searchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState('processamento');
+  const [quizCompleted, setQuizCompleted] = useState(() => {
+    return localStorage.getItem('dashboard_analise_quiz_completed') === 'true';
+  });
 
   // Verificar query param ?tab=dominios para navegação direta
   useEffect(() => {
     const tabParam = searchParams.get('tab');
-    if (tabParam && ['processamento', 'dominios', 'estatisticas', 'visualizacoes'].includes(tabParam)) {
+    if (tabParam && ['processamento', 'dominios', 'quiz', 'estatisticas', 'visualizacoes'].includes(tabParam)) {
       setActiveTab(tabParam);
     } else {
       const savedTab = localStorage.getItem('dashboard_analise_active_tab');
@@ -31,6 +35,12 @@ export default function DashboardAnalise() {
   useEffect(() => {
     localStorage.setItem('dashboard_analise_active_tab', activeTab);
   }, [activeTab]);
+
+  const handleQuizComplete = () => {
+    setQuizCompleted(true);
+    localStorage.setItem('dashboard_analise_quiz_completed', 'true');
+    setActiveTab('estatisticas');
+  };
 
   return (
     <DashboardAnaliseProvider>
@@ -61,7 +71,7 @@ export default function DashboardAnalise() {
           </div>
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2 md:grid-cols-4">
+          <TabsList className="grid w-full grid-cols-3 md:grid-cols-5">
             <TabsTrigger value="processamento" className="gap-2">
               <Activity className="h-4 w-4" />
               <span className="hidden sm:inline">Processamento</span>
@@ -70,11 +80,15 @@ export default function DashboardAnalise() {
               <Target className="h-4 w-4" />
               <span className="hidden sm:inline">Domínios</span>
             </TabsTrigger>
-            <TabsTrigger value="estatisticas" className="gap-2">
+            <TabsTrigger value="quiz" className="gap-2">
+              <Brain className="h-4 w-4" />
+              <span className="hidden sm:inline">Quiz</span>
+            </TabsTrigger>
+            <TabsTrigger value="estatisticas" className="gap-2" disabled={!quizCompleted}>
               <BarChart3 className="h-4 w-4" />
               <span className="hidden sm:inline">Estatísticas</span>
             </TabsTrigger>
-            <TabsTrigger value="visualizacoes" className="gap-2">
+            <TabsTrigger value="visualizacoes" className="gap-2" disabled={!quizCompleted}>
               <Network className="h-4 w-4" />
               <span className="hidden sm:inline">Visualizações</span>
             </TabsTrigger>
@@ -86,6 +100,10 @@ export default function DashboardAnalise() {
 
           <TabsContent value="dominios" className="space-y-4">
             <TabDominios />
+          </TabsContent>
+
+          <TabsContent value="quiz" className="space-y-4">
+            <TabQuizInterpretacao onComplete={handleQuizComplete} />
           </TabsContent>
 
           <TabsContent value="estatisticas" className="space-y-4">

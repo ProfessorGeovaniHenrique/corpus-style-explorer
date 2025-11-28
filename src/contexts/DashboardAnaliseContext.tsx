@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 
-interface DomainData {
+export interface DomainData {
   dominio: string;
   codigo: string; // Código completo do domínio (ex: "NA", "NA.01", "NA.01.02")
   descricao: string;
@@ -13,7 +13,7 @@ interface DomainData {
   percentual: number;
 }
 
-interface KeywordData {
+export interface KeywordData {
   palavra: string;
   frequencia: number;
   ll: number;
