@@ -1,11 +1,36 @@
 // Mode handlers for different enrichment workflows
-import { searchYouTube, searchWithAI, RateLimiter } from "./helpers.ts";
+import { 
+  searchYouTube, 
+  searchWithAI, 
+  RateLimiter, 
+  extractMetadataFromYouTube, 
+  searchWithGoogleGrounding,
+  validateYear 
+} from "./helpers.ts";
 
 type EdgeLogger = any; // Logger interface from unified-logger
 
 const geminiLimiter = new RateLimiter(3, 500);
 const youtubeLimiter = new RateLimiter(2, 1000);
 const webSearchLimiter = new RateLimiter(2, 800);
+
+// ===== ESTRUTURA PARA CROSS-VALIDATION =====
+interface EnrichmentSource {
+  source: string;
+  composer?: string;
+  year?: string;
+  album?: string;
+  confidence: number;
+}
+
+interface ValidationResult {
+  finalComposer?: string;
+  finalYear?: string;
+  finalAlbum?: string;
+  confidenceScore: number;
+  usedSources: string[];
+  validationNotes: string;
+}
 
 interface EnrichmentResult {
   songId: string;
@@ -298,6 +323,140 @@ function extractVideoId(youtubeUrl: string): string | undefined {
   return match ? match[1] : undefined;
 }
 
+// ===== CAMADA 4: Cross-Validation Engine =====
+function crossValidateResults(sources: EnrichmentSource[]): ValidationResult {
+  if (sources.length === 0) {
+    return {
+      confidenceScore: 0,
+      usedSources: [],
+      validationNotes: 'Nenhuma fonte retornou dados'
+    };
+  }
+
+  // Agrupa por valor normalizado
+  const composerVotes = new Map<string, { sources: string[], originalValue: string }>();
+  const yearVotes = new Map<string, { sources: string[], originalValue: string }>();
+  const albumVotes = new Map<string, { sources: string[], originalValue: string }>();
+  
+  for (const result of sources) {
+    if (result.composer) {
+      const normalized = result.composer.toLowerCase().trim();
+      if (!composerVotes.has(normalized)) {
+        composerVotes.set(normalized, { sources: [], originalValue: result.composer });
+      }
+      composerVotes.get(normalized)!.sources.push(result.source);
+    }
+    
+    if (result.year) {
+      const normalized = result.year.trim();
+      if (!yearVotes.has(normalized)) {
+        yearVotes.set(normalized, { sources: [], originalValue: result.year });
+      }
+      yearVotes.get(normalized)!.sources.push(result.source);
+    }
+    
+    if (result.album) {
+      const normalized = result.album.toLowerCase().trim();
+      if (!albumVotes.has(normalized)) {
+        albumVotes.set(normalized, { sources: [], originalValue: result.album });
+      }
+      albumVotes.get(normalized)!.sources.push(result.source);
+    }
+  }
+  
+  // Função para selecionar melhor valor baseado em votos
+  const selectBestValue = (votes: Map<string, { sources: string[], originalValue: string }>) => {
+    if (votes.size === 0) return undefined;
+    
+    // Ordenar por número de votos, depois por prioridade de fonte
+    const sourcePriority: Record<string, number> = {
+      'youtube_description': 3,
+      'google_search_grounding': 4,
+      'gemini_knowledge': 2,
+      'web_search_ai': 1
+    };
+    
+    const sorted = Array.from(votes.entries())
+      .map(([normalized, data]) => ({
+        normalized,
+        ...data,
+        voteCount: data.sources.length,
+        priority: Math.max(...data.sources.map(s => sourcePriority[s] || 0))
+      }))
+      .sort((a, b) => {
+        if (a.voteCount !== b.voteCount) return b.voteCount - a.voteCount;
+        return b.priority - a.priority;
+      });
+    
+    return sorted[0];
+  };
+  
+  const bestComposer = selectBestValue(composerVotes);
+  const bestYear = selectBestValue(yearVotes);
+  const bestAlbum = selectBestValue(albumVotes);
+  
+  // Calcular confidence score
+  let confidenceScore = 0;
+  const notes: string[] = [];
+  
+  // Compositor (máximo 40 pontos)
+  if (bestComposer) {
+    if (bestComposer.voteCount >= 3) {
+      confidenceScore += 40;
+      notes.push(`Compositor confirmado por ${bestComposer.voteCount} fontes`);
+    } else if (bestComposer.voteCount === 2) {
+      confidenceScore += 30;
+      notes.push(`Compositor confirmado por 2 fontes`);
+    } else {
+      confidenceScore += 15;
+      notes.push(`Compositor de 1 fonte apenas`);
+    }
+  }
+  
+  // Ano (máximo 30 pontos)
+  if (bestYear) {
+    if (bestYear.voteCount >= 3) {
+      confidenceScore += 30;
+      notes.push(`Ano confirmado por ${bestYear.voteCount} fontes`);
+    } else if (bestYear.voteCount === 2) {
+      confidenceScore += 20;
+      notes.push(`Ano confirmado por 2 fontes`);
+    } else {
+      confidenceScore += 10;
+      notes.push(`Ano de 1 fonte apenas`);
+    }
+  }
+  
+  // Álbum (máximo 10 pontos)
+  if (bestAlbum) {
+    confidenceScore += 10;
+    notes.push(`Álbum encontrado`);
+  }
+  
+  // Bônus por YouTube URL (10 pontos)
+  if (sources.some(s => s.source === 'youtube_description')) {
+    confidenceScore += 10;
+    notes.push(`Link YouTube disponível`);
+  }
+  
+  // Detectar conflitos
+  if (composerVotes.size > 1) {
+    notes.push(`⚠️ Conflito: ${composerVotes.size} compositores diferentes encontrados`);
+  }
+  if (yearVotes.size > 1) {
+    notes.push(`⚠️ Conflito: ${yearVotes.size} anos diferentes encontrados`);
+  }
+  
+  return {
+    finalComposer: bestComposer?.originalValue,
+    finalYear: bestYear?.originalValue,
+    finalAlbum: bestAlbum?.originalValue,
+    confidenceScore: Math.min(100, confidenceScore),
+    usedSources: [...new Set(sources.map(s => s.source))],
+    validationNotes: notes.join('; ')
+  };
+}
+
 // Core enrichment function for a single song
 async function enrichSingleSong(
   songId: string, 
@@ -355,88 +514,120 @@ async function enrichSingleSong(
     log.debug('Current song data retrieved', { songId, currentData });
 
     const artistName = (song.artists as any)?.name || 'Unknown Artist';
-    const enrichedData: any = {};
-    const sources: string[] = [];
-    let confidenceScore = 0;
-
-    // 1. YouTube search (skip if mode is metadata-only)
+    const enrichmentSources: EnrichmentSource[] = [];
     let youtubeContext = null;
+    const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
     const youtubeApiKey = Deno.env.get('YOUTUBE_API_KEY');
+
+    log.info('Starting 5-layer enrichment pipeline', { songId, mode: enrichmentMode, forceReenrich });
+
+    // ===== CAMADA 1: YouTube API + Extração Inteligente =====
     if (youtubeApiKey && enrichmentMode !== 'metadata-only') {
       try {
         youtubeContext = await youtubeLimiter.schedule(() =>
           searchYouTube(song.title, artistName, youtubeApiKey, supabase)
         );
+        
         if (youtubeContext) {
-          enrichedData.youtubeVideoId = youtubeContext.videoId;
-          sources.push('youtube');
-          confidenceScore += 30;
           log.info('YouTube video found', { songId, videoId: youtubeContext.videoId });
+          
+          // Extração inteligente de metadados do YouTube
+          const extracted = extractMetadataFromYouTube(youtubeContext);
+          
+          enrichmentSources.push({
+            source: 'youtube_description',
+            composer: extracted.composer,
+            year: extracted.year,
+            album: extracted.album,
+            confidence: 70
+          });
+          
+          log.debug('YouTube metadata extracted', { 
+            songId, 
+            composer: extracted.composer, 
+            year: extracted.year,
+            album: extracted.album 
+          });
         }
       } catch (error) {
-        // ✅ FIX: Detecta erro específico de quota excedida
         if (error instanceof Error && error.message === 'YOUTUBE_QUOTA_EXCEEDED') {
           log.error('YouTube quota exceeded', error, { songId });
-          // Não adiciona confidence, mas continua enrichment com outras fontes
         } else {
           log.warn('YouTube search failed', { songId, error: error instanceof Error ? error.message : String(error) });
         }
       }
     }
 
-    // 2. Enrich with AI (skip if mode is youtube-only)
-    const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
-    
-    if (forceReenrich) {
-      log.info('Force re-enrich enabled - will call AI even if composer exists', { songId, currentComposer: song.composer });
-    }
-    
-    if (enrichmentMode !== 'youtube-only' && (!song.composer || forceReenrich) && GEMINI_API_KEY) {
-      const metadata = await enrichWithAI(
-        song.title,
-        artistName,
-        youtubeContext,
-        GEMINI_API_KEY,
-        undefined
-      );
-
-      if (metadata.composer || metadata.compositor) {
-        enrichedData.composer = metadata.composer || metadata.compositor;
-        confidenceScore += 40;
-      }
-      if (metadata.releaseYear || metadata.ano) {
-        enrichedData.releaseYear = metadata.releaseYear || metadata.ano;
-        confidenceScore += 20;
-      }
-
-      sources.push(metadata.source || 'ai');
-    }
-
-    // 3. Web search fallback (skip if mode is youtube-only)
-    const needsWebSearch = enrichmentMode !== 'youtube-only' && (!enrichedData.composer || !enrichedData.releaseYear);
-    if (needsWebSearch && GEMINI_API_KEY) {
+    // ===== CAMADA 2: Gemini + Google Search Grounding (Web Search Real) =====
+    if (GEMINI_API_KEY && enrichmentMode !== 'youtube-only') {
       try {
-        const webData = await webSearchLimiter.schedule(() =>
-          searchWithAI(song.title, artistName, undefined, GEMINI_API_KEY)
+        log.info('Invoking Google Search Grounding', { songId });
+        
+        const groundingResult = await webSearchLimiter.schedule(() =>
+          searchWithGoogleGrounding(song.title, artistName, GEMINI_API_KEY)
         );
-
-        if (!enrichedData.composer && webData.compositor !== 'Não Identificado') {
-          enrichedData.composer = webData.compositor;
-          confidenceScore += 20;
-          sources.push('web_search_ai');
-        }
-
-        if (!enrichedData.releaseYear && webData.ano !== '0000') {
-          enrichedData.releaseYear = webData.ano;
-          confidenceScore += 15;
-          if (!sources.includes('web_search_ai')) sources.push('web_search_ai');
+        
+        if (groundingResult && (groundingResult.compositor || groundingResult.ano || groundingResult.album)) {
+          const sourceConfidence = 
+            groundingResult.confidence === 'high' ? 90 : 
+            groundingResult.confidence === 'medium' ? 70 : 50;
+          
+          enrichmentSources.push({
+            source: 'google_search_grounding',
+            composer: groundingResult.compositor,
+            year: groundingResult.ano,
+            album: groundingResult.album,
+            confidence: sourceConfidence
+          });
+          
+          log.info('Google Search Grounding completed', { 
+            songId, 
+            composer: groundingResult.compositor,
+            confidence: groundingResult.confidence,
+            fontes: groundingResult.fontes?.length || 0
+          });
         }
       } catch (error) {
-        log.warn('Web search fallback failed', { songId, error: error instanceof Error ? error.message : String(error) });
+        log.warn('Google Search Grounding failed', { songId, error: error instanceof Error ? error.message : String(error) });
       }
     }
 
-    // 4. Search lyrics if blank (new feature for Phase 3)
+    // ===== CAMADA 3: Gemini Knowledge Base (sem grounding) =====
+    const needsMoreData = !enrichmentSources.some(s => s.composer && s.year);
+    
+    if (GEMINI_API_KEY && enrichmentMode !== 'youtube-only' && (forceReenrich || needsMoreData)) {
+      try {
+        log.info('Invoking Gemini Knowledge Base', { songId });
+        
+        const metadata = await enrichWithAI(
+          song.title,
+          artistName,
+          youtubeContext,
+          GEMINI_API_KEY,
+          undefined
+        );
+
+        if (metadata.composer || metadata.compositor || metadata.releaseYear || metadata.ano) {
+          enrichmentSources.push({
+            source: 'gemini_knowledge',
+            composer: metadata.composer || metadata.compositor,
+            year: metadata.releaseYear || metadata.ano,
+            confidence: 60
+          });
+          
+          log.debug('Gemini Knowledge Base results', { 
+            songId, 
+            composer: metadata.composer || metadata.compositor,
+            year: metadata.releaseYear || metadata.ano
+          });
+        }
+      } catch (error) {
+        log.warn('Gemini Knowledge Base failed', { songId, error: error instanceof Error ? error.message : String(error) });
+      }
+    }
+
+    // ===== BUSCA DE LETRA (mantida do sistema original) =====
+    let lyricsFound = false;
     const shouldSearchLyrics = !song.lyrics && GEMINI_API_KEY && enrichmentMode === 'full';
 
     if (shouldSearchLyrics) {
@@ -444,9 +635,7 @@ async function enrichSingleSong(
         log.info('Searching lyrics', { songId, title: song.title });
         const lyrics = await searchLyrics(song.title, artistName, GEMINI_API_KEY, log);
         if (lyrics) {
-          enrichedData.lyrics = lyrics;
-          confidenceScore += 10;
-          sources.push('lyrics_ai');
+          lyricsFound = true;
           log.info('Lyrics found', { songId, length: lyrics.length });
         }
       } catch (error) {
@@ -454,25 +643,44 @@ async function enrichSingleSong(
       }
     }
 
-    confidenceScore = Math.min(confidenceScore, 100);
+    // ===== CAMADA 4: Cross-Validation Engine =====
+    log.info('Starting cross-validation', { songId, sourcesCount: enrichmentSources.length });
+    const validated = crossValidateResults(enrichmentSources);
+    
+    log.info('Cross-validation completed', { 
+      songId,
+      finalComposer: validated.finalComposer,
+      finalYear: validated.finalYear,
+      finalAlbum: validated.finalAlbum,
+      confidenceScore: validated.confidenceScore,
+      sources: validated.usedSources
+    });
 
-    // ✅ INTELLIGENT MERGE LOGIC: Only update if new data is better
+    // ===== CAMADA 5: Persistência Inteligente =====
+    
+    // Verificar se temos dados novos e úteis
     const hasNewData = 
-      enrichedData.composer || 
-      enrichedData.releaseYear || 
-      enrichedData.youtubeVideoId;
+      validated.finalComposer || 
+      validated.finalYear || 
+      validated.finalAlbum ||
+      (youtubeContext && youtubeContext.videoId) ||
+      lyricsFound;
 
-    const isBetterConfidence = confidenceScore > currentData.confidence_score;
-    const hasNewYouTube = enrichedData.youtubeVideoId && !currentData.youtube_url;
-    const hasNewComposer = enrichedData.composer && !currentData.composer;
-    const hasNewYear = enrichedData.releaseYear && !currentData.release_year;
+    const isBetterConfidence = validated.confidenceScore > currentData.confidence_score;
+    const hasNewYouTube = youtubeContext?.videoId && !currentData.youtube_url;
+    const hasNewComposer = validated.finalComposer && !currentData.composer;
+    const hasNewYear = validated.finalYear && !currentData.release_year;
+    const hasNewAlbum = validated.finalAlbum;
 
-    // ✅ FIX: Se confidence atual é 0 E temos novos dados, SEMPRE atualiza
+    // Decidir se deve atualizar
     let shouldUpdate = hasNewData && (
+      forceReenrich ||
       isBetterConfidence ||
       hasNewYouTube ||
       hasNewComposer ||
-      hasNewYear
+      hasNewYear ||
+      hasNewAlbum ||
+      lyricsFound
     );
 
     if (currentData.confidence_score === 0 && hasNewData) {
@@ -483,12 +691,12 @@ async function enrichSingleSong(
       log.info('Skipping update - no new data or current data better', { 
         songId, 
         currentConfidence: currentData.confidence_score,
-        newConfidence: confidenceScore 
+        newConfidence: validated.confidenceScore 
       });
       
       return {
         songId,
-        success: false, // ✅ FIX: Retorna false quando nada mudou
+        success: false,
         enrichedData: {
           composer: currentData.composer || undefined,
           releaseYear: currentData.release_year || undefined,
@@ -496,36 +704,53 @@ async function enrichSingleSong(
         },
         confidenceScore: currentData.confidence_score,
         sources: ['cached'],
-        error: 'No new data found or current data is better' // ✅ FIX: Mensagem clara
+        error: 'No new data found or current data is better'
       };
     }
 
-    // ✅ MERGE DATA: Combine best of both enrichments
+    // ===== MERGE DATA: Combine best of both enrichments =====
     const updateData: any = {
       status: 'enriched',
-      confidence_score: Math.max(confidenceScore, currentData.confidence_score),
-      enrichment_source: sources.join(','),
+      confidence_score: Math.max(validated.confidenceScore, currentData.confidence_score),
+      enrichment_source: validated.usedSources.join(','),
       updated_at: new Date().toISOString(),
     };
 
-    // Intelligent field merge: use new data if available, otherwise preserve existing
-    updateData.composer = enrichedData.composer || currentData.composer || null;
-    updateData.release_year = enrichedData.releaseYear || currentData.release_year || null;
-    updateData.lyrics = enrichedData.lyrics || currentData.lyrics || null;
+    // Intelligent field merge: use validated data if available, otherwise preserve existing
+    updateData.composer = validated.finalComposer || currentData.composer || null;
+    updateData.release_year = validated.finalYear || currentData.release_year || null;
+    updateData.album = validated.finalAlbum || null; // ✅ NOVO CAMPO ÁLBUM
     
-    if (enrichedData.youtubeVideoId) {
-      updateData.youtube_url = `https://www.youtube.com/watch?v=${enrichedData.youtubeVideoId}`;
+    // Buscar letra se disponível
+    if (lyricsFound) {
+      const lyrics = await searchLyrics(song.title, artistName, GEMINI_API_KEY!, log);
+      updateData.lyrics = lyrics || currentData.lyrics || null;
+    } else {
+      updateData.lyrics = currentData.lyrics || null;
+    }
+    
+    if (youtubeContext?.videoId) {
+      updateData.youtube_url = `https://www.youtube.com/watch?v=${youtubeContext.videoId}`;
     } else if (currentData.youtube_url) {
-      // Preserve existing YouTube URL
       updateData.youtube_url = currentData.youtube_url;
     }
+    
+    // Salvar notas de validação no raw_data
+    updateData.raw_data = {
+      ...song.raw_data,
+      enrichment_validation: validated.validationNotes,
+      enrichment_sources_detail: enrichmentSources,
+      enrichment_timestamp: new Date().toISOString()
+    };
 
-    log.info('Updating song with merged data', {
+    log.info('Updating song with validated data', {
       songId,
       composer: updateData.composer,
       release_year: updateData.release_year,
+      album: updateData.album,
       youtube_url: updateData.youtube_url,
-      confidence: updateData.confidence_score
+      confidence: updateData.confidence_score,
+      sources: validated.usedSources
     });
 
     const { error: updateError } = await supabase
@@ -540,14 +765,23 @@ async function enrichSingleSong(
       throw updateError;
     }
 
-    log.info('Song enrichment successful', { songId, confidence: confidenceScore, sources });
+    log.info('Song enrichment successful - 5-layer pipeline', { 
+      songId, 
+      confidence: validated.confidenceScore, 
+      sources: validated.usedSources,
+      validationNotes: validated.validationNotes
+    });
 
     return {
       songId,
       success: true,
-      enrichedData,
-      confidenceScore,
-      sources
+      enrichedData: {
+        composer: validated.finalComposer,
+        releaseYear: validated.finalYear,
+        youtubeVideoId: youtubeContext?.videoId
+      },
+      confidenceScore: validated.confidenceScore,
+      sources: validated.usedSources
     };
 
   } catch (error) {
@@ -652,7 +886,7 @@ async function enrichWithAI(
 - Data: ${youtubeContext.publishDate} (Ano: ${publishYear})
 
 DESCRIÇÃO DO VÍDEO (busque créditos aqui):
-${youtubeContext.description.substring(0, 800)}${youtubeContext.description.length > 800 ? '...' : ''}
+${youtubeContext.description.substring(0, 2000)}${youtubeContext.description.length > 2000 ? '...' : ''}
 
 Procure por: "Composer:", "Compositor:", "℗ [ano]", "Written by:", "Provided to YouTube by"`;
   }

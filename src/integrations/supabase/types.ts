@@ -2419,6 +2419,7 @@ export type Database = {
       }
       songs: {
         Row: {
+          album: string | null
           artist_id: string
           composer: string | null
           confidence_score: number | null
@@ -2439,6 +2440,7 @@ export type Database = {
           youtube_url: string | null
         }
         Insert: {
+          album?: string | null
           artist_id: string
           composer?: string | null
           confidence_score?: number | null
@@ -2459,6 +2461,7 @@ export type Database = {
           youtube_url?: string | null
         }
         Update: {
+          album?: string | null
           artist_id?: string
           composer?: string | null
           confidence_score?: number | null

@@ -274,3 +274,194 @@ export function validateYear(year: any): string {
 
   return '0000';
 }
+
+// ===== CAMADA 1: Extração Inteligente de Metadados do YouTube =====
+export function extractMetadataFromYouTube(youtubeResult: YouTubeSearchResult): {
+  composer?: string;
+  album?: string;
+  year?: string;
+} {
+  const description = youtubeResult.description || '';
+  const title = youtubeResult.videoTitle || '';
+  
+  const result: { composer?: string; album?: string; year?: string } = {};
+  
+  // ===== COMPOSITOR =====
+  const composerPatterns = [
+    /Compositor(?:es)?:\s*([^\n\r]+)/i,
+    /Compos(?:ição|er):\s*([^\n\r]+)/i,
+    /Written by:\s*([^\n\r]+)/i,
+    /Escrita por:\s*([^\n\r]+)/i,
+    /Autor(?:es)?:\s*([^\n\r]+)/i,
+    /Music by:\s*([^\n\r]+)/i,
+    /℗.*?([A-ZÁÉÍÓÚ][a-záéíóú]+(?:\s+[A-ZÁÉÍÓÚ][a-záéíóú]+)*)/
+  ];
+  
+  for (const pattern of composerPatterns) {
+    const match = description.match(pattern);
+    if (match && match[1]) {
+      let composer = match[1].trim();
+      // Limpar: remover "and", "e", vírgulas no final
+      composer = composer.replace(/\s+and\s+/gi, ' / ').replace(/\s+e\s+/gi, ' / ').replace(/[,;]$/, '');
+      if (composer.length > 3 && composer.length < 100) {
+        result.composer = composer;
+        break;
+      }
+    }
+  }
+  
+  // ===== ÁLBUM =====
+  const albumPatterns = [
+    /Álbum:\s*["']?([^"'\n\r]+)["']?/i,
+    /Album:\s*["']?([^"'\n\r]+)["']?/i,
+    /CD:\s*["']?([^"'\n\r]+)["']?/i,
+    /Do álbum:\s*["']?([^"'\n\r]+)["']?/i,
+    /From the album:\s*["']?([^"'\n\r]+)["']?/i,
+    /LP:\s*["']?([^"'\n\r]+)["']?/i,
+    /\(([^)]*(?:CD|Album|Álbum)[^)]*)\)/i
+  ];
+  
+  for (const pattern of albumPatterns) {
+    const match = description.match(pattern) || title.match(pattern);
+    if (match && match[1]) {
+      let album = match[1].trim();
+      album = album.replace(/^["']|["']$/g, '').trim();
+      if (album.length > 2 && album.length < 100) {
+        result.album = album;
+        break;
+      }
+    }
+  }
+  
+  // ===== ANO =====
+  const yearPatterns = [
+    /℗\s*(\d{4})/,
+    /©\s*(\d{4})/,
+    /Lançamento:\s*(\d{4})/i,
+    /Released:\s*(\d{4})/i,
+    /Ano:\s*(\d{4})/i,
+    /\b(19[89]\d|20[0-2]\d)\b/
+  ];
+  
+  for (const pattern of yearPatterns) {
+    const match = description.match(pattern) || title.match(pattern);
+    if (match && match[1]) {
+      const year = validateYear(match[1]);
+      if (year !== '0000') {
+        result.year = year;
+        break;
+      }
+    }
+  }
+  
+  // Fallback: usar publishDate do vídeo
+  if (!result.year && youtubeResult.publishDate) {
+    const publishYear = new Date(youtubeResult.publishDate).getFullYear();
+    if (publishYear >= 1900 && publishYear <= new Date().getFullYear()) {
+      result.year = String(publishYear);
+    }
+  }
+  
+  return result;
+}
+
+// ===== CAMADA 2: Gemini + Google Search Grounding (Web Search Real) =====
+export async function searchWithGoogleGrounding(
+  titulo: string,
+  artista: string,
+  geminiApiKey: string
+): Promise<{
+  compositor?: string;
+  ano?: string;
+  album?: string;
+  fontes?: string[];
+  confidence: 'high' | 'medium' | 'low';
+}> {
+  const prompt = `Busque informações sobre a música "${titulo}" do artista "${artista}".
+
+Retorne APENAS um JSON com:
+- compositor: Nome(s) do(s) compositor(es) original(is), separados por " / " se múltiplos
+- ano: Ano de lançamento original (YYYY)
+- album: Nome do álbum original
+
+REGRAS:
+- Priorize fontes oficiais (Wikipedia, Discogs, AllMusic, site oficial do artista)
+- Se for cover/regravação, retorne dados da versão ORIGINAL
+- Se não encontrar com certeza, retorne null para o campo
+- Para compositores múltiplos use formato: "Nome 1 / Nome 2"
+
+Retorne JSON sem explicações ou markdown.`;
+
+  try {
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          tools: [{
+            google_search_retrieval: {
+              dynamic_retrieval_config: {
+                mode: "MODE_DYNAMIC",
+                dynamic_threshold: 0.6
+              }
+            }
+          }],
+          generationConfig: {
+            temperature: 0.1,
+            maxOutputTokens: 500,
+            responseMimeType: "application/json"
+          }
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      console.error('[GoogleGrounding] API error:', response.status);
+      return { confidence: 'low' };
+    }
+
+    const data = await response.json();
+    const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    
+    if (!rawText) {
+      return { confidence: 'low' };
+    }
+
+    const parsed = JSON.parse(rawText);
+    
+    // Extrair fontes do grounding metadata (se disponível)
+    const groundingMetadata = data.candidates?.[0]?.groundingMetadata;
+    const fontes: string[] = [];
+    
+    if (groundingMetadata?.searchEntryPoint?.renderedContent) {
+      fontes.push('google_search_grounding');
+    }
+    
+    // Determinar confidence baseado na presença de grounding
+    let confidence: 'high' | 'medium' | 'low' = 'low';
+    const hasGrounding = groundingMetadata?.searchEntryPoint || groundingMetadata?.groundingChunks;
+    const hasMultipleFields = [parsed.compositor, parsed.ano, parsed.album].filter(Boolean).length;
+    
+    if (hasGrounding && hasMultipleFields >= 2) {
+      confidence = 'high';
+    } else if (hasGrounding || hasMultipleFields >= 2) {
+      confidence = 'medium';
+    }
+    
+    console.log(`[GoogleGrounding] Found: compositor=${parsed.compositor}, ano=${parsed.ano}, album=${parsed.album}, confidence=${confidence}`);
+    
+    return {
+      compositor: parsed.compositor || undefined,
+      ano: parsed.ano ? validateYear(parsed.ano) : undefined,
+      album: parsed.album || undefined,
+      fontes: fontes.length > 0 ? fontes : undefined,
+      confidence
+    };
+    
+  } catch (error) {
+    console.error('[GoogleGrounding] Search error:', error);
+    return { confidence: 'low' };
+  }
+}
