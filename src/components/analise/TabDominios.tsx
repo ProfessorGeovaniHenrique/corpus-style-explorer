@@ -6,17 +6,21 @@ import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { useDashboardAnaliseContext } from '@/contexts/DashboardAnaliseContext';
-import { Database, Download, FileText, TrendingUp, BarChart3, Lightbulb, AlertCircle, Target, Loader2 } from 'lucide-react';
+import { useDominiosComFiltro } from '@/hooks/useDominiosComFiltro';
+import { Database, Download, FileText, TrendingUp, BarChart3, Lightbulb, AlertCircle, Target, Loader2, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { DomainCardWithChildren } from './DomainCardWithChildren';
 
 export function TabDominios() {
-  const { processamentoData } = useDashboardAnaliseContext();
-  const dominios = processamentoData.analysisResults?.dominios || [];
-  const keywords = processamentoData.analysisResults?.keywords || [];
-  const cloudData = processamentoData.analysisResults?.cloudData || [];
+  const { processamentoData, updateProcessamentoData } = useDashboardAnaliseContext();
+  const { dominios, keywords, cloudData } = useDominiosComFiltro();
   const [searchTerm, setSearchTerm] = useState("");
+  const [isRecalculating, setIsRecalculating] = useState(false);
+  
+  const ignorarMarcadoresGramaticais = processamentoData.ignorarMarcadoresGramaticais || false;
 
   // Extrair códigos disponíveis para busca de N2 filhos
   const availableDomains = useMemo(() => cloudData.map(d => d.codigo), [cloudData]);
@@ -79,6 +83,25 @@ export function TabDominios() {
     return { dominante, densidadeLexical };
   }, [dominios]);
 
+  const handleToggleMarcadoresGramaticais = async (checked: boolean) => {
+    setIsRecalculating(true);
+    
+    // Pequeno delay para animação visual
+    await new Promise(resolve => setTimeout(resolve, 300));
+    
+    updateProcessamentoData({ 
+      ignorarMarcadoresGramaticais: checked 
+    });
+    
+    setIsRecalculating(false);
+    
+    toast.success(
+      checked 
+        ? 'Marcadores gramaticais removidos. Estatísticas recalculadas.' 
+        : 'Marcadores gramaticais incluídos. Estatísticas recalculadas.'
+    );
+  };
+
   const handleExportCSV = () => {
     if (!dominios) return;
     
@@ -91,7 +114,7 @@ export function TabDominios() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'dominios-semanticos-analise.csv';
+    a.download = `dominios-semanticos-${ignorarMarcadoresGramaticais ? 'sem-mg' : 'completo'}.csv`;
     a.click();
     URL.revokeObjectURL(url);
     toast.success('CSV exportado com sucesso');
@@ -120,15 +143,42 @@ export function TabDominios() {
             </div>
           </div>
         </CardHeader>
-        <CardContent>
-          <div className="flex items-center gap-2">
+        <CardContent className="space-y-4">
+          {/* Controles de Filtro */}
+          <div className="flex items-center justify-between gap-4">
             <Input 
               placeholder="Buscar domínio..." 
               value={searchTerm} 
               onChange={(e) => setSearchTerm(e.target.value)}
               className="max-w-sm"
             />
+            
+            <div className="flex items-center gap-3 px-4 py-2 bg-muted/50 rounded-lg">
+              <Switch
+                id="ignorar-mg"
+                checked={ignorarMarcadoresGramaticais}
+                onCheckedChange={handleToggleMarcadoresGramaticais}
+                disabled={isRecalculating}
+              />
+              <Label 
+                htmlFor="ignorar-mg" 
+                className="text-sm font-medium cursor-pointer flex items-center gap-2"
+              >
+                {isRecalculating && <RefreshCw className="h-3 w-3 animate-spin" />}
+                Ignorar Marcadores Gramaticais
+              </Label>
+            </div>
           </div>
+          
+          {/* Alerta informativo */}
+          {ignorarMarcadoresGramaticais && (
+            <Alert className="bg-blue-500/10 border-blue-500/30">
+              <AlertCircle className="h-4 w-4 text-blue-600" />
+              <AlertDescription className="text-blue-700 dark:text-blue-300">
+                Marcadores gramaticais (MG) foram removidos. As estatísticas foram recalculadas automaticamente em todas as abas.
+              </AlertDescription>
+            </Alert>
+          )}
         </CardContent>
       </Card>
 

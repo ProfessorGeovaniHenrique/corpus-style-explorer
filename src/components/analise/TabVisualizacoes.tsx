@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { useDashboardAnaliseContext } from '@/contexts/DashboardAnaliseContext';
+import { useDominiosComFiltro } from '@/hooks/useDominiosComFiltro';
 import { Network, Cloud, AlertCircle, Layers, Hash } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
@@ -18,6 +19,7 @@ type ViewMode = 'domains' | 'keywords';
 
 export function TabVisualizacoes() {
   const { processamentoData, updateProcessamentoData } = useDashboardAnaliseContext();
+  const { cloudData, keywords, dominios } = useDominiosComFiltro();
   const { processCorpus, isProcessing } = useCorpusProcessing();
   const { trackFeatureUsage } = useAnalysisTracking();
   const { trackLevelView } = useLevelTracking();
@@ -35,10 +37,6 @@ export function TabVisualizacoes() {
     keywords: Array<{ palavra: string; frequencia: number; ll: number; significancia: string }>;
     stats: { totalOcorrencias: number; riquezaLexical: number; percentualCorpus: number; nivel: number };
   } | null>(null);
-  
-  const cloudData = processamentoData.analysisResults?.cloudData || [];
-  const keywords = processamentoData.analysisResults?.keywords || [];
-  const dominios = processamentoData.analysisResults?.dominios || [];
 
   if (!processamentoData.isProcessed || cloudData.length === 0) {
     return (

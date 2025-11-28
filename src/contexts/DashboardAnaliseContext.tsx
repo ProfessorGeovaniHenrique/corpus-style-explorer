@@ -62,6 +62,7 @@ interface ProcessamentoData {
   isProcessed: boolean;
   processedAt?: string;
   analysisResults?: AnalysisResults;
+  ignorarMarcadoresGramaticais?: boolean;
 }
 
 interface DashboardAnaliseContextValue {
@@ -80,6 +81,7 @@ const initialData: ProcessamentoData = {
   studySong: '',
   referenceCorpus: 'mini-nordestino',
   isProcessed: false,
+  ignorarMarcadoresGramaticais: false,
 };
 
 const DashboardAnaliseContext = createContext<DashboardAnaliseContextValue | null>(null);

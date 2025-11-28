@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useDashboardAnaliseContext } from '@/contexts/DashboardAnaliseContext';
+import { useDominiosComFiltro } from '@/hooks/useDominiosComFiltro';
 import { BarChart3, PieChart, TrendingUp, AlertCircle, ArrowUpDown, Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { KWICModal } from '@/components/KWICModal';
@@ -34,9 +35,7 @@ interface EnrichedWord {
 export function TabEstatisticas() {
   const { processamentoData } = useDashboardAnaliseContext();
   const { trackFeatureUsage } = useAnalysisTracking();
-  const stats = processamentoData.analysisResults?.estatisticas;
-  const dominios = processamentoData.analysisResults?.dominios || [];
-  const keywords = processamentoData.analysisResults?.keywords || [];
+  const { dominios, keywords, estatisticas: stats } = useDominiosComFiltro();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [sortColumn, setSortColumn] = useState<SortColumn>('frequenciaNormalizada');
