@@ -133,16 +133,58 @@ function TabApresentacaoSimplesContent() {
           </AlertDescription>
         </Alert>
 
-        {/* Letra da música + Player + Glossário */}
+        {/* Letra da música + Player +ొssário */}
         <div className="grid gap-6 lg:grid-cols-3">
           <div className="lg:col-span-2">
-            <Card className="card-academic h-full">
-              <CardHeader>
+            <Card className="card-academic h-full border-4 border-red-600 relative overflow-hidden">
+              {/* Padrão decorativo guarani no topo */}
+              <div className="absolute top-0 left-0 right-0 h-3 bg-gradient-to-r from-red-600 via-red-500 to-red-600 opacity-80">
+                <div className="h-full flex justify-around items-center">
+                  <span className="text-white text-xs">◆</span>
+                  <span className="text-white text-xs">▼</span>
+                  <span className="text-white text-xs">◆</span>
+                  <span className="text-white text-xs">▼</span>
+                  <span className="text-white text-xs">◆</span>
+                  <span className="text-white text-xs">▼</span>
+                  <span className="text-white text-xs">◆</span>
+                </div>
+              </div>
+              
+              {/* Padrão decorativo guarani na lateral esquerda */}
+              <div className="absolute top-0 bottom-0 left-0 w-3 bg-gradient-to-b from-red-600 via-red-500 to-red-600 opacity-80 flex flex-col justify-around items-center">
+                <span className="text-white text-xs rotate-90">▲</span>
+                <span className="text-white text-xs rotate-90">◆</span>
+                <span className="text-white text-xs rotate-90">▲</span>
+                <span className="text-white text-xs rotate-90">◆</span>
+              </div>
+              
+              {/* Padrão decorativo guarani na lateral direita */}
+              <div className="absolute top-0 bottom-0 right-0 w-3 bg-gradient-to-b from-red-600 via-red-500 to-red-600 opacity-80 flex flex-col justify-around items-center">
+                <span className="text-white text-xs rotate-90">▼</span>
+                <span className="text-white text-xs rotate-90">◆</span>
+                <span className="text-white text-xs rotate-90">▼</span>
+                <span className="text-white text-xs rotate-90">◆</span>
+              </div>
+              
+              {/* Padrão decorativo guarani no rodapé */}
+              <div className="absolute bottom-0 left-0 right-0 h-3 bg-gradient-to-r from-red-600 via-red-500 to-red-600 opacity-80">
+                <div className="h-full flex justify-around items-center">
+                  <span className="text-white text-xs">▲</span>
+                  <span className="text-white text-xs">◆</span>
+                  <span className="text-white text-xs">▲</span>
+                  <span className="text-white text-xs">◆</span>
+                  <span className="text-white text-xs">▲</span>
+                  <span className="text-white text-xs">◆</span>
+                  <span className="text-white text-xs">▲</span>
+                </div>
+              </div>
+              
+              <CardHeader className="relative z-10 pt-6">
                 <CardTitle className="text-lg">Letra da Música</CardTitle>
                 <CardDescription>Luiz Marenco - Quando o verso vem pras casa</CardDescription>
               </CardHeader>
-              <CardContent>
-                <div className="whitespace-pre-line text-sm text-foreground leading-relaxed">
+              <CardContent className="relative z-10">
+                <div className="whitespace-pre-line text-base text-foreground leading-relaxed font-medium">
                   {`A calma do tarumã, ganhou sombra mais copada
 Pela várzea espichada com o sol da tarde caindo
 Um pañuelo maragato se abriu no horizonte
