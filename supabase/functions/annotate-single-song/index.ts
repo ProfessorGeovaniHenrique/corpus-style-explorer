@@ -565,6 +565,6 @@ async function saveToCache(
     .single();
 
   if (error && error.code !== '23505') {
-    throw error;
+    throw new Error(`Erro ao salvar no cache: ${error.message || JSON.stringify(error)}`);
   }
 }
