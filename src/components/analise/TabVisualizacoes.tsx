@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { useDashboardAnaliseContext } from '@/contexts/DashboardAnaliseContext';
 import { useDominiosComFiltro } from '@/hooks/useDominiosComFiltro';
-import { Network, Cloud, AlertCircle, Layers, Hash } from 'lucide-react';
+import { Network, Cloud, AlertCircle, Layers, Hash, Filter, Loader2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { useCorpusProcessing } from '@/hooks/useCorpusProcessing';
@@ -13,6 +13,10 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CongratulatoryModal } from './CongratulatoryModal';
 import { useAnalysisTracking, useLevelTracking } from '@/hooks/useAnalysisTracking';
 import { DomainDetailsDialog } from './DomainDetailsDialog';
+import { useSemanticEnrichment } from '@/hooks/useSemanticEnrichment';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 
 type HierarchyLevel = 1 | 2 | 3 | 4;
 type ViewMode = 'domains' | 'keywords';
@@ -23,8 +27,9 @@ export function TabVisualizacoes() {
   const { processCorpus, isProcessing } = useCorpusProcessing();
   const { trackFeatureUsage } = useAnalysisTracking();
   const { trackLevelView } = useLevelTracking();
+  const { isEnriching, levelCoverage, checkCoverage, enrichToLevel } = useSemanticEnrichment();
   
-  const [selectedLevel, setSelectedLevel] = useState<HierarchyLevel>(1);
+  const selectedLevel = processamentoData.selectedLevel || 1;
   const [viewMode, setViewMode] = useState<ViewMode>('domains');
   const [showCongratulatoryModal, setShowCongratulatoryModal] = useState(false);
   const [hasInteractedWithCloud, setHasInteractedWithCloud] = useState(() => {
@@ -37,6 +42,19 @@ export function TabVisualizacoes() {
     keywords: Array<{ palavra: string; frequencia: number; ll: number; significancia: string }>;
     stats: { totalOcorrencias: number; riquezaLexical: number; percentualCorpus: number; nivel: number };
   } | null>(null);
+
+  // Filtros de visualização
+  const [selectedDomains, setSelectedDomains] = useState<string[]>([]);
+  const [significanceFilter, setSignificanceFilter] = useState<string>('all');
+  const [prosodyFilter, setProsodyFilter] = useState<string>('all');
+  const [showNC, setShowNC] = useState(true);
+
+  // Verificar cobertura ao processar
+  useEffect(() => {
+    if (processamentoData.isProcessed && processamentoData.studySong) {
+      checkCoverage(processamentoData.studySong);
+    }
+  }, [processamentoData.isProcessed, processamentoData.studySong, checkCoverage]);
 
   if (!processamentoData.isProcessed || cloudData.length === 0) {
     return (
@@ -63,7 +81,7 @@ export function TabVisualizacoes() {
   }
 
   const handleLevelChange = async (level: HierarchyLevel) => {
-    setSelectedLevel(level);
+    updateProcessamentoData({ selectedLevel: level });
     trackLevelView(level);
     toast.info(`Carregando domínios de Nível ${level}...`);
     
@@ -76,8 +94,14 @@ export function TabVisualizacoes() {
       
       if (results) {
         updateProcessamentoData({
-          analysisResults: results
+          analysisResults: results,
+          selectedLevel: level
         });
+      }
+      
+      // Verificar cobertura após reprocessamento
+      if (processamentoData.studySong) {
+        await checkCoverage(processamentoData.studySong);
       }
       
       toast.success(`Domínios de Nível ${level} carregados com sucesso`);
@@ -85,6 +109,11 @@ export function TabVisualizacoes() {
       console.error('Erro ao carregar nível:', error);
       toast.error('Erro ao carregar domínios de outro nível');
     }
+  };
+
+  const handleEnrichLevel = async () => {
+    if (!processamentoData.studySong) return;
+    await enrichToLevel(processamentoData.studySong, selectedLevel);
   };
 
   const handleCloudInteraction = () => {
@@ -128,6 +157,53 @@ export function TabVisualizacoes() {
       }
     });
   };
+
+  // Aplicar filtros aos dados
+  const filteredCloudData = useMemo(() => {
+    let filtered = cloudData;
+
+    // Filtro NC
+    if (!showNC) {
+      filtered = filtered.filter(item => !item.codigo.startsWith('NC'));
+    }
+
+    // Filtro por domínios selecionados
+    if (selectedDomains.length > 0) {
+      filtered = filtered.filter(item => 
+        selectedDomains.some(d => item.codigo.startsWith(d))
+      );
+    }
+
+    return filtered;
+  }, [cloudData, showNC, selectedDomains]);
+
+  const filteredKeywords = useMemo(() => {
+    let filtered = keywords;
+
+    // Filtro NC
+    if (!showNC) {
+      filtered = filtered.filter(k => !k.dominioCodigo?.startsWith('NC'));
+    }
+
+    // Filtro por domínios
+    if (selectedDomains.length > 0) {
+      filtered = filtered.filter(k => 
+        selectedDomains.some(d => k.dominioCodigo?.startsWith(d))
+      );
+    }
+
+    // Filtro por significância
+    if (significanceFilter !== 'all') {
+      filtered = filtered.filter(k => k.significancia === significanceFilter);
+    }
+
+    // Filtro por prosódia
+    if (prosodyFilter !== 'all') {
+      filtered = filtered.filter(k => k.prosody === prosodyFilter);
+    }
+
+    return filtered;
+  }, [keywords, showNC, selectedDomains, significanceFilter, prosodyFilter]);
 
   return (
     <div className="space-y-4">
@@ -184,34 +260,99 @@ export function TabVisualizacoes() {
             </div>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
           <div className="flex gap-2">
             {([1, 2, 3, 4] as HierarchyLevel[]).map((level) => (
               <Button
                 key={level}
                 variant={selectedLevel === level ? 'default' : 'outline'}
                 onClick={() => handleLevelChange(level)}
-                disabled={isProcessing}
+                disabled={isProcessing || isEnriching}
                 className="flex-1"
               >
                 N{level}
               </Button>
             ))}
           </div>
-          <p className="text-xs text-muted-foreground mt-3 text-center">
+          <p className="text-xs text-muted-foreground text-center">
             N1: Categorias Gerais • N2: Subcategorias • N3: Especificações • N4: Detalhamento
           </p>
-          {selectedLevel > 1 && cloudData.length === 0 && (
-            <Alert className="mt-3">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>
-                Nenhum domínio N{selectedLevel} disponível. A maioria das palavras está classificada em N1. 
-                Reprocesse o corpus para obter classificações mais específicas.
-              </AlertDescription>
+          
+          {/* Indicador de Cobertura */}
+          {selectedLevel > 1 && (
+            <Alert className={levelCoverage[selectedLevel] > 50 
+              ? "bg-green-500/10 border-green-500/30" 
+              : "bg-amber-500/10 border-amber-500/30"}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    Cobertura N{selectedLevel}: {levelCoverage[selectedLevel]?.toFixed(0) || 0}%
+                    {levelCoverage[selectedLevel] < 50 && " - Dados insuficientes"}
+                  </AlertDescription>
+                </div>
+                {levelCoverage[selectedLevel] < 50 && (
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    onClick={handleEnrichLevel}
+                    disabled={isEnriching}
+                  >
+                    {isEnriching ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Enriquecer'}
+                  </Button>
+                )}
+              </div>
             </Alert>
           )}
         </CardContent>
       </Card>
+      )}
+
+      {/* Painel de Filtros */}
+      {viewMode === 'domains' && (
+        <Card className="bg-muted/30">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Filter className="h-4 w-4" />
+              Filtros de Visualização
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Filtro por Significância */}
+            <div className="space-y-2">
+              <Label className="text-xs">Significância Estatística</Label>
+              <Select value={significanceFilter} onValueChange={setSignificanceFilter}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas</SelectItem>
+                  <SelectItem value="Alta">Alta (LL &gt; 10.83)</SelectItem>
+                  <SelectItem value="Média">Média (LL &gt; 6.63)</SelectItem>
+                  <SelectItem value="Baixa">Baixa</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            {/* Filtro por Prosódia */}
+            <div className="space-y-2">
+              <Label className="text-xs">Prosódia Semântica</Label>
+              <Select value={prosodyFilter} onValueChange={setProsodyFilter}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas</SelectItem>
+                  <SelectItem value="Positiva">Positiva 😊</SelectItem>
+                  <SelectItem value="Negativa">Negativa 😔</SelectItem>
+                  <SelectItem value="Neutra">Neutra 😐</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            {/* Toggle NC */}
+            <div className="flex items-center gap-2">
+              <Switch checked={showNC} onCheckedChange={setShowNC} />
+              <Label className="text-xs">Mostrar Não Classificados (NC)</Label>
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {/* Nuvem de Domínios ou Palavras-chave */}
@@ -235,7 +376,7 @@ export function TabVisualizacoes() {
           <div className="flex flex-wrap gap-4 justify-center items-center min-h-[400px] p-8">
             {viewMode === 'domains' ? (
               // Modo Domínios
-              cloudData.map((item, idx) => {
+              filteredCloudData.map((item, idx) => {
                 const fontSize = Math.max(14, Math.min(64, 14 + (item.avgScore * 1.5)));
                 return (
                   <HoverCard key={idx} openDelay={200}>
@@ -285,7 +426,7 @@ export function TabVisualizacoes() {
               })
             ) : (
               // Modo Palavras-chave
-              keywords.slice(0, 80).map((keyword, idx) => {
+              filteredKeywords.slice(0, 80).map((keyword, idx) => {
                 // Encontrar o domínio pai para obter a cor
                 const domain = cloudData.find(d => d.codigo === keyword.dominio);
                 const color = domain?.color || keyword.cor || 'hsl(var(--primary))';
@@ -368,7 +509,7 @@ export function TabVisualizacoes() {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {cloudData.slice(0, 8).map((item, idx) => (
+            {filteredCloudData.slice(0, 8).map((item, idx) => (
               <HoverCard key={idx} openDelay={200}>
                 <HoverCardTrigger asChild>
                   <div

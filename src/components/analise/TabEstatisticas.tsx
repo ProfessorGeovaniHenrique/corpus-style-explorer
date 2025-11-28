@@ -42,6 +42,8 @@ export function TabEstatisticas() {
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 100;
+  
+  const selectedLevel = processamentoData.selectedLevel || 1;
 
   const { isOpen, selectedWord, kwicData, isLoading, openModal, closeModal, loadSongData, isReady } = useKWICFromStudySong();
 
@@ -173,6 +175,13 @@ export function TabEstatisticas() {
 
   return (
     <div className="space-y-4">
+      {/* Header com badge de nível */}
+      <div className="flex items-center justify-between mb-4">
+        <Badge variant="outline" className="text-sm">
+          Estatísticas - Nível {selectedLevel}
+        </Badge>
+      </div>
+      
       {/* Cards de Métricas */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <TooltipProvider>

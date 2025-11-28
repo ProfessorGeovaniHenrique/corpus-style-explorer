@@ -21,6 +21,7 @@ export function TabDominios() {
   const [isRecalculating, setIsRecalculating] = useState(false);
   
   const ignorarMarcadoresGramaticais = processamentoData.ignorarMarcadoresGramaticais || false;
+  const selectedLevel = processamentoData.selectedLevel || 1;
 
   // Extrair códigos disponíveis para busca de N2 filhos
   const availableDomains = useMemo(() => cloudData.map(d => d.codigo), [cloudData]);
@@ -137,6 +138,9 @@ export function TabDominios() {
               </CardDescription>
             </div>
             <div className="flex gap-2">
+              <Badge variant="outline" className="text-sm">
+                Nível {selectedLevel}
+              </Badge>
               <Button variant="outline" size="sm" onClick={handleExportCSV}>
                 <Download className="w-4 h-4 mr-2" />
                 Exportar CSV

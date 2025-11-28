@@ -244,10 +244,26 @@ serve(withInstrumentation('process-corpus-analysis', async (req) => {
       }
     }
 
-    // 1.4 Buscar classificações REAIS do CE
+    // 1.4 Buscar classificações REAIS do CE com JOIN para obter hierarquia completa
     const { data: ceClassifications, error: ceError } = await supabase
       .from('semantic_disambiguation_cache')
-      .select('palavra, tagset_codigo, confianca')
+      .select(`
+        palavra, 
+        tagset_codigo, 
+        confianca,
+        tagset_n1,
+        tagset_n2,
+        tagset_n3,
+        tagset_n4,
+        semantic_tagset!inner(
+          codigo,
+          codigo_nivel_1,
+          codigo_nivel_2,
+          codigo_nivel_3,
+          codigo_nivel_4,
+          nivel_profundidade
+        )
+      `)
       .eq('song_id', songId);
 
     if (ceError) {
@@ -256,6 +272,74 @@ serve(withInstrumentation('process-corpus-analysis', async (req) => {
     }
 
     log.info('CE classifications loaded', { count: ceClassifications?.length || 0 });
+
+    // 1.5 Verificar cobertura do nível solicitado e enriquecer se necessário
+    if (nivel > 1) {
+      const wordsWithTargetLevel = (ceClassifications || []).filter((c: any) => {
+        const hasLevel = c[`tagset_n${nivel}`] !== null;
+        return hasLevel;
+      });
+      const coverage = ceClassifications && ceClassifications.length > 0 
+        ? wordsWithTargetLevel.length / ceClassifications.length 
+        : 0;
+      
+      log.info('Level coverage check', { nivel, coverage: (coverage * 100).toFixed(1) + '%' });
+      
+      if (coverage < 0.5 && ceClassifications && ceClassifications.length > 0) {
+        log.info('Insufficient coverage, triggering enrichment', { nivel, coverage });
+        
+        // Buscar palavras N1-only que precisam enriquecimento
+        const n1OnlyWords = (ceClassifications || [])
+          .filter((c: any) => !c[`tagset_n${nivel}`] && c.tagset_n1)
+          .slice(0, 100) // Limitar a 100 palavras por vez para não sobrecarregar
+          .map((c: any) => ({
+            palavra: c.palavra,
+            tagset_n1: c.tagset_n1,
+            contexto: ''
+          }));
+        
+        if (n1OnlyWords.length > 0) {
+          log.info('Enriching words to level', { count: n1OnlyWords.length, targetLevel: nivel });
+          
+          // Chamar enrich-semantic-level em batches de 20
+          const BATCH_SIZE = 20;
+          for (let i = 0; i < n1OnlyWords.length; i += BATCH_SIZE) {
+            const batch = n1OnlyWords.slice(i, i + BATCH_SIZE);
+            await supabase.functions.invoke('enrich-semantic-level', {
+              body: { palavras: batch }
+            });
+          }
+          
+          // Re-buscar classificações atualizadas
+          const { data: updatedCE } = await supabase
+            .from('semantic_disambiguation_cache')
+            .select(`
+              palavra, 
+              tagset_codigo, 
+              confianca,
+              tagset_n1,
+              tagset_n2,
+              tagset_n3,
+              tagset_n4,
+              semantic_tagset!inner(
+                codigo,
+                codigo_nivel_1,
+                codigo_nivel_2,
+                codigo_nivel_3,
+                codigo_nivel_4,
+                nivel_profundidade
+              )
+            `)
+            .eq('song_id', songId);
+          
+          if (updatedCE) {
+            ceClassifications.length = 0;
+            ceClassifications.push(...updatedCE);
+            log.info('Classifications updated after enrichment', { count: updatedCE.length });
+          }
+        }
+      }
+    }
 
     // ==========================================
     // PARTE 2: PROCESSAR CR (25 Músicas Nordestinas)
@@ -350,17 +434,31 @@ serve(withInstrumentation('process-corpus-analysis', async (req) => {
     });
 
     // 3.2 Agregar frequências por domínio - CE
-    // Extrair código do nível solicitado de tagset_codigo
-    const extractLevelCode = (fullCode: string, targetLevel: number): string => {
-      if (!fullCode || fullCode === 'NC') return 'NC';
-      const parts = fullCode.split('.');
-      
-      // Se o código tem menos partes que o nível solicitado, usar o que tem disponível
-      // Ex: Se pedimos N3 mas só temos "AP.AL" (N2), retornar "AP.AL"
-      if (parts.length < targetLevel) {
-        return fullCode; // Retornar o código completo disponível
+    // Usar hierarquia real do JOIN com semantic_tagset
+    const extractLevelCodeFromHierarchy = (classification: any, targetLevel: number): string => {
+      // Tentar usar campos tagset_n1, tagset_n2, etc primeiro
+      const levelField = `tagset_n${targetLevel}`;
+      if (classification[levelField]) {
+        return classification[levelField];
       }
       
+      // Fallback: usar semantic_tagset join
+      if (classification.semantic_tagset) {
+        const levelCode = classification.semantic_tagset[`codigo_nivel_${targetLevel}`];
+        if (levelCode) return levelCode;
+        
+        // Se não tem o nível solicitado, usar o nível mais alto disponível
+        for (let i = targetLevel - 1; i >= 1; i--) {
+          const fallbackCode = classification.semantic_tagset[`codigo_nivel_${i}`];
+          if (fallbackCode) return fallbackCode;
+        }
+      }
+      
+      // Fallback final: extrair do código completo
+      const fullCode = classification.tagset_codigo;
+      if (!fullCode || fullCode === 'NC') return 'NC';
+      const parts = fullCode.split('.');
+      if (parts.length < targetLevel) return fullCode;
       return parts.slice(0, targetLevel).join('.');
     };
     
@@ -368,16 +466,16 @@ serve(withInstrumentation('process-corpus-analysis', async (req) => {
     const ceWordFreq = new Map<string, number>();
     
     (ceClassifications || []).forEach((c: any) => {
-      const domain = extractLevelCode(c.tagset_codigo, nivel);
+      const domain = extractLevelCodeFromHierarchy(c, nivel);
       ceFreqByDomain.set(domain, (ceFreqByDomain.get(domain) || 0) + 1);
       ceWordFreq.set(c.palavra, (ceWordFreq.get(c.palavra) || 0) + 1);
     });
 
-    // 3.3 Agregar frequências por domínio - CR
+    // 3.3 Agregar frequências por domínio - CR (com mesma lógica hierárquica)
     const crFreqByDomain = new Map<string, number>();
     
     (crClassifications || []).forEach((c: any) => {
-      const domain = extractLevelCode(c.tagset_codigo, nivel);
+      const domain = extractLevelCodeFromHierarchy(c, nivel);
       crFreqByDomain.set(domain, (crFreqByDomain.get(domain) || 0) + 1);
     });
 
@@ -390,7 +488,7 @@ serve(withInstrumentation('process-corpus-analysis', async (req) => {
     const keywords = Array.from(ceWordFreq.entries())
       .map(([palavra, freq]) => {
         const classification = (ceClassifications || []).find((c: any) => c.palavra === palavra);
-        const domain = extractLevelCode(classification?.tagset_codigo, nivel);
+        const domain = extractLevelCodeFromHierarchy(classification, nivel);
         const tagsetInfo = tagsetMap.get(domain);
         const llInfo = llScores.get(domain) || { ll: 0, mi: 0, significance: 'Baixa' };
 
@@ -410,11 +508,11 @@ serve(withInstrumentation('process-corpus-analysis', async (req) => {
       .sort((a, b) => b.ll - a.ll)
       .slice(0, 100);
 
-    // 3.6 Agregar domínios com estatísticas
+    // 3.6 Agregar domínios com estatísticas (usando hierarquia)
     const dominioMap = new Map();
     
     (ceClassifications || []).forEach((c: any) => {
-      const domain = extractLevelCode(c.tagset_codigo, nivel);
+      const domain = extractLevelCodeFromHierarchy(c, nivel);
       if (!dominioMap.has(domain)) {
         dominioMap.set(domain, {
           palavras: new Set(),

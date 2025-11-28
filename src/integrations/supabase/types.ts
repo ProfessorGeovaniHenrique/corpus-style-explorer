@@ -2005,6 +2005,7 @@ export type Database = {
           cached_at: string | null
           confianca: number | null
           contexto_hash: string
+          enriched_at: string | null
           fonte: string | null
           forma_padrao: string | null
           hits_count: number | null
@@ -2021,6 +2022,10 @@ export type Database = {
           pos: string | null
           song_id: string | null
           tagset_codigo: string
+          tagset_n1: string | null
+          tagset_n2: string | null
+          tagset_n3: string | null
+          tagset_n4: string | null
           tagsets_alternativos: string[] | null
         }
         Insert: {
@@ -2028,6 +2033,7 @@ export type Database = {
           cached_at?: string | null
           confianca?: number | null
           contexto_hash: string
+          enriched_at?: string | null
           fonte?: string | null
           forma_padrao?: string | null
           hits_count?: number | null
@@ -2044,6 +2050,10 @@ export type Database = {
           pos?: string | null
           song_id?: string | null
           tagset_codigo: string
+          tagset_n1?: string | null
+          tagset_n2?: string | null
+          tagset_n3?: string | null
+          tagset_n4?: string | null
           tagsets_alternativos?: string[] | null
         }
         Update: {
@@ -2051,6 +2061,7 @@ export type Database = {
           cached_at?: string | null
           confianca?: number | null
           contexto_hash?: string
+          enriched_at?: string | null
           fonte?: string | null
           forma_padrao?: string | null
           hits_count?: number | null
@@ -2067,6 +2078,10 @@ export type Database = {
           pos?: string | null
           song_id?: string | null
           tagset_codigo?: string
+          tagset_n1?: string | null
+          tagset_n2?: string | null
+          tagset_n3?: string | null
+          tagset_n4?: string | null
           tagsets_alternativos?: string[] | null
         }
         Relationships: [

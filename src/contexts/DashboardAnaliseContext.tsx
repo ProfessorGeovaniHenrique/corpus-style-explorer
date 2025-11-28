@@ -64,6 +64,7 @@ interface ProcessamentoData {
   processedAt?: string;
   analysisResults?: AnalysisResults;
   ignorarMarcadoresGramaticais?: boolean;
+  selectedLevel?: 1 | 2 | 3 | 4; // Nível hierárquico selecionado
 }
 
 interface DashboardAnaliseContextValue {
@@ -83,6 +84,7 @@ const initialData: ProcessamentoData = {
   referenceCorpus: 'mini-nordestino',
   isProcessed: false,
   ignorarMarcadoresGramaticais: true, // Filtrar MG por padrão
+  selectedLevel: 1, // Nível N1 por padrão
 };
 
 const DashboardAnaliseContext = createContext<DashboardAnaliseContextValue | null>(null);
