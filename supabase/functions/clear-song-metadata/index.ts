@@ -25,51 +25,67 @@ serve(async (req) => {
       );
     }
 
-    log.info(`Clearing metadata for ${songIds.length} songs`, { songIds });
+    log.info(`Clearing metadata for ${songIds.length} songs`);
 
     const supabase = createSupabaseClient();
 
-    // Clear metadata fields in songs table
-    const { error: updateError } = await supabase
-      .from('songs')
-      .update({
-        composer: null,
-        release_year: null,
-        album: null,
-        confidence_score: 0,
-        enrichment_source: null,
-        status: 'pending'
-      })
-      .in('id', songIds);
+    // Process in chunks of 100 to avoid Supabase .in() array limit
+    const CHUNK_SIZE = 100;
+    let totalCleared = 0;
+    let errors = 0;
 
-    if (updateError) {
-      log.error('Failed to clear song metadata', updateError);
-      return new Response(
-        JSON.stringify({ error: 'Failed to clear metadata', details: updateError.message }), 
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    for (let i = 0; i < songIds.length; i += CHUNK_SIZE) {
+      const chunk = songIds.slice(i, i + CHUNK_SIZE);
+      
+      log.info(`Processing chunk ${Math.floor(i / CHUNK_SIZE) + 1}/${Math.ceil(songIds.length / CHUNK_SIZE)}`, {
+        chunkSize: chunk.length
+      });
+
+      // Clear metadata fields in songs table
+      const { error: updateError } = await supabase
+        .from('songs')
+        .update({
+          composer: null,
+          release_year: null,
+          album: null,
+          confidence_score: 0,
+          enrichment_source: null,
+          status: 'pending'
+        })
+        .in('id', chunk);
+
+      if (updateError) {
+        log.error(`Failed to clear chunk ${i / CHUNK_SIZE + 1}`, updateError);
+        errors++;
+        continue; // Continue with next chunk
+      }
+
+      totalCleared += chunk.length;
+
+      // Clear corresponding cache entries (non-critical)
+      await supabase
+        .from('gemini_cache')
+        .delete()
+        .in('title', chunk.map(id => `enrichment_${id}`));
     }
 
-    // Clear corresponding cache entries
-    const { error: cacheError } = await supabase
-      .from('gemini_cache')
-      .delete()
-      .in('title', songIds.map(id => `enrichment_${id}`));
-
-    if (cacheError) {
-      log.warn('Failed to clear cache entries', { error: cacheError.message });
-      // Non-critical, continue
+    if (errors > 0) {
+      log.warn(`Completed with ${errors} chunk errors. Cleared ${totalCleared}/${songIds.length} songs`);
+    } else {
+      log.info(`Successfully cleared metadata for ${totalCleared} songs`);
     }
-
-    log.info(`Successfully cleared metadata for ${songIds.length} songs`);
 
     return new Response(
       JSON.stringify({ 
-        success: true, 
-        clearedCount: songIds.length,
-        message: `Metadados limpos para ${songIds.length} música(s)`
+        success: totalCleared > 0, 
+        clearedCount: totalCleared,
+        failedChunks: errors,
+        totalRequested: songIds.length,
+        message: errors > 0 
+          ? `Metadados limpos para ${totalCleared}/${songIds.length} música(s) (${errors} chunks falharam)`
+          : `Metadados limpos para ${totalCleared} música(s)`
       }), 
-      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: totalCleared > 0 ? 200 : 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
