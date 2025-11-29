@@ -373,10 +373,18 @@ Lembre-se: NÃO reporte bugs já resolvidos ou problemas já implementados lista
     // Salvar análise no banco
     const totalCredits = result.suggestions.reduce((sum, s) => sum + s.creditsSaved, 0);
     
+    // Map frontend logsType to database-accepted values
+    const logsTypeMapping: Record<string, string> = {
+      'audit': 'audit',
+      'errors': 'corrections',
+      'performance': 'ai-assistant'
+    };
+    const dbLogsType = logsTypeMapping[logsType] || 'ai-assistant';
+    
     const { data: savedAnalysis, error: saveError } = await supabase
       .from('ai_analysis_history')
       .insert({
-        logs_type: logsType,
+        logs_type: dbLogsType,
         total_issues: result.suggestions.length,
         suggestions: result.suggestions as any,
         estimated_credits_saved: totalCredits,
