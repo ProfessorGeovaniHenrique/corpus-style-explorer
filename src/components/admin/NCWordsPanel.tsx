@@ -7,6 +7,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { NCWordValidationModal } from './NCWordValidationModal';
+import { Loader2 } from 'lucide-react';
 
 interface NCWord {
   palavra: string;
@@ -19,19 +20,28 @@ export function NCWordsPanel() {
   const [selectedWord, setSelectedWord] = useState<NCWord | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
 
-  const { data: ncWords, isLoading, refetch } = useQuery({
+  const { data: ncWords, isLoading, refetch, isFetching } = useQuery({
     queryKey: ['nc-words'],
     queryFn: async () => {
+      // Primeiro buscar total
+      const { count } = await supabase
+        .from('semantic_disambiguation_cache')
+        .select('*', { count: 'exact', head: true })
+        .eq('tagset_codigo', 'NC');
+
+      // Depois buscar até 100 palavras
       const { data, error } = await supabase
         .from('semantic_disambiguation_cache')
         .select('palavra, confianca, contexto_hash, song_id')
         .eq('tagset_codigo', 'NC')
         .order('palavra')
-        .limit(50);
+        .limit(100);
 
       if (error) throw error;
-      return data as NCWord[];
-    }
+      return { words: data as NCWord[], total: count || 0 };
+    },
+    staleTime: 30000, // 30 segundos
+    refetchOnWindowFocus: true
   });
 
   const handleReclassify = async () => {
@@ -60,15 +70,30 @@ export function NCWordsPanel() {
             <AlertTriangle className="h-5 w-5 text-destructive" />
             Palavras Não Classificadas (NC)
           </CardTitle>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={handleReclassify}
-            disabled={!ncWords || ncWords.length === 0}
-          >
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Reclassificar Todas
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={() => refetch()}
+              disabled={isFetching}
+              title="Atualizar lista"
+            >
+              {isFetching ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <RefreshCw className="h-4 w-4" />
+              )}
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleReclassify}
+              disabled={!ncWords?.words || ncWords.words.length === 0}
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Reclassificar Todas
+            </Button>
+          </div>
         </div>
       </CardHeader>
       <CardContent>
@@ -76,17 +101,17 @@ export function NCWordsPanel() {
           <div className="text-center py-8 text-muted-foreground">
             Carregando palavras NC...
           </div>
-        ) : !ncWords || ncWords.length === 0 ? (
+        ) : !ncWords?.words || ncWords.words.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
             ✅ Nenhuma palavra NC encontrada
           </div>
         ) : (
           <div className="space-y-2">
             <p className="text-sm text-muted-foreground mb-4">
-              {ncWords.length} palavras não classificadas (mostrando até 50)
+              {ncWords.total} palavras não classificadas no total (mostrando {ncWords.words.length})
             </p>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 max-h-[400px] overflow-y-auto">
-              {ncWords.map((word, index) => (
+              {ncWords.words.map((word, index) => (
                 <div 
                   key={index}
                   onClick={() => {
