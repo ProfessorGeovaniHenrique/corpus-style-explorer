@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
@@ -28,6 +28,7 @@ export default function ResetPassword() {
   const [isValidToken, setIsValidToken] = useState(false);
   const [isChecking, setIsChecking] = useState(true);
   const [checkAttempt, setCheckAttempt] = useState(0);
+  const processingRef = useRef(false);
 
   const form = useForm<ResetPasswordFormData>({
     resolver: zodResolver(resetPasswordSchema),
@@ -38,6 +39,13 @@ export default function ResetPassword() {
   });
 
   useEffect(() => {
+    // BLOQUEIO IMEDIATO SÍNCRONO - previne execução duplicada
+    if (processingRef.current) {
+      console.log('[ResetPassword] ⛔ Execução duplicada bloqueada');
+      return;
+    }
+    processingRef.current = true;
+    
     let isMounted = true;
     
     console.log('[ResetPassword] 🚀 Inicializando...');
@@ -52,6 +60,14 @@ export default function ResetPassword() {
         
         if (!isMounted) return;
         
+        // Priorizar INITIAL_SESSION para recovery
+        if (event === 'INITIAL_SESSION' && session) {
+          console.log('[ResetPassword] ✅ INITIAL_SESSION com sessão - permitindo reset');
+          setIsValidToken(true);
+          setIsChecking(false);
+          return;
+        }
+        
         // Evento específico de recovery
         if (event === 'PASSWORD_RECOVERY') {
           console.log('[ResetPassword] ✅ PASSWORD_RECOVERY detectado!');
@@ -61,8 +77,8 @@ export default function ResetPassword() {
         }
         
         // Fallback: usuário logado
-        if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session) {
-          console.log('[ResetPassword] ✅ Sessão válida detectada via', event);
+        if (event === 'SIGNED_IN' && session) {
+          console.log('[ResetPassword] ✅ Sessão válida detectada via SIGNED_IN');
           setIsValidToken(true);
           setIsChecking(false);
         }
@@ -112,9 +128,20 @@ export default function ResetPassword() {
         }
       }
       
+      // Verificação final antes de mostrar erro
+      console.log('[ResetPassword] 🔍 Verificação final de sessão...');
+      const { data: { session: finalCheck } } = await supabase.auth.getSession();
+      
+      if (finalCheck) {
+        console.log('[ResetPassword] ✅ Sessão encontrada na verificação final!');
+        setIsValidToken(true);
+        setIsChecking(false);
+        return;
+      }
+      
       // Todas as tentativas falharam
       if (isMounted) {
-        console.log('[ResetPassword] ❌ Todas as tentativas falharam');
+        console.log('[ResetPassword] ❌ Todas as tentativas falharam - token realmente inválido');
         setIsChecking(false);
         toast.error("Link de recuperação inválido ou expirado. Solicite um novo link.");
         setTimeout(() => navigate("/forgot-password"), 3000);
@@ -182,6 +209,13 @@ export default function ResetPassword() {
               <p className="text-center text-muted-foreground text-sm">
                 Redirecionando para solicitar novo link...
               </p>
+              <Button 
+                variant="outline" 
+                onClick={() => navigate("/forgot-password")}
+                className="mt-4"
+              >
+                Solicitar Novo Link
+              </Button>
             </div>
           </CardContent>
         </Card>
