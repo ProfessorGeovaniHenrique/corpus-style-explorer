@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
+import { Loader2 } from "lucide-react";
 import logoVersoAustral from "@/assets/logo-versoaustral-completo.png";
 
 const resetPasswordSchema = z.object({
@@ -25,52 +26,107 @@ export default function ResetPassword() {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [isValidToken, setIsValidToken] = useState(false);
+  const [isChecking, setIsChecking] = useState(true);
+  const [checkAttempt, setCheckAttempt] = useState(0);
 
   const form = useForm<ResetPasswordFormData>({
     resolver: zodResolver(resetPasswordSchema),
+    defaultValues: {
+      password: "",
+      confirmPassword: "",
+    },
   });
 
   useEffect(() => {
-    const checkAccess = async () => {
-      console.log('[ResetPassword] 🔍 URL completa:', window.location.href);
-      console.log('[ResetPassword] 🔍 Hash:', window.location.hash);
+    let isMounted = true;
+    
+    console.log('[ResetPassword] 🚀 Inicializando...');
+    console.log('[ResetPassword] 📍 URL:', window.location.href);
+    console.log('[ResetPassword] 🔗 Hash:', window.location.hash || '(vazio)');
 
-      // Verificação 1: Hash da URL (fluxo padrão)
-      const hashParams = new URLSearchParams(window.location.hash.substring(1));
-      const accessToken = hashParams.get("access_token");
-      const type = hashParams.get("type");
-
-      console.log('[ResetPassword] 🔍 Access Token:', accessToken ? 'presente' : 'ausente');
-      console.log('[ResetPassword] 🔍 Type:', type);
-
-      if (accessToken && type === "recovery") {
-        console.log('[ResetPassword] ✅ Acesso via hash válido');
-        setIsValidToken(true);
-        return;
+    // 1. LISTENER PRIMEIRO - captura eventos do Supabase
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        console.log('[ResetPassword] 🔔 Auth Event:', event);
+        console.log('[ResetPassword] 🔔 Session:', session ? 'existe' : 'null');
+        
+        if (!isMounted) return;
+        
+        // Evento específico de recovery
+        if (event === 'PASSWORD_RECOVERY') {
+          console.log('[ResetPassword] ✅ PASSWORD_RECOVERY detectado!');
+          setIsValidToken(true);
+          setIsChecking(false);
+          return;
+        }
+        
+        // Fallback: usuário logado
+        if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session) {
+          console.log('[ResetPassword] ✅ Sessão válida detectada via', event);
+          setIsValidToken(true);
+          setIsChecking(false);
+        }
       }
+    );
 
-      // Verificação 2: Sessão existente (fallback)
-      console.log('[ResetPassword] 🔍 Verificando sessão...');
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    // 2. VERIFICAÇÃO COM RETRY
+    const checkSessionWithRetry = async () => {
+      const maxAttempts = 5;
+      const delayMs = 800;
       
-      console.log('[ResetPassword] 🔍 Sessão:', session ? 'existe' : 'não existe');
-      if (sessionError) {
-        console.error('[ResetPassword] ❌ Erro ao buscar sessão:', sessionError);
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        if (!isMounted) return;
+        
+        setCheckAttempt(attempt);
+        console.log(`[ResetPassword] 🔄 Tentativa ${attempt}/${maxAttempts}...`);
+        
+        // Verificar hash (pode ter sido preservado)
+        const hashParams = new URLSearchParams(window.location.hash.substring(1));
+        const accessToken = hashParams.get("access_token");
+        const type = hashParams.get("type");
+        
+        if (accessToken && type === "recovery") {
+          console.log('[ResetPassword] ✅ Hash válido encontrado!');
+          setIsValidToken(true);
+          setIsChecking(false);
+          return;
+        }
+        
+        // Verificar sessão existente
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error('[ResetPassword] ❌ Erro getSession:', error);
+        }
+        
+        if (session) {
+          console.log('[ResetPassword] ✅ Sessão encontrada:', session.user.email);
+          setIsValidToken(true);
+          setIsChecking(false);
+          return;
+        }
+        
+        // Aguardar antes da próxima tentativa
+        if (attempt < maxAttempts) {
+          await new Promise(resolve => setTimeout(resolve, delayMs));
+        }
       }
       
-      if (session) {
-        console.log('[ResetPassword] ✅ Acesso via sessão existente', session.user.email);
-        setIsValidToken(true);
-        return;
+      // Todas as tentativas falharam
+      if (isMounted) {
+        console.log('[ResetPassword] ❌ Todas as tentativas falharam');
+        setIsChecking(false);
+        toast.error("Link de recuperação inválido ou expirado. Solicite um novo link.");
+        setTimeout(() => navigate("/forgot-password"), 3000);
       }
-
-      // Nenhuma das verificações passou
-      console.log('[ResetPassword] ❌ Sem hash válido e sem sessão - redirecionando');
-      toast.error("Link de recuperação inválido ou expirado. Solicite um novo link.");
-      setTimeout(() => navigate("/forgot-password"), 3000);
     };
 
-    checkAccess();
+    checkSessionWithRetry();
+
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
   }, [navigate]);
 
   const handleSubmit = async (data: ResetPasswordFormData) => {
@@ -85,26 +141,55 @@ export default function ResetPassword() {
       toast.success("Senha redefinida com sucesso!");
       setTimeout(() => navigate("/auth"), 1500);
     } catch (error: any) {
+      console.error('[ResetPassword] ❌ Erro ao resetar:', error);
       toast.error(error.message || "Erro ao redefinir senha");
     } finally {
       setIsLoading(false);
     }
   };
 
-  if (!isValidToken) {
+  // Estado de verificação
+  if (isChecking) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-primary/5 p-4">
         <Card className="w-full max-w-md">
           <CardContent className="pt-6">
-            <p className="text-center text-muted-foreground">
-              Verificando link de recuperação...
-            </p>
+            <div className="flex flex-col items-center gap-4">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <p className="text-center text-muted-foreground">
+                Verificando link de recuperação...
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Tentativa {checkAttempt}/5
+              </p>
+            </div>
           </CardContent>
         </Card>
       </div>
     );
   }
 
+  // Token inválido
+  if (!isValidToken) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-primary/5 p-4">
+        <Card className="w-full max-w-md">
+          <CardContent className="pt-6">
+            <div className="flex flex-col items-center gap-4">
+              <p className="text-center text-destructive font-medium">
+                Link inválido ou expirado
+              </p>
+              <p className="text-center text-muted-foreground text-sm">
+                Redirecionando para solicitar novo link...
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Formulário de reset
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-primary/5 p-4">
       <Card className="w-full max-w-md shadow-lg border-2 border-primary/20">
@@ -132,7 +217,9 @@ export default function ResetPassword() {
               <Input
                 id="password"
                 type="password"
-                placeholder="••••••••"
+                placeholder="Mínimo 6 caracteres"
+                autoComplete="new-password"
+                autoFocus
                 {...form.register("password")}
               />
               {form.formState.errors.password && (
@@ -146,7 +233,8 @@ export default function ResetPassword() {
               <Input
                 id="confirmPassword"
                 type="password"
-                placeholder="••••••••"
+                placeholder="Repita a senha"
+                autoComplete="new-password"
                 {...form.register("confirmPassword")}
               />
               {form.formState.errors.confirmPassword && (
@@ -160,7 +248,14 @@ export default function ResetPassword() {
               className="w-full btn-versoaustral-secondary"
               disabled={isLoading}
             >
-              {isLoading ? "Redefinindo..." : "Redefinir Senha"}
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Redefinindo...
+                </>
+              ) : (
+                "Redefinir Senha"
+              )}
             </Button>
           </form>
         </CardContent>
