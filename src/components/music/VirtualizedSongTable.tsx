@@ -2,7 +2,8 @@ import { useState, useRef, useMemo } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { ArrowUpDown, Search } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { ArrowUpDown, Search, AlertTriangle } from 'lucide-react';
 import { ColumnDef } from './DataTable';
 
 interface VirtualizedSongTableProps<T> {
@@ -11,6 +12,7 @@ interface VirtualizedSongTableProps<T> {
   searchPlaceholder?: string;
   onRowClick?: (row: T) => void;
   getRowId?: (row: T) => string;
+  showComposerColumn?: boolean;
 }
 
 export function VirtualizedSongTable<T extends Record<string, any>>({
@@ -19,6 +21,7 @@ export function VirtualizedSongTable<T extends Record<string, any>>({
   searchPlaceholder = 'Buscar...',
   onRowClick,
   getRowId = (row) => row.id,
+  showComposerColumn = false,
 }: VirtualizedSongTableProps<T>) {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortColumn, setSortColumn] = useState<string | null>(null);
@@ -70,6 +73,46 @@ export function VirtualizedSongTable<T extends Record<string, any>>({
     }
   };
 
+  // Helper para detectar compositores suspeitos
+  const isSuspiciousComposer = (row: T): boolean => {
+    if (!row.composer || !row.artists?.name) return false;
+    
+    const composer = row.composer.toLowerCase();
+    const artistName = row.artists.name.toLowerCase();
+    
+    // Compositor igual ao artista
+    if (composer === artistName) return true;
+    
+    // Palavras inválidas comuns
+    const junkWords = ['released', 'gravadora', 'records', 'provided', 'auto-generated', 
+                       'topic', 'vevo', 'official', 'music', 'entertainment'];
+    
+    return junkWords.some(word => composer.includes(word));
+  };
+
+  // Renderizar célula de compositor com validação visual
+  const renderComposerCell = (row: T) => {
+    if (!row.composer) {
+      return <span className="text-muted-foreground text-xs">Não disponível</span>;
+    }
+    
+    const suspicious = isSuspiciousComposer(row);
+    
+    return (
+      <div className="flex items-center gap-2">
+        <span className={suspicious ? "text-destructive font-medium" : ""}>
+          {row.composer}
+        </span>
+        {suspicious && (
+          <Badge variant="destructive" className="gap-1 text-[10px] h-5">
+            <AlertTriangle className="h-3 w-3" />
+            Suspeito
+          </Badge>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-4">
       {/* Search */}
@@ -115,6 +158,18 @@ export function VirtualizedSongTable<T extends Record<string, any>>({
                 )}
               </div>
             ))}
+            {showComposerColumn && (
+              <div className="flex-1 min-w-[150px] font-medium text-sm">
+                <Button
+                  variant="ghost"
+                  onClick={() => handleSort('composer')}
+                  className="h-auto p-0 hover:bg-transparent"
+                >
+                  Compositor
+                  <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+              </div>
+            )}
           </div>
         </div>
 
@@ -163,6 +218,11 @@ export function VirtualizedSongTable<T extends Record<string, any>>({
                         {col.render ? col.render(row[col.key], row) : row[col.key]}
                       </div>
                     ))}
+                    {showComposerColumn && (
+                      <div className="flex-1 min-w-[150px] text-sm">
+                        {renderComposerCell(row)}
+                      </div>
+                    )}
                   </div>
                 );
               })}

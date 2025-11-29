@@ -305,19 +305,25 @@ export function extractMetadataFromYouTube(youtubeResult: YouTubeSearchResult): 
   const invalidComposerWords = [
     'released', 'gravadora', 'records', 'music', 'entertainment', 
     'produções', 'studio', 'label', 'editora', 'distribuidora',
-    'copyright', 'rights', 'reserved', 'ltd', 'inc', 'ltda'
+    'copyright', 'rights', 'reserved', 'ltd', 'inc', 'ltda',
+    'provided', 'auto-generated', 'topic', 'vevo', 'official',
+    'productions', 'media', 'group', 'company', 'corporation'
   ];
+  
+  // Regex adicional para padrões de gravadora
+  const recordCompanyPattern = /\b(records|music|entertainment|productions|media|ltd|inc|ltda)\b/i;
   
   for (const pattern of composerPatterns) {
     const match = description.match(pattern);
     if (match && match[1]) {
       let composer = match[1].trim();
       
-      // Verificar se contém palavras inválidas
+      // Verificar se contém palavras inválidas ou padrão de gravadora
       const composerLower = composer.toLowerCase();
-      const isInvalid = invalidComposerWords.some(word => composerLower.includes(word));
+      const hasInvalidWords = invalidComposerWords.some(word => composerLower.includes(word));
+      const matchesRecordPattern = recordCompanyPattern.test(composerLower);
       
-      if (isInvalid) {
+      if (hasInvalidWords || matchesRecordPattern) {
         continue; // Pular para o próximo padrão
       }
       

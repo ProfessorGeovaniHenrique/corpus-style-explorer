@@ -647,6 +647,23 @@ async function enrichSingleSong(
     log.info('Starting cross-validation', { songId, sourcesCount: enrichmentSources.length });
     const validated = crossValidateResults(enrichmentSources);
     
+    // ✅ VALIDAÇÃO ADICIONAL: Rejeitar compositor se for igual ao artista
+    if (validated.finalComposer) {
+      const composerLower = validated.finalComposer.toLowerCase().trim();
+      const artistLower = artistName.toLowerCase().trim();
+      
+      if (composerLower === artistLower || composerLower.includes(artistLower)) {
+        log.warn('Rejecting composer - identical to artist name', { 
+          songId, 
+          composer: validated.finalComposer, 
+          artist: artistName 
+        });
+        validated.finalComposer = undefined;
+        validated.confidenceScore = Math.max(0, validated.confidenceScore - 20);
+        validated.validationNotes += '; Compositor rejeitado (idêntico ao artista)';
+      }
+    }
+    
     log.info('Cross-validation completed', { 
       songId,
       finalComposer: validated.finalComposer,

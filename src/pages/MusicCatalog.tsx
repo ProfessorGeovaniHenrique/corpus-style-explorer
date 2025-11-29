@@ -88,6 +88,7 @@ export default function MusicCatalog() {
   const [selectedLetter, setSelectedLetter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedCorpusFilter, setSelectedCorpusFilter] = useState<string>('all');
+  const [showSuspiciousOnly, setShowSuspiciousOnly] = useState(false);
   
   // Pagination state for artists
   const [currentArtistPage, setCurrentArtistPage] = useState(1);
@@ -174,6 +175,23 @@ export default function MusicCatalog() {
     };
   };
 
+  // Helper para detectar dados suspeitos
+  const hasSuspiciousData = useCallback((song: Song): boolean => {
+    if (!song.composer) return false;
+    
+    const composer = song.composer.toLowerCase();
+    const artistName = song.artists?.name?.toLowerCase() || '';
+    
+    // Compositor igual ao artista
+    if (composer === artistName) return true;
+    
+    // Palavras inválidas comuns
+    const junkWords = ['released', 'gravadora', 'records', 'provided', 'auto-generated', 
+                       'topic', 'vevo', 'official', 'music', 'entertainment'];
+    
+    return junkWords.some(word => composer.includes(word));
+  }, []);
+
   // Sincronizar dados do hook com estados locais
   useEffect(() => {
     const converted = catalogSongs.map(convertToSongCard);
@@ -189,14 +207,19 @@ export default function MusicCatalog() {
     }
     
     // Aplicar filtro de status
-    const displayedSongs = statusFilter === 'all' 
+    let displayedSongs = statusFilter === 'all' 
       ? filtered 
       : filtered.filter(s => s.status === statusFilter);
+    
+    // Aplicar filtro de dados suspeitos
+    if (showSuspiciousOnly) {
+      displayedSongs = displayedSongs.filter(hasSuspiciousData);
+    }
     
     setAllSongs(converted);
     setSongs(displayedSongs);
     setSongsWithoutYouTube(filtered.filter(s => !s.youtube_url));
-  }, [catalogSongs, statusFilter, selectedCorpusFilter]);
+  }, [catalogSongs, statusFilter, selectedCorpusFilter, showSuspiciousOnly, hasSuspiciousData]);
 
   useEffect(() => {
     loadCorpora();
