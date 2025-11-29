@@ -116,16 +116,75 @@ export function useBatchSeedingJob() {
     }
   };
 
-  // 4. Calcular progresso
+  // 4. Verificar se job está realmente ativo (não abandonado)
+  const isJobReallyActive = (job: BatchSeedingJob): boolean => {
+    if (job.status !== 'processando') return false;
+    if (!job.last_chunk_at) return false;
+    
+    const lastActivity = new Date(job.last_chunk_at);
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+    
+    return lastActivity > oneHourAgo;
+  };
+
+  // 5. Função para cancelar job
+  const cancelJob = async (jobId: string) => {
+    try {
+      const { error } = await supabase
+        .from('batch_seeding_jobs')
+        .update({ 
+          status: 'cancelado',
+          erro_mensagem: 'Job cancelado manualmente - timeout de inatividade',
+          tempo_fim: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', jobId);
+      
+      if (error) throw error;
+      
+      // Recarregar dados
+      const { data, error: fetchError } = await supabase
+        .from('batch_seeding_jobs')
+        .select('*')
+        .in('status', ['processando', 'pausado'])
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      
+      if (!fetchError && data) {
+        const typedJob: BatchSeedingJob = {
+          ...data,
+          status: data.status as BatchSeedingJob['status']
+        };
+        setActiveJob(typedJob);
+      } else {
+        setActiveJob(null);
+      }
+      
+      return { success: true };
+    } catch (error) {
+      console.error('[useBatchSeedingJob] Error canceling job:', error);
+      return { success: false, error };
+    }
+  };
+
+  // 6. Calcular progresso
   const progress = activeJob 
     ? Math.min((activeJob.processed_words / 2000) * 100, 100)
     : 0;
+
+  // 7. Determinar se job está realmente processando (não abandonado)
+  const isReallyProcessing = activeJob 
+    ? (activeJob.status === 'processando' && isJobReallyActive(activeJob))
+    : false;
 
   return {
     activeJob,
     isLoading,
     progress,
     startJob,
-    isProcessing: activeJob?.status === 'processando'
+    cancelJob,
+    isProcessing: isReallyProcessing,
+    isJobAbandoned: activeJob?.status === 'processando' && !isJobReallyActive(activeJob)
   };
 }

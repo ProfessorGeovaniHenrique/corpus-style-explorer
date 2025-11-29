@@ -2,9 +2,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import { Play, Database, Activity } from 'lucide-react';
+import { Play, Database, Activity, XCircle, RefreshCw } from 'lucide-react';
 import { useBatchSeedingJob } from '@/hooks/useBatchSeedingJob';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { toast } from 'sonner';
+import { useEffect, useState } from 'react';
 
 interface BatchSeedingControlProps {
   semanticLexiconCount: number;
@@ -12,12 +14,38 @@ interface BatchSeedingControlProps {
 }
 
 export function BatchSeedingControl({ semanticLexiconCount, status }: BatchSeedingControlProps) {
-  const { activeJob, isLoading, progress, startJob, isProcessing } = useBatchSeedingJob();
+  const { activeJob, isLoading, progress, startJob, cancelJob, isProcessing, isJobAbandoned } = useBatchSeedingJob();
+  const [lastUpdate, setLastUpdate] = useState(new Date());
+  
+  // Auto-refresh quando há job ativo
+  useEffect(() => {
+    if (isProcessing) {
+      const interval = setInterval(() => {
+        setLastUpdate(new Date());
+      }, 30000); // 30 segundos
+      
+      return () => clearInterval(interval);
+    }
+  }, [isProcessing]);
   
   const handleExecute = async () => {
     const { error } = await startJob('all');
     if (error) {
       console.error('Error starting batch seeding:', error);
+      toast.error('Erro ao iniciar batch seeding');
+    } else {
+      toast.success('Batch seeding iniciado com sucesso!');
+    }
+  };
+
+  const handleCancelAbandoned = async () => {
+    if (!activeJob) return;
+    
+    const { success } = await cancelJob(activeJob.id);
+    if (success) {
+      toast.success('Job travado cancelado com sucesso');
+    } else {
+      toast.error('Erro ao cancelar job');
     }
   };
 
@@ -50,12 +78,34 @@ export function BatchSeedingControl({ semanticLexiconCount, status }: BatchSeedi
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2">
-            <Database className="h-5 w-5" />
-            Batch Seeding - Léxico Semântico
-          </CardTitle>
-          <Badge variant={statusConfig.variant}>{statusConfig.label}</Badge>
+          <div className="flex items-center gap-2">
+            <CardTitle className="flex items-center gap-2">
+              <Database className="h-5 w-5" />
+              Batch Seeding - Léxico Semântico
+            </CardTitle>
+            {isProcessing && (
+              <Button 
+                variant="ghost" 
+                size="icon"
+                onClick={() => setLastUpdate(new Date())}
+                title="Atualizar dados"
+              >
+                <RefreshCw className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <Badge variant={statusConfig.variant}>{statusConfig.label}</Badge>
+            {isJobAbandoned && (
+              <Badge variant="destructive">⏰ Travado</Badge>
+            )}
+          </div>
         </div>
+        {isProcessing && (
+          <p className="text-xs text-muted-foreground mt-2">
+            Última atualização: {lastUpdate.toLocaleTimeString()}
+          </p>
+        )}
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid grid-cols-3 gap-4">
@@ -116,11 +166,37 @@ export function BatchSeedingControl({ semanticLexiconCount, status }: BatchSeedi
           <Progress value={progress} className="h-2" />
         </div>
 
+        {isJobAbandoned && (
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="destructive" className="w-full">
+                <XCircle className="h-4 w-4 mr-2" />
+                Cancelar Job Travado
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Cancelar Job Inativo</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Este job está sem atividade há mais de 1 hora e será marcado como cancelado.
+                  Você poderá iniciar um novo batch seeding após cancelar.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Voltar</AlertDialogCancel>
+                <AlertDialogAction onClick={handleCancelAbandoned}>
+                  Confirmar Cancelamento
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        )}
+
         <AlertDialog>
           <AlertDialogTrigger asChild>
             <Button 
               className="w-full" 
-              disabled={isLoading || isProcessing}
+              disabled={isLoading || (isProcessing && !isJobAbandoned)}
             >
               <Play className="h-4 w-4 mr-2" />
               {isProcessing ? 'Executando Batch Seeding...' : 'Executar Batch Seeding'}
