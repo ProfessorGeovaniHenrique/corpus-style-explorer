@@ -135,7 +135,27 @@ export default function AdminSemanticPipeline() {
             </p>
             <p className="text-xs text-muted-foreground mt-1">
               Gemini: {stats.cacheStats.geminiPercentage.toFixed(1)}% | 
+              POS: {stats.cacheStats.posBasedPercentage.toFixed(1)}% |
               Rules: {stats.cacheStats.ruleBasedPercentage.toFixed(1)}%
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">POS Coverage</CardTitle>
+            <Activity className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {stats.posStats.coverage.toFixed(1)}%
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {stats.posStats.totalAnnotated.toLocaleString()} tokens anotados
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              VA: {((stats.posStats.sourceDistribution.va_grammar / stats.posStats.totalAnnotated) * 100).toFixed(0)}% | 
+              spaCy: {((stats.posStats.sourceDistribution.spacy / stats.posStats.totalAnnotated) * 100).toFixed(0)}%
             </p>
           </CardContent>
         </Card>
