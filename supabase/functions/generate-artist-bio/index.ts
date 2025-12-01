@@ -123,11 +123,23 @@ Retorne APENAS o texto da biografia, sem aspas ou formatação JSON.`;
 
             if (geminiResponse.ok) {
               const geminiData = await geminiResponse.json();
-              biography = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || '';
+              const geminiText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || '';
+              
+              // VALIDAÇÃO CRÍTICA: Verificar se biografia tem conteúdo
+              if (!geminiText || geminiText.trim().length < 50) {
+                log.warn('Gemini returned empty or insufficient biography', { 
+                  artistName, 
+                  responseLength: geminiText.length,
+                  rawResponse: JSON.stringify(geminiData).substring(0, 500)
+                });
+                throw new Error(`Biografia não disponível para ${artistName}`);
+              }
+              
+              biography = geminiText;
               source = 'gemini_pro';
               
               log.logApiCall('gemini', 'biography', 'POST', 200, duration);
-              log.info('Gemini 2.5 Pro biography generated', { artistName });
+              log.info('Gemini 2.5 Pro biography generated', { artistName, biographyLength: biography.length });
 
               // Log API usage
               await supabase.from('gemini_api_usage').insert({
@@ -152,16 +164,20 @@ Retorne APENAS o texto da biografia, sem aspas ou formatação JSON.`;
         }
       }
 
-      // Cache the result
-      await supabase.from('gemini_cache').insert({
-        cache_key: cacheKey,
-        artist: artistName,
-        title: artistName,
-        composer: biography,
-        confidence: 'high',
-        tokens_used: biography.length,
-        expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
-      });
+      // Cache the result - only if valid
+      if (biography && biography.trim().length >= 50) {
+        await supabase.from('gemini_cache').insert({
+          cache_key: cacheKey,
+          artist: artistName,
+          title: artistName,
+          composer: biography,
+          confidence: 'high',
+          tokens_used: biography.length,
+          expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+        });
+      } else {
+        log.warn('Skipping cache - biography too short', { artistName, biographyLength: biography?.length || 0 });
+      }
     }
 
     // Update artist table
