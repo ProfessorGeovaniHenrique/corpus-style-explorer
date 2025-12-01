@@ -670,6 +670,6 @@ async function saveToCache(
     });
 
   if (error && error.code !== '23505') {
-    throw error;
+    throw new Error(`Database error: ${error.message || JSON.stringify(error)}`);
   }
 }
