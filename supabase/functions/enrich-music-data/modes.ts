@@ -943,21 +943,25 @@ ${youtubeContextText}
 Saída Obrigatória (JSON):
 {
   "composer": "Nome(s) do(s) Compositor(es) separados por ' / ' se houver mais de um. Exemplo: 'Luiz Marenco / Gujo Teixeira'. Retorne null se desconhecido.",
-  "release_year": "Ano YYYY (ou null)",
+  "release_year": "Ano YYYY (ou null se desconhecido)",
   "confidence": "high/medium/low"
 }
 
-REGRAS PARA COMPOSITORES:
+REGRAS CRÍTICAS:
 - Se houver MÚLTIPLOS compositores, liste TODOS separados por " / "
 - Não confunda intérprete com compositor
 - Priorize a composição original, não arranjos
 - Formato: "Compositor 1 / Compositor 2 / Compositor 3"
+- NUNCA retorne "Não Identificado", "Desconhecido" ou similares - use null
+- Se não tiver certeza absoluta, retorne null
 
 Não adicione markdown \`\`\`json ou explicações. Apenas o objeto JSON cru.`;
 
   // Use Google API directly
   if (geminiApiKey) {
     try {
+      console.log(`[enrichWithAI] 🔍 Processing: "${titulo}" - "${artista}"`);
+      
       const geminiTimer = performance.now();
       const geminiResponse = await geminiLimiter.schedule(() =>
         fetch(
@@ -978,33 +982,61 @@ Não adicione markdown \`\`\`json ou explicações. Apenas o objeto JSON cru.`;
       );
 
       const geminiDuration = performance.now() - geminiTimer;
+      console.log(`[enrichWithAI] ⏱️ API Response in ${geminiDuration.toFixed(0)}ms`);
 
       if (geminiResponse.ok) {
         const geminiData = await geminiResponse.json();
         const rawText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || '';
         
+        // 🔍 LOG DETALHADO
+        console.log('[enrichWithAI] 📝 Raw Response:', rawText.substring(0, 200));
+        
         if (rawText) {
           const metadata = JSON.parse(rawText);
-          console.log('[enrichWithAI] ✅ Google API (Gemini Pro) success');
+          
+          // 🔍 LOG DETALHADO
+          console.log('[enrichWithAI] ✅ Parsed Result:', JSON.stringify({
+            composer: metadata.composer,
+            release_year: metadata.release_year,
+            confidence: metadata.confidence
+          }));
+          
+          // Verificar se retornou dados válidos
+          const hasValidComposer = metadata.composer && 
+            metadata.composer !== 'null' && 
+            metadata.composer.toLowerCase() !== 'não identificado' &&
+            metadata.composer.toLowerCase() !== 'desconhecido';
+            
+          const hasValidYear = metadata.release_year && 
+            metadata.release_year !== 'null' &&
+            metadata.release_year !== '0000';
+          
+          if (!hasValidComposer && !hasValidYear) {
+            console.warn('[enrichWithAI] ⚠️ No valid data returned (both null or invalid)');
+          }
+          
           return {
             artista: artista,
-            composer: metadata.composer !== 'null' ? metadata.composer : undefined,
-            compositor: metadata.composer !== 'null' ? metadata.composer : undefined,
-            releaseYear: metadata.release_year !== 'null' ? metadata.release_year : undefined,
-            ano: metadata.release_year !== 'null' ? metadata.release_year : undefined,
+            composer: hasValidComposer ? metadata.composer : undefined,
+            compositor: hasValidComposer ? metadata.composer : undefined,
+            releaseYear: hasValidYear ? metadata.release_year : undefined,
+            ano: hasValidYear ? metadata.release_year : undefined,
             observacoes: '',
             source: 'google_api_gemini_pro'
           };
         }
+      } else {
+        console.error('[enrichWithAI] ❌ API error:', geminiResponse.status);
       }
     } catch (geminiError) {
-      console.error('[enrichWithAI] Google API failed:', geminiError);
+      console.error('[enrichWithAI] 💥 Failed:', geminiError);
     }
   }
 
+  // ✅ NÃO retornar "Não Identificado" - retornar undefined
   return {
-    compositor: 'Não Identificado',
-    ano: '0000',
-    observacoes: 'AI enrichment failed'
+    compositor: undefined,
+    ano: undefined,
+    observacoes: 'AI enrichment failed - no data available'
   };
 }

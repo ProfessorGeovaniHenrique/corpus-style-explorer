@@ -180,7 +180,7 @@ export async function searchWithAI(
   artista: string,
   lovableApiKey: string | undefined,
   geminiApiKey?: string
-): Promise<{ compositor: string; ano: string; fonte?: string }> {
+): Promise<{ compositor: string | null; ano: string | null; fonte?: string }> {
   const searchPrompt = `Você é um especialista em metadados musicais brasileiros.
 
 Música: "${titulo}"
@@ -193,7 +193,8 @@ Sua tarefa:
 REGRAS CRÍTICAS:
 - Se for cover/regravação, retorne dados da versão ORIGINAL
 - Retorne APENAS informações verificáveis e precisas
-- Se não tiver certeza, retorne "Não Identificado" para compositor e "0000" para ano
+- Se não tiver certeza absoluta, retorne null para o campo
+- NUNCA retorne "Não Identificado", "Desconhecido" ou similares - use null
 - Priorize música brasileira (forró, piseiro, sertanejo, gaúcha)
 
 REGRAS PARA COMPOSITORES:
@@ -204,14 +205,16 @@ REGRAS PARA COMPOSITORES:
 
 Retorne APENAS um objeto JSON válido:
 {
-  "compositor": "Nome(s) do(s) Compositor(es) separados por ' / ' se houver mais de um",
-  "ano": "YYYY",
+  "compositor": "Nome(s) do(s) Compositor(es) separados por ' / ' se houver mais de um, ou null se desconhecido",
+  "ano": "YYYY ou null se desconhecido",
   "fonte": "Base de Conhecimento Digital"
 }`;
 
   // Use Google API directly
   if (geminiApiKey) {
     try {
+      console.log(`[searchWithAI] 🔍 Searching: "${titulo}" - "${artista}"`);
+      
       const response = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${geminiApiKey}`,
         {
@@ -234,20 +237,22 @@ Retorne APENAS um objeto JSON válido:
         
         if (rawText) {
           const parsedData = JSON.parse(rawText);
-          console.log('[searchWithAI] ✅ Google API (Gemini Pro) success');
+          console.log('[searchWithAI] ✅ Google API (Gemini Pro) success:', parsedData);
           return {
-            compositor: parsedData.compositor || 'Não Identificado',
-            ano: validateYear(parsedData.ano),
+            compositor: parsedData.compositor || null,
+            ano: parsedData.ano ? validateYear(parsedData.ano) : null,
             fonte: parsedData.fonte || 'Base de Conhecimento Digital'
           };
         }
+      } else {
+        console.error('[searchWithAI] ❌ API error:', response.status);
       }
     } catch (error) {
-      console.error('[searchWithAI] Google API failed:', error);
+      console.error('[searchWithAI] 💥 Google API failed:', error);
     }
   }
 
-  return { compositor: 'Não Identificado', ano: '0000' };
+  return { compositor: null, ano: null };
 }
 
 export function validateYear(year: any): string {
@@ -411,15 +416,19 @@ Retorne APENAS um JSON com:
 - ano: Ano de lançamento original (YYYY)
 - album: Nome do álbum original
 
-REGRAS:
+REGRAS CRÍTICAS:
 - Priorize fontes oficiais (Wikipedia, Discogs, AllMusic, site oficial do artista)
 - Se for cover/regravação, retorne dados da versão ORIGINAL
-- Se não encontrar com certeza, retorne null para o campo
+- Se não encontrar com certeza absoluta, retorne null para o campo
+- NUNCA retorne "Não Identificado", "Desconhecido" ou similares - use null
 - Para compositores múltiplos use formato: "Nome 1 / Nome 2"
 
 Retorne JSON sem explicações ou markdown.`;
 
   try {
+    const requestStart = Date.now();
+    console.log(`[GoogleGrounding] 🔍 Searching: "${titulo}" - "${artista}"`);
+    
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`,
       {
@@ -444,26 +453,67 @@ Retorne JSON sem explicações ou markdown.`;
       }
     );
 
+    const duration = Date.now() - requestStart;
+    console.log(`[GoogleGrounding] ⏱️ API Response: ${response.status} in ${duration}ms`);
+
     if (!response.ok) {
-      console.error('[GoogleGrounding] API error:', response.status);
+      const errorText = await response.text().catch(() => 'Unknown error');
+      console.error(`[GoogleGrounding] ❌ API error ${response.status}:`, errorText);
       return { confidence: 'low' };
     }
 
     const data = await response.json();
+    
+    // 🔍 LOG DETALHADO: Resposta Raw
+    console.log('[GoogleGrounding] 📦 Raw Response Structure:', JSON.stringify({
+      hasCandidates: !!data.candidates,
+      candidatesLength: data.candidates?.length,
+      hasContent: !!data.candidates?.[0]?.content,
+      hasParts: !!data.candidates?.[0]?.content?.parts,
+      partsLength: data.candidates?.[0]?.content?.parts?.length,
+      hasGroundingMetadata: !!data.candidates?.[0]?.groundingMetadata
+    }, null, 2));
+    
     const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
     
     if (!rawText) {
+      console.warn('[GoogleGrounding] ⚠️ No text content in response');
       return { confidence: 'low' };
     }
 
-    const parsed = JSON.parse(rawText);
+    // 🔍 LOG DETALHADO: Texto Raw Retornado
+    console.log('[GoogleGrounding] 📝 Raw JSON Text:', rawText.substring(0, 300));
+
+    let parsed;
+    try {
+      parsed = JSON.parse(rawText);
+    } catch (parseError) {
+      console.error('[GoogleGrounding] ❌ JSON Parse Error:', parseError);
+      console.error('[GoogleGrounding] 📄 Failed to parse:', rawText);
+      return { confidence: 'low' };
+    }
+    
+    // 🔍 LOG DETALHADO: Dados Parseados
+    console.log('[GoogleGrounding] ✅ Parsed Data:', JSON.stringify(parsed, null, 2));
     
     // Extrair fontes do grounding metadata (se disponível)
     const groundingMetadata = data.candidates?.[0]?.groundingMetadata;
     const fontes: string[] = [];
     
-    if (groundingMetadata?.searchEntryPoint?.renderedContent) {
-      fontes.push('google_search_grounding');
+    // 🔍 LOG DETALHADO: Grounding Metadata
+    if (groundingMetadata) {
+      console.log('[GoogleGrounding] 🌐 Grounding Metadata:', JSON.stringify({
+        hasSearchEntryPoint: !!groundingMetadata.searchEntryPoint,
+        hasGroundingChunks: !!groundingMetadata.groundingChunks,
+        chunksCount: groundingMetadata.groundingChunks?.length || 0,
+        searchEntryRendered: !!groundingMetadata.searchEntryPoint?.renderedContent
+      }, null, 2));
+      
+      if (groundingMetadata.searchEntryPoint?.renderedContent) {
+        fontes.push('google_search_grounding');
+      }
+    } else {
+      console.warn('[GoogleGrounding] ⚠️ No grounding metadata - response may be knowledge-based only');
     }
     
     // Determinar confidence baseado na presença de grounding
@@ -477,7 +527,8 @@ Retorne JSON sem explicações ou markdown.`;
       confidence = 'medium';
     }
     
-    console.log(`[GoogleGrounding] Found: compositor=${parsed.compositor}, ano=${parsed.ano}, album=${parsed.album}, confidence=${confidence}`);
+    // 🔍 LOG FINAL: Resultado
+    console.log(`[GoogleGrounding] 🎯 RESULT: compositor="${parsed.compositor || 'null'}", ano="${parsed.ano || 'null'}", album="${parsed.album || 'null'}", confidence=${confidence}, hasGrounding=${!!hasGrounding}, fieldsCount=${hasMultipleFields}`);
     
     return {
       compositor: parsed.compositor || undefined,
@@ -488,7 +539,8 @@ Retorne JSON sem explicações ou markdown.`;
     };
     
   } catch (error) {
-    console.error('[GoogleGrounding] Search error:', error);
+    console.error('[GoogleGrounding] 💥 Fatal Error:', error);
+    console.error('[GoogleGrounding] 📚 Stack:', error instanceof Error ? error.stack : 'No stack');
     return { confidence: 'low' };
   }
 }
