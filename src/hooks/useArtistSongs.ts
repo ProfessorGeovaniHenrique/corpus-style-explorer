@@ -12,52 +12,56 @@ export function useArtistSongs(artistId: string | null) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const loadArtistSongs = async () => {
     if (!artistId) {
       setSongs([]);
       return;
     }
 
-    const loadArtistSongs = async () => {
-      console.log(`[useArtistSongs] Loading songs for artist ${artistId}...`);
-      setLoading(true);
-      setError(null);
+    console.log(`[useArtistSongs] Loading songs for artist ${artistId}...`);
+    setLoading(true);
+    setError(null);
 
-      try {
-        const { data, error: fetchError } = await supabase
-          .from('songs')
-          .select(`
-            *,
-            artists (
-              id,
-              name,
-              genre,
-              normalized_name
-            ),
-            corpora (
-              id,
-              name,
-              color
-            )
-          `)
-          .eq('artist_id', artistId)
-          .order('release_year', { ascending: false });
+    try {
+      const { data, error: fetchError } = await supabase
+        .from('songs')
+        .select(`
+          *,
+          artists (
+            id,
+            name,
+            genre,
+            normalized_name
+          ),
+          corpora (
+            id,
+            name,
+            color
+          )
+        `)
+        .eq('artist_id', artistId)
+        .order('release_year', { ascending: false });
 
-        if (fetchError) throw fetchError;
+      if (fetchError) throw fetchError;
 
-        console.log(`[useArtistSongs] Loaded ${data?.length || 0} songs`);
-        setSongs((data as SongWithRelations[]) || []);
-      } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-        setError(errorMessage);
-        console.error('[useArtistSongs] Error loading songs:', errorMessage);
-      } finally {
-        setLoading(false);
-      }
-    };
+      console.log(`[useArtistSongs] Loaded ${data?.length || 0} songs`);
+      setSongs((data as SongWithRelations[]) || []);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      setError(errorMessage);
+      console.error('[useArtistSongs] Error loading songs:', errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     loadArtistSongs();
   }, [artistId]);
 
-  return { songs, loading, error };
+  const reload = async () => {
+    await loadArtistSongs();
+  };
+
+  return { songs, loading, error, reload };
 }

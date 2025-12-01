@@ -117,7 +117,7 @@ export default function MusicCatalog() {
   } = useCatalogData();
   
   // ✅ Hook carrega músicas do artista selecionado (sob demanda)
-  const { songs: artistSongs, loading: artistSongsLoading } = useArtistSongs(selectedArtistId);
+  const { songs: artistSongs, loading: artistSongsLoading, reload: reloadArtistSongs } = useArtistSongs(selectedArtistId);
   
   // States de dados locais (sincronizados com hook)
   const [songs, setSongs] = useState<Song[]>([]);
@@ -321,6 +321,7 @@ export default function MusicCatalog() {
           description: result.message
         });
         await reload();
+        await reloadArtistSongs?.();
       } else {
         log.error('Enrichment failed in result', undefined, { songId, errorMsg: result.error });
         toast({
@@ -413,6 +414,7 @@ export default function MusicCatalog() {
 
   const handleBatchComplete = async () => {
     await reload();
+    await reloadArtistSongs?.();
     toast({
       title: "🎉 Enriquecimento concluído!",
       description: "Todas as músicas foram processadas."
