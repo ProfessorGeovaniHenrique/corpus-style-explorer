@@ -60,19 +60,29 @@ export async function testMetadataEnrichment(songId: string): Promise<Validation
     console.log('📸 After state:', afterSong);
 
     // Step 5: Validation checks
-    const hasComposer = afterSong.composer !== null && afterSong.composer !== beforeSong.composer;
-    const hasYear = afterSong.release_year !== null && afterSong.release_year !== beforeSong.release_year;
+    const hasComposer = afterSong.composer !== null && 
+      afterSong.composer !== beforeSong.composer &&
+      afterSong.composer !== 'Não Identificado';
+    const hasYear = afterSong.release_year !== null && 
+      afterSong.release_year !== beforeSong.release_year &&
+      afterSong.release_year !== '0000';
     const statusChanged = afterSong.status === 'enriched' && beforeSong.status !== 'enriched';
     const confidenceIncreased = (afterSong.confidence_score || 0) > (beforeSong.confidence_score || 0);
 
-    const passed = enrichResponse.success && (hasComposer || hasYear || statusChanged || confidenceIncreased);
+    // Considerar sucesso se API respondeu E (dados mudaram OU sistema detectou corretamente que não há dados melhores)
+    const hasRealChanges = hasComposer || hasYear || statusChanged || confidenceIncreased;
+    const noChangesDetected = enrichResponse.noChanges === true;
+    
+    const passed = enrichResponse.success && (hasRealChanges || noChangesDetected);
 
     return {
       test: 'Metadata Enrichment Persistence',
       passed,
       details: passed 
-        ? `✅ Data persisted: composer=${afterSong.composer}, year=${afterSong.release_year}, status=${afterSong.status}` 
-        : `❌ No changes detected in database after enrichment`,
+        ? (hasRealChanges 
+            ? `✅ Data persisted: composer=${afterSong.composer}, year=${afterSong.release_year}, status=${afterSong.status}` 
+            : `✅ No changes but system correctly detected no better data available`)
+        : `❌ No changes detected and no noChanges flag returned`,
       data: { before: beforeSong, after: afterSong, response: enrichResponse }
     };
 
@@ -203,19 +213,30 @@ export async function testBiographyEnrichment(artistId: string): Promise<Validat
     console.log('📸 After state:', afterArtist);
 
     // Step 5: Validation checks
+    const responseHasBio = bioResponse?.biography && bioResponse.biography.trim().length >= 50;
     const biographyChanged = afterArtist.biography !== beforeArtist.biography;
     const timestampUpdated = afterArtist.biography_updated_at !== beforeArtist.biography_updated_at;
     const sourceRecorded = afterArtist.biography_source !== null;
-    const responseHasBio = bioResponse?.biography;
+    const biographyNotEmpty = afterArtist.biography && afterArtist.biography.trim().length >= 50;
 
-    const passed = responseHasBio && biographyChanged && timestampUpdated && sourceRecorded;
+    // API deve retornar success apenas se biografia foi encontrada E tem conteúdo
+    if (bioResponse.success && !responseHasBio) {
+      return {
+        test: 'Biography Enrichment Persistence',
+        passed: false,
+        details: `❌ API retornou sucesso mas biografia está vazia (length: ${bioResponse.biography?.length || 0})`,
+        data: { before: beforeArtist, after: afterArtist, response: bioResponse }
+      };
+    }
+
+    const passed = responseHasBio && biographyChanged && timestampUpdated && sourceRecorded && biographyNotEmpty;
 
     return {
       test: 'Biography Enrichment Persistence',
       passed,
       details: passed 
         ? `✅ Biography persisted: source=${afterArtist.biography_source}, length=${afterArtist.biography?.length || 0}` 
-        : `❌ Biography not persisted (changed: ${biographyChanged}, timestamp: ${timestampUpdated}, source: ${sourceRecorded})`,
+        : `❌ Biography not persisted (changed: ${biographyChanged}, timestamp: ${timestampUpdated}, source: ${sourceRecorded}, notEmpty: ${biographyNotEmpty})`,
       data: { before: beforeArtist, after: afterArtist, response: bioResponse }
     };
 
@@ -271,21 +292,26 @@ export async function testUIUpdateAfterEnrichment(songId: string): Promise<Valid
     console.log('📸 Final DB state:', afterData);
 
     // Step 5: Simulate what UI component would see
-    const uiWouldSeeNewComposer = afterData.composer !== beforeData.composer;
-    const uiWouldSeeNewYear = afterData.release_year !== beforeData.release_year;
+    const uiWouldSeeNewComposer = afterData.composer !== beforeData.composer && 
+      afterData.composer !== 'Não Identificado';
+    const uiWouldSeeNewYear = afterData.release_year !== beforeData.release_year && 
+      afterData.release_year !== '0000';
     const uiWouldSeeNewYouTube = afterData.youtube_url !== beforeData.youtube_url;
     const timestampUpdated = afterData.updated_at !== beforeData.updated_at;
 
-    const passed = enrichResponse.success && timestampUpdated && (
-      uiWouldSeeNewComposer || uiWouldSeeNewYear || uiWouldSeeNewYouTube
-    );
+    const hasRealChanges = uiWouldSeeNewComposer || uiWouldSeeNewYear || uiWouldSeeNewYouTube;
+    const noChangesDetected = enrichResponse.noChanges === true;
+    
+    const passed = enrichResponse.success && timestampUpdated && (hasRealChanges || noChangesDetected);
 
     return {
       test: 'UI Update After Enrichment',
       passed,
       details: passed 
-        ? `✅ UI would re-render with: composer=${uiWouldSeeNewComposer}, year=${uiWouldSeeNewYear}, youtube=${uiWouldSeeNewYouTube}` 
-        : `❌ UI would not detect changes (timestamp updated: ${timestampUpdated})`,
+        ? (hasRealChanges
+            ? `✅ UI would re-render with: composer=${uiWouldSeeNewComposer}, year=${uiWouldSeeNewYear}, youtube=${uiWouldSeeNewYouTube}`
+            : `✅ No UI changes but system correctly detected no better data (noChanges: ${noChangesDetected})`)
+        : `❌ UI would not detect changes and no noChanges flag (timestamp updated: ${timestampUpdated})`,
       data: { before: beforeData, after: afterData, response: enrichResponse }
     };
 

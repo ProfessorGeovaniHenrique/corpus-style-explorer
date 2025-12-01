@@ -44,6 +44,8 @@ interface EnrichmentResult {
   confidenceScore: number;
   sources: string[];
   error?: string;
+  noChanges?: boolean; // Flag indicando que não houve mudanças reais
+  message?: string;
 }
 
 const corsHeaders = {
@@ -675,18 +677,26 @@ async function enrichSingleSong(
 
     // ===== CAMADA 5: Persistência Inteligente =====
     
-    // Verificar se temos dados novos e úteis
+    // Verificar se temos dados novos e MELHORES (não aceitar "Não Identificado")
+    const hasValidComposer = validated.finalComposer && 
+      validated.finalComposer !== 'Não Identificado' && 
+      validated.finalComposer.toLowerCase() !== 'não identificado';
+    
+    const hasValidYear = validated.finalYear && 
+      validated.finalYear !== '0000' &&
+      validateYear(validated.finalYear);
+    
     const hasNewData = 
-      validated.finalComposer || 
-      validated.finalYear || 
+      hasValidComposer || 
+      hasValidYear || 
       validated.finalAlbum ||
       (youtubeContext && youtubeContext.videoId) ||
       lyricsFound;
 
     const isBetterConfidence = validated.confidenceScore > currentData.confidence_score;
     const hasNewYouTube = youtubeContext?.videoId && !currentData.youtube_url;
-    const hasNewComposer = validated.finalComposer && !currentData.composer;
-    const hasNewYear = validated.finalYear && !currentData.release_year;
+    const hasNewComposer = hasValidComposer && !currentData.composer;
+    const hasNewYear = hasValidYear && !currentData.release_year;
     const hasNewAlbum = validated.finalAlbum;
 
     // Decidir se deve atualizar
@@ -708,12 +718,13 @@ async function enrichSingleSong(
       log.info('Skipping update - no new data or current data better', { 
         songId, 
         currentConfidence: currentData.confidence_score,
-        newConfidence: validated.confidenceScore 
+        newConfidence: validated.confidenceScore,
+        reason: !hasNewData ? 'No valid new data (rejecting Não Identificado)' : 'Current data is better'
       });
       
       return {
         songId,
-        success: false,
+        success: true, // API funcionou
         enrichedData: {
           composer: currentData.composer || undefined,
           releaseYear: currentData.release_year || undefined,
@@ -721,7 +732,8 @@ async function enrichSingleSong(
         },
         confidenceScore: currentData.confidence_score,
         sources: ['cached'],
-        error: 'No new data found or current data is better'
+        noChanges: true, // Flag indicando que não houve mudanças reais
+        message: 'Nenhum dado novo encontrado ou dados existentes são melhores'
       };
     }
 
@@ -733,9 +745,20 @@ async function enrichSingleSong(
       updated_at: new Date().toISOString(),
     };
 
-    // Intelligent field merge: use validated data if available, otherwise preserve existing
-    updateData.composer = validated.finalComposer || currentData.composer || null;
-    updateData.release_year = validated.finalYear || currentData.release_year || null;
+    // Intelligent field merge: só sobrescrever se for melhor que existente
+    // NÃO sobrescrever com "Não Identificado"
+    if (hasValidComposer && (!currentData.composer || validated.confidenceScore >= currentData.confidence_score)) {
+      updateData.composer = validated.finalComposer;
+    } else {
+      updateData.composer = currentData.composer || null;
+    }
+    
+    if (hasValidYear && (!currentData.release_year || validated.confidenceScore >= currentData.confidence_score)) {
+      updateData.release_year = validated.finalYear;
+    } else {
+      updateData.release_year = currentData.release_year || null;
+    }
+    
     updateData.album = validated.finalAlbum || null; // ✅ NOVO CAMPO ÁLBUM
     
     // Buscar letra se disponível
