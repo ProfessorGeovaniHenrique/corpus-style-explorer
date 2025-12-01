@@ -65,7 +65,113 @@ export class RateLimiter {
   }
 }
 
-// Lovable AI fallback removed due to hallucination issues
+// ===== GPT-5 via Lovable AI Gateway =====
+export async function enrichWithGPT5(
+  songTitle: string,
+  artistName: string
+): Promise<{ compositor?: string; ano?: string; album?: string; fonte?: string } | null> {
+  const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+  if (!LOVABLE_API_KEY) {
+    console.error('[GPT5] LOVABLE_API_KEY não configurada');
+    return null;
+  }
+
+  const prompt = `Você é um especialista em metadados musicais brasileiros.
+
+Música: "${songTitle}"
+Artista: "${artistName}"
+
+Sua tarefa:
+1. Identifique o COMPOSITOR ORIGINAL (não o intérprete)
+2. Identifique o ANO DE LANÇAMENTO ORIGINAL (não de regravações)
+3. Identifique o ÁLBUM ORIGINAL (se disponível)
+
+REGRAS CRÍTICAS:
+- Se for cover/regravação, retorne dados da versão ORIGINAL
+- Retorne APENAS informações verificáveis e precisas
+- Se não tiver certeza absoluta, retorne null para o campo
+- NUNCA retorne "Não Identificado", "Desconhecido" ou similares - use null
+- Priorize música brasileira (forró, piseiro, sertanejo, gaúcha)
+
+REGRAS PARA COMPOSITORES:
+- Se houver MÚLTIPLOS compositores, liste TODOS separados por " / "
+- Não confunda intérprete com compositor
+- Formato: "Compositor 1 / Compositor 2 / Compositor 3"
+- Exemplo: "Luiz Marenco / Gujo Teixeira"
+
+Retorne APENAS um objeto JSON válido:
+{
+  "compositor": "Nome(s) do(s) Compositor(es) separados por ' / ' se houver mais de um, ou null se desconhecido",
+  "ano": "YYYY ou null se desconhecido",
+  "album": "Nome do álbum ou null se desconhecido",
+  "fonte": "GPT-5 Knowledge Base"
+}`;
+
+  try {
+    console.log(`[GPT5] 🔍 Searching: "${songTitle}" - "${artistName}"`);
+    const requestStart = Date.now();
+
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'openai/gpt-5-mini',
+        messages: [
+          { role: 'system', content: 'Você é um especialista em música brasileira que retorna apenas JSON válido.' },
+          { role: 'user', content: prompt }
+        ],
+        response_format: { type: 'json_object' },
+        temperature: 0.2,
+        max_completion_tokens: 300
+      })
+    });
+
+    const duration = Date.now() - requestStart;
+    console.log(`[GPT5] ⏱️ API Response: ${response.status} in ${duration}ms`);
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => 'Unknown error');
+      console.error(`[GPT5] ❌ API error ${response.status}:`, errorText);
+      return null;
+    }
+
+    const data = await response.json();
+    const rawText = data.choices?.[0]?.message?.content;
+
+    if (!rawText) {
+      console.warn('[GPT5] ⚠️ No content in response');
+      return null;
+    }
+
+    console.log('[GPT5] 📝 Raw JSON Text:', rawText.substring(0, 200));
+
+    let parsed;
+    try {
+      parsed = JSON.parse(rawText);
+    } catch (parseError) {
+      console.error('[GPT5] ❌ JSON Parse Error:', parseError);
+      console.error('[GPT5] 📄 Failed to parse:', rawText);
+      return null;
+    }
+
+    console.log('[GPT5] ✅ Parsed Data:', JSON.stringify(parsed, null, 2));
+
+    return {
+      compositor: parsed.compositor || undefined,
+      ano: parsed.ano ? validateYear(parsed.ano) : undefined,
+      album: parsed.album || undefined,
+      fonte: parsed.fonte || 'GPT-5 Knowledge Base'
+    };
+
+  } catch (error) {
+    console.error('[GPT5] 💥 Fatal Error:', error);
+    console.error('[GPT5] 📚 Stack:', error instanceof Error ? error.stack : 'No stack');
+    return null;
+  }
+}
 
 export async function searchYouTube(
   titulo: string,

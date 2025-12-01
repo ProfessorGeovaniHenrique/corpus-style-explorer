@@ -5,7 +5,8 @@ import {
   RateLimiter, 
   extractMetadataFromYouTube, 
   searchWithGoogleGrounding,
-  validateYear 
+  validateYear,
+  enrichWithGPT5
 } from "./helpers.ts";
 
 type EdgeLogger = any; // Logger interface from unified-logger
@@ -521,7 +522,7 @@ async function enrichSingleSong(
     const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
     const youtubeApiKey = Deno.env.get('YOUTUBE_API_KEY');
 
-    log.info('Starting 5-layer enrichment pipeline', { songId, mode: enrichmentMode, forceReenrich });
+    log.info('Starting 6-layer enrichment pipeline (GPT-5 → Gemini fallback)', { songId, mode: enrichmentMode, forceReenrich });
 
     // ===== CAMADA 1: YouTube API + Extração Inteligente =====
     if (youtubeApiKey && enrichmentMode !== 'metadata-only') {
@@ -560,8 +561,40 @@ async function enrichSingleSong(
       }
     }
 
-    // ===== CAMADA 2: Gemini + Google Search Grounding (Web Search Real) =====
-    if (GEMINI_API_KEY && enrichmentMode !== 'youtube-only') {
+    // ===== CAMADA 2: GPT-5 via Lovable AI (Principal) =====
+    if (enrichmentMode !== 'youtube-only') {
+      try {
+        log.info('Invoking GPT-5 Knowledge Base', { songId });
+        
+        const gpt5Result = await webSearchLimiter.schedule(() =>
+          enrichWithGPT5(song.title, artistName)
+        );
+        
+        if (gpt5Result && (gpt5Result.compositor || gpt5Result.ano || gpt5Result.album)) {
+          enrichmentSources.push({
+            source: 'gpt5_knowledge',
+            composer: gpt5Result.compositor,
+            year: gpt5Result.ano,
+            album: gpt5Result.album,
+            confidence: 85
+          });
+          
+          log.info('GPT-5 Knowledge Base completed', { 
+            songId, 
+            composer: gpt5Result.compositor,
+            year: gpt5Result.ano,
+            album: gpt5Result.album
+          });
+        }
+      } catch (error) {
+        log.warn('GPT-5 Knowledge Base failed - falling back to Gemini', { songId, error: error instanceof Error ? error.message : String(error) });
+      }
+    }
+
+    // ===== CAMADA 3: Gemini + Google Search Grounding (Fallback) =====
+    const needsGeminiFallback = !enrichmentSources.some(s => s.composer && s.year);
+    
+    if (GEMINI_API_KEY && enrichmentMode !== 'youtube-only' && (forceReenrich || needsGeminiFallback)) {
       try {
         log.info('Invoking Google Search Grounding', { songId });
         
@@ -594,7 +627,7 @@ async function enrichSingleSong(
       }
     }
 
-    // ===== CAMADA 3: Gemini Knowledge Base (sem grounding) =====
+    // ===== CAMADA 4: Gemini Knowledge Base (Fallback adicional sem grounding) =====
     const needsMoreData = !enrichmentSources.some(s => s.composer && s.year);
     
     if (GEMINI_API_KEY && enrichmentMode !== 'youtube-only' && (forceReenrich || needsMoreData)) {
@@ -645,7 +678,7 @@ async function enrichSingleSong(
       }
     }
 
-    // ===== CAMADA 4: Cross-Validation Engine =====
+    // ===== CAMADA 5: Cross-Validation Engine =====
     log.info('Starting cross-validation', { songId, sourcesCount: enrichmentSources.length });
     const validated = crossValidateResults(enrichmentSources);
     
@@ -675,7 +708,7 @@ async function enrichSingleSong(
       sources: validated.usedSources
     });
 
-    // ===== CAMADA 5: Persistência Inteligente =====
+    // ===== CAMADA 6: Persistência Inteligente =====
     
     // Verificar se temos dados novos e MELHORES (não aceitar "Não Identificado")
     const hasValidComposer = validated.finalComposer && 
