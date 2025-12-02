@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { createLogger } from '@/lib/loggerFactory';
+
+const log = createLogger('useBatchSeedingJob');
 
 export interface BatchSeedingJob {
   id: string;
@@ -39,7 +42,7 @@ export function useBatchSeedingJob() {
           .maybeSingle();
         
         if (error) {
-          console.error('[useBatchSeedingJob] Error checking active job:', error);
+          log.error('Error checking active job', error);
         } else if (data) {
           // Type-safe casting
           const typedJob: BatchSeedingJob = {
@@ -49,7 +52,7 @@ export function useBatchSeedingJob() {
           setActiveJob(typedJob);
         }
       } catch (error) {
-        console.error('[useBatchSeedingJob] Exception checking active job:', error);
+        log.error('Exception checking active job', error as Error);
       } finally {
         setIsLoading(false);
       }
@@ -68,7 +71,7 @@ export function useBatchSeedingJob() {
         table: 'batch_seeding_jobs'
       }, (payload) => {
         const job = payload.new as any;
-        console.log('[useBatchSeedingJob] Realtime update:', job.status, job.processed_words);
+        log.debug('Realtime update', { status: job.status, processed: job.processed_words });
         
         // Type-safe casting
         const typedJob: BatchSeedingJob = {
@@ -109,8 +112,8 @@ export function useBatchSeedingJob() {
       
       return { data, error: null };
     } catch (error) {
-      console.error('[useBatchSeedingJob] Error starting job:', error);
-      return { 
+      log.error('Error starting job', error as Error);
+      return {
         data: null, 
         error: error instanceof Error ? error : new Error('Unknown error') 
       };
@@ -170,7 +173,7 @@ export function useBatchSeedingJob() {
       
       return { success: true };
     } catch (error) {
-      console.error('[useBatchSeedingJob] Error canceling job:', error);
+      log.error('Error canceling job', error as Error);
       return { success: false, error };
     }
   };

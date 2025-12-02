@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { createLogger } from '@/lib/loggerFactory';
+
+const log = createLogger('useTagsetCuration');
 
 export interface CurationSuggestion {
   nome_sugerido?: string;
@@ -94,7 +97,7 @@ export function useTagsetCuration() {
       setLastCallTime(Date.now());
       setRateLimitRemaining(prev => prev - 1);
       
-      console.log('[useTagsetCuration] Resposta recebida:', data);
+      log.debug('Resposta recebida', { data });
       
       toast.success('Curadoria concluída!');
       
@@ -114,7 +117,7 @@ export function useTagsetCuration() {
         confianca_geral: data.tagsetPaiRecomendado?.confianca / 100 || 0.5,
       };
 
-      console.log('[useTagsetCuration] Sugestão estruturada:', suggestion);
+      log.debug('Sugestão estruturada', { suggestion });
       
       return suggestion;
     } catch (err) {

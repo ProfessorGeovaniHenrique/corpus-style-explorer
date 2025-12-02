@@ -125,9 +125,19 @@ Create single source of truth for all navigation items, eliminating 600+ lines o
 **Progresso:**
 - [x] useCatalogData.ts - Migrado para createLogger
 - [x] DashboardAnaliseContext.tsx - Migrado para createLogger
-- [ ] Demais hooks críticos (~20 arquivos)
+- [x] useEnrichment.ts - Migrado para createLogger
+- [x] useBatchSeedingJob.ts - Migrado para createLogger
+- [x] usePerformanceMonitor.ts - Migrado para createLogger
+- [x] useBlauNunesClassification.ts - Migrado para createLogger
+- [x] useTagsetCuration.ts - Migrado para createLogger
+- [ ] CorpusContext.tsx (~15 logs)
+- [ ] ToolsContext.tsx (~15 logs)
+- [ ] Demais hooks críticos (~15 arquivos)
 - [ ] Services (~10 arquivos)
 - [ ] Componentes de página (~15 arquivos)
+
+**Hooks Migrados (7 de ~35):** 20%
+**Impacto:** ~50 console.log removidos, substituídos por logging estruturado
 
 **Infraestrutura existente:**
 - `src/lib/logger.ts` - StructuredLogger com Sentry integration

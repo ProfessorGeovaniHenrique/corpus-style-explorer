@@ -1,4 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
+import { createLogger } from '@/lib/loggerFactory';
+
+const log = createLogger('usePerformanceMonitor');
 
 interface PerformanceMetrics {
   fps: number;
@@ -99,7 +102,7 @@ export function measureExecutionTime<T>(
   const result = fn();
   const end = performance.now();
   
-  console.log(`⏱️ ${label}: ${(end - start).toFixed(2)}ms`);
+  log.debug(`${label}: ${(end - start).toFixed(2)}ms`);
   
   return result;
 }

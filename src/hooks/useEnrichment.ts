@@ -6,6 +6,9 @@
 import { useState } from 'react';
 import { enrichmentService } from '@/services/enrichmentService';
 import { toast } from 'sonner';
+import { createLogger } from '@/lib/loggerFactory';
+
+const log = createLogger('useEnrichment');
 
 export function useEnrichment() {
   const [enrichingIds, setEnrichingIds] = useState<Set<string>>(new Set());
@@ -16,7 +19,7 @@ export function useEnrichment() {
   } | null>(null);
 
   const enrichSong = async (songId: string) => {
-    console.log(`[useEnrichment] Enriching song metadata ${songId}`);
+    log.info(`Enriching song metadata`, { songId });
     
     setEnrichingIds(prev => new Set(prev).add(songId));
     
@@ -40,7 +43,7 @@ export function useEnrichment() {
   };
 
   const enrichBatch = async (songIds: string[]) => {
-    console.log(`[useEnrichment] Starting batch metadata enrichment of ${songIds.length} songs`);
+    log.info(`Starting batch metadata enrichment`, { count: songIds.length });
     
     setBatchProgress({ current: 0, total: songIds.length, currentSongId: null });
     

@@ -2,6 +2,9 @@ import { useState, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { KWICResult } from '@/lib/kwicUtils';
+import { createLogger } from '@/lib/loggerFactory';
+
+const log = createLogger('useBlauNunesClassification');
 
 interface ClassificationContext {
   palavra: string;
@@ -155,9 +158,9 @@ JUSTIFICATIVA: No contexto "sombra copada do tarumã", refere-se à copa frondos
 
     } catch (error: any) {
       if (error.name === 'AbortError') {
-        console.log('Stream abortado pelo usuário');
+        log.debug('Stream abortado pelo usuário');
       } else {
-        console.error('Erro ao consultar Blau Nunes:', error);
+        log.error('Erro ao consultar Blau Nunes', error);
         toast.error('Erro ao processar sua consulta');
       }
     } finally {
