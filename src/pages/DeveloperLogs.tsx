@@ -1,7 +1,10 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { FileText, ArrowLeft, Download, Bug, Bot, Zap, Wrench, BarChart3, Shield, Database } from "lucide-react";
+import { 
+  FileText, ArrowLeft, Download, Bug, Bot, Zap, Wrench, BarChart3, Shield, Database,
+  Info
+} from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { exportDeveloperLogsToPDF } from "@/utils/exportDeveloperLogs";
 import { useState } from "react";
@@ -18,6 +21,64 @@ import {
 } from '@/components/devlogs';
 import { SentrySmokeTest } from '@/components/SentrySmokeTest';
 import { projectStats } from "@/data/developer-logs/construction-log";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+
+// Definição das tabs com tooltips
+const devLogTabs = [
+  { 
+    value: 'ai-assistant', 
+    label: 'IA Assistant', 
+    icon: Bot, 
+    tooltip: 'Assistente de IA para análise de logs e sugestões de correção' 
+  },
+  { 
+    value: 'ai-roi', 
+    label: 'ROI', 
+    icon: BarChart3, 
+    tooltip: 'Dashboard de retorno sobre investimento das análises de IA' 
+  },
+  { 
+    value: 'ai-review', 
+    label: 'AI Review', 
+    icon: Bot, 
+    tooltip: 'Validação humana das sugestões geradas automaticamente' 
+  },
+  { 
+    value: 'annotation-debug', 
+    label: 'Request Monitor', 
+    icon: Shield, 
+    tooltip: 'Monitor de requisições de anotação semântica com status de autenticação' 
+  },
+  { 
+    value: 'code-scanner', 
+    label: 'Scanner', 
+    icon: Bug, 
+    tooltip: 'Scanner de código para detectar problemas e padrões ruins' 
+  },
+  { 
+    value: 'construction-manager', 
+    label: 'Log Manager', 
+    icon: Wrench, 
+    tooltip: 'Gerenciador do log de construção do projeto' 
+  },
+  { 
+    value: 'temporal-evolution', 
+    label: 'Evolução', 
+    icon: BarChart3, 
+    tooltip: 'Evolução temporal das métricas e issues do projeto' 
+  },
+  { 
+    value: 'subcorpus-debug', 
+    label: 'Subcorpus', 
+    icon: Database, 
+    tooltip: 'Debug avançado do contexto de subcorpus (desenvolvimento)' 
+  },
+];
 
 export default function DeveloperLogs() {
   const navigate = useNavigate();
@@ -128,100 +189,86 @@ export default function DeveloperLogs() {
           <CreditsSavingsIndicator />
         </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6 mt-6 container mx-auto px-4 pb-8">
-          <TabsList className="grid w-full grid-cols-8 lg:w-auto">
-            <TabsTrigger value="ai-assistant" className="gap-2">
-              <Bot className="w-4 h-4" />
-              <span className="hidden sm:inline">🤖 IA Assistant</span>
-            </TabsTrigger>
-            <TabsTrigger value="ai-roi" className="gap-2">
-              <BarChart3 className="w-4 h-4" />
-              <span className="hidden sm:inline">📈 ROI</span>
-            </TabsTrigger>
-            <TabsTrigger value="ai-review" className="gap-2">
-              <Bot className="w-4 h-4" />
-              <span className="hidden sm:inline">✅ AI Review</span>
-            </TabsTrigger>
-            <TabsTrigger value="annotation-debug" className="gap-2">
-              <Shield className="w-4 h-4" />
-              <span className="hidden sm:inline">🔐 Annotation Debug</span>
-            </TabsTrigger>
-            <TabsTrigger value="code-scanner" className="gap-2">
-              <Bug className="w-4 h-4" />
-              <span className="hidden sm:inline">🔍 Scanner</span>
-            </TabsTrigger>
-            <TabsTrigger value="construction-manager" className="gap-2">
-              <Wrench className="w-4 h-4" />
-              <span className="hidden sm:inline">📝 Log Manager</span>
-            </TabsTrigger>
-            <TabsTrigger value="temporal-evolution" className="gap-2">
-              <BarChart3 className="w-4 h-4" />
-              <span className="hidden sm:inline">📊 Evolução</span>
-            </TabsTrigger>
-            <TabsTrigger value="subcorpus-debug" className="gap-2">
-              <Database className="w-4 h-4" />
-              <span className="hidden sm:inline">🔍 Subcorpus</span>
-            </TabsTrigger>
-          </TabsList>
+        <TooltipProvider>
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6 mt-6 container mx-auto px-4 pb-8">
+            <TabsList className="grid w-full grid-cols-8 lg:w-auto">
+              {devLogTabs.map((tab) => {
+                const Icon = tab.icon;
+                return (
+                  <Tooltip key={tab.value}>
+                    <TooltipTrigger asChild>
+                      <TabsTrigger value={tab.value} className="gap-2">
+                        <Icon className="w-4 h-4" />
+                        <span className="hidden sm:inline">{tab.label}</span>
+                      </TabsTrigger>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="max-w-xs">{tab.tooltip}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                );
+              })}
+            </TabsList>
 
-          {/* TAB AI: IA Assistant */}
-          <TabsContent value="ai-assistant">
-            <AIAssistant 
-              triggerAnalysis={triggerAnalysis}
-              onAnalysisComplete={handleAnalysisComplete}
-            />
-          </TabsContent>
+            {/* TAB AI: IA Assistant */}
+            <TabsContent value="ai-assistant">
+              <AIAssistant 
+                triggerAnalysis={triggerAnalysis}
+                onAnalysisComplete={handleAnalysisComplete}
+              />
+            </TabsContent>
 
-          {/* TAB AI ROI: Dashboard de ROI Real */}
-          <TabsContent value="ai-roi">
-            <AIAssistantROIDashboard />
-          </TabsContent>
+            {/* TAB AI ROI: Dashboard de ROI Real */}
+            <TabsContent value="ai-roi">
+              <AIAssistantROIDashboard />
+            </TabsContent>
 
-          {/* TAB AI REVIEW: Validação Humana das Análises */}
-          <TabsContent value="ai-review">
-            <AIAnalysisReview />
-          </TabsContent>
+            {/* TAB AI REVIEW: Validação Humana das Análises */}
+            <TabsContent value="ai-review">
+              <AIAnalysisReview />
+            </TabsContent>
 
-          {/* TAB ANNOTATION DEBUG: Debug de Autenticação */}
-          <TabsContent value="annotation-debug">
-            <AnnotationDebugPanel />
-          </TabsContent>
+            {/* TAB ANNOTATION DEBUG (antes Auth Debug): Monitor de Requisições */}
+            <TabsContent value="annotation-debug">
+              <AnnotationDebugPanel />
+            </TabsContent>
 
-          {/* TAB CODE SCANNER: Real-time Code Scanner */}
-          <TabsContent value="code-scanner">
-            <CodeScannerInterface />
-          </TabsContent>
+            {/* TAB CODE SCANNER: Real-time Code Scanner */}
+            <TabsContent value="code-scanner">
+              <CodeScannerInterface />
+            </TabsContent>
 
-          {/* TAB SENTRY TESTS: Smoke Tests para Sentry */}
-          <TabsContent value="sentry-tests">
-            <Card>
-              <CardHeader>
-                <CardTitle>Testes de Integração Sentry</CardTitle>
-                <CardDescription>
-                  Ferramentas para testar a captura de erros frontend e backend pelo Sentry
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <SentrySmokeTest />
-              </CardContent>
-            </Card>
-          </TabsContent>
+            {/* TAB SENTRY TESTS: Smoke Tests para Sentry */}
+            <TabsContent value="sentry-tests">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Testes de Integração Sentry</CardTitle>
+                  <CardDescription>
+                    Ferramentas para testar a captura de erros frontend e backend pelo Sentry
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <SentrySmokeTest />
+                </CardContent>
+              </Card>
+            </TabsContent>
 
-          {/* TAB CONSTRUCTION MANAGER: Construction Log Manager */}
-          <TabsContent value="construction-manager">
-            <ConstructionLogManager />
-          </TabsContent>
+            {/* TAB CONSTRUCTION MANAGER: Construction Log Manager */}
+            <TabsContent value="construction-manager">
+              <ConstructionLogManager />
+            </TabsContent>
 
-          {/* TAB TEMPORAL EVOLUTION: Dashboard de Evolução */}
-          <TabsContent value="temporal-evolution">
-            <TemporalEvolutionDashboard />
-          </TabsContent>
+            {/* TAB TEMPORAL EVOLUTION: Dashboard de Evolução */}
+            <TabsContent value="temporal-evolution">
+              <TemporalEvolutionDashboard />
+            </TabsContent>
 
-          {/* TAB SUBCORPUS DEBUG: Debug do SubcorpusContext */}
-          <TabsContent value="subcorpus-debug">
-            <SubcorpusDebugPanel />
-          </TabsContent>
-        </Tabs>
+            {/* TAB SUBCORPUS DEBUG: Debug do SubcorpusContext */}
+            <TabsContent value="subcorpus-debug">
+              <SubcorpusDebugPanel />
+            </TabsContent>
+          </Tabs>
+        </TooltipProvider>
       </div>
     </div>
   );
