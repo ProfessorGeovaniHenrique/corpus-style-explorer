@@ -1,8 +1,12 @@
-import { LayoutDashboard, FolderOpen, Sparkles, FileText, CircuitBoard, Info, BookOpen, History as HistoryIcon, Activity } from "lucide-react";
+import { 
+  LayoutDashboard, Sparkles, BookOpen, CircuitBoard, Activity, 
+  GraduationCap, Microscope, BookText, Library, Music, Tags, 
+  Database, Key, Users, BarChart3, History, Telescope, FileQuestion
+} from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
 import { useFeatureAccess } from "@/hooks/useFeatureAccess";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { useAuthContext } from "@/contexts/AuthContext";
 import {
   Sidebar,
   SidebarContent,
@@ -12,56 +16,60 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarMenuSub,
-  SidebarMenuSubButton,
-  SidebarMenuSubItem,
   SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ChevronDown } from "lucide-react";
 
 const mainItems = [
-  { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
+  { title: "Dashboard Educacional", url: "/dashboard-mvp-definitivo", icon: GraduationCap },
+  { title: "Dashboard de Análise", url: "/dashboard-analise", icon: Microscope },
+  { title: "Dashboard Expandido", url: "/dashboard-expandido", icon: BookText },
+  { title: "Modo Avançado", url: "/advanced-mode", icon: Sparkles },
 ];
 
-// Dashboards obsoletos - mantidos para referência mas ocultos da UI
-// const projectItems = [
-//   { title: "Análise de Estilística de Corpus", url: "/dashboard2", icon: FileText },
-//   { title: "Nuvem Semântica 3D (Three.js)", url: "/dashboard4", icon: Sparkles },
-//   { title: "FOG & PLANETS Visualization", url: "/dashboard5", icon: Sparkles },
-// ];
-const projectItems: any[] = [];
-
-const advancedItems = [
-  { title: "Novas Funcionalidades (Beta)", url: "/advanced-mode", icon: Sparkles, disabled: false },
+const dataToolsItems = [
+  { title: "Catálogo de Músicas", url: "/music-catalog", icon: Library },
+  { title: "Enriquecimento Musical", url: "/music-enrichment", icon: Music },
+  { title: "Pipeline Semântica", url: "/admin/semantic-pipeline", icon: Activity },
+  { title: "Validação de Domínios", url: "/admin/semantic-tagset-validation", icon: Tags },
+  { title: "Configuração de Léxico", url: "/admin/lexicon-setup", icon: Database },
+  { title: "Importação de Dicionários", url: "/admin/dictionary-import", icon: BookOpen },
+  { title: "Curadoria de Quiz", url: "/admin/quiz-curation", icon: FileQuestion },
 ];
 
-  const devItems = [
-    { title: "Developer Logs", url: "/developer-logs", icon: BookOpen },
-    { title: "Developer History", url: "/developer-history", icon: HistoryIcon },
-    { title: "DevOps Metrics", url: "/devops-metrics", icon: CircuitBoard },
-  ];
+const administrationItems = [
+  { title: "Gerenciar Convites", url: "/admin/dashboard", icon: Key },
+  { title: "Gerenciar Usuários", url: "/admin/users", icon: Users },
+  { title: "Métricas do Sistema", url: "/admin/metrics", icon: BarChart3 },
+  { title: "Analytics", url: "/admin/analytics", icon: BarChart3 },
+];
 
-  const administrationItems = [
-    { title: "Pipeline Semântica", url: "/admin/semantic-pipeline", icon: Activity },
-  ];
+const devItems = [
+  { title: "Developer Logs", url: "/developer-logs", icon: BookOpen },
+  { title: "Developer History", url: "/developer-history", icon: History },
+  { title: "DevOps Metrics", url: "/devops-metrics", icon: CircuitBoard },
+  { title: "Galeria de Protótipos", url: "/admin/prototypes", icon: Telescope },
+];
 
 export function AppSidebar() {
   const { open } = useSidebar();
   const location = useLocation();
   const { advancedModeEnabled } = useFeatureAccess();
-  const isProjectActive = projectItems.some(item => location.pathname === item.url);
+  const { isAdmin } = useAuthContext();
 
   return (
     <Sidebar className={open ? "w-60" : "w-14"} collapsible="icon">
       <div className="flex items-center justify-between px-2 py-2 border-b">
-        {open && <span className="text-sm font-semibold text-muted-foreground">Menu Principal</span>}
+        {open && <span className="text-sm font-semibold text-muted-foreground">Menu</span>}
         <SidebarTrigger className={open ? "" : "mx-auto"} />
       </div>
       
-      <SidebarContent>
+      <SidebarContent className="overflow-y-auto">
+        {/* Páginas Principais */}
         <SidebarGroup>
+          <SidebarGroupLabel className="text-xs uppercase tracking-wider text-muted-foreground">
+            Páginas Principais
+          </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {mainItems.map((item) => (
@@ -78,103 +86,90 @@ export function AppSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
-
-              {/* Meus Projetos - Seção removida (dashboards obsoletos) */}
-
-              {advancedItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <SidebarMenuButton asChild disabled={!advancedModeEnabled}>
-                          {!advancedModeEnabled ? (
-                            <div className="flex items-center gap-2 opacity-50 cursor-not-allowed">
-                              <item.icon className="h-4 w-4" />
-                              {open && <span>{item.title}</span>}
-                            </div>
-                          ) : (
-                            <NavLink 
-                              to={item.url} 
-                              className="flex items-center gap-2 hover:bg-muted/50"
-                              activeClassName="bg-muted text-primary font-medium"
-                            >
-                              <item.icon className="h-4 w-4" />
-                              {open && <span>{item.title}</span>}
-                            </NavLink>
-                          )}
-                        </SidebarMenuButton>
-                      </TooltipTrigger>
-                      <TooltipContent side="right" className="max-w-xs">
-                        <div className="space-y-1">
-                          <p className="font-medium">Análise Estilística - Leech & Short</p>
-                          <p className="text-xs text-muted-foreground">
-                            Perfil Léxico, Sintático, Figuras de Linguagem, Coesão Textual
-                          </p>
-                          {!advancedModeEnabled && (
-                            <p className="text-xs text-orange-500 flex items-center gap-1 mt-2">
-                              <Info className="w-3 h-3" />
-                              Bloqueado na versão Demo
-                            </p>
-                          )}
-                        </div>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </SidebarMenuItem>
-              ))}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* Administration Tools */}
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-xs uppercase tracking-wider text-muted-foreground">
-            Administração
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {administrationItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild>
-                    <NavLink 
-                      to={item.url} 
-                      className="flex items-center gap-2 hover:bg-muted/50"
-                      activeClassName="bg-muted text-primary font-medium"
-                    >
-                      <item.icon className="h-4 w-4" />
-                      {open && <span>{item.title}</span>}
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {/* Ferramentas de Dados - Admin Only */}
+        {isAdmin() && (
+          <SidebarGroup>
+            <SidebarGroupLabel className="text-xs uppercase tracking-wider text-muted-foreground">
+              Ferramentas de Dados
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {dataToolsItems.map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton asChild>
+                      <NavLink 
+                        to={item.url} 
+                        className="flex items-center gap-2 hover:bg-muted/50"
+                        activeClassName="bg-muted text-primary font-medium"
+                      >
+                        <item.icon className="h-4 w-4" />
+                        {open && <span>{item.title}</span>}
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
 
-        {/* Developer Tools */}
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-xs uppercase tracking-wider text-muted-foreground">
-            Documentação
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {devItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild>
-                    <NavLink 
-                      to={item.url} 
-                      className="flex items-center gap-2 hover:bg-muted/50"
-                      activeClassName="bg-muted text-primary font-medium"
-                    >
-                      <item.icon className="h-4 w-4" />
-                      {open && <span>{item.title}</span>}
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {/* Administração - Admin Only */}
+        {isAdmin() && (
+          <SidebarGroup>
+            <SidebarGroupLabel className="text-xs uppercase tracking-wider text-muted-foreground">
+              Administração
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {administrationItems.map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton asChild>
+                      <NavLink 
+                        to={item.url} 
+                        className="flex items-center gap-2 hover:bg-muted/50"
+                        activeClassName="bg-muted text-primary font-medium"
+                      >
+                        <item.icon className="h-4 w-4" />
+                        {open && <span>{item.title}</span>}
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
+
+        {/* Developer Tools - Admin Only */}
+        {isAdmin() && (
+          <SidebarGroup>
+            <SidebarGroupLabel className="text-xs uppercase tracking-wider text-muted-foreground">
+              Desenvolvimento
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {devItems.map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton asChild>
+                      <NavLink 
+                        to={item.url} 
+                        className="flex items-center gap-2 hover:bg-muted/50"
+                        activeClassName="bg-muted text-primary font-medium"
+                      >
+                        <item.icon className="h-4 w-4" />
+                        {open && <span>{item.title}</span>}
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
     </Sidebar>
   );
