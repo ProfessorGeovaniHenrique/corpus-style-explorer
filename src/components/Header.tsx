@@ -2,18 +2,17 @@ import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { 
-  User, LogOut, Users, Key, BarChart3, Database, BookOpen, CircuitBoard, 
-  History, Telescope, Moon, Sun, Music, Library, Tags, Activity, 
-  GraduationCap, Microscope, Sparkles, FileQuestion, BookText, FileCheck
-} from "lucide-react";
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, 
+  DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger 
+} from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { LogOut, Moon, Sun } from "lucide-react";
 import logoVersoAustral from "@/assets/logo-versoaustral-completo.png";
-import logoUfrgs from "@/assets/logo-ufrgs-oficial.png";
 import logoPpglet from "@/assets/logo-ppglet.png";
 import { MobileMenu } from "@/components/MobileMenu";
 import { useIsActiveRoute } from "@/hooks/useIsActiveRoute";
+import { navigationGroups, NavItem } from "@/config/navigationConfig";
 
 const Header = () => {
   const navigate = useNavigate();
@@ -31,15 +30,32 @@ const Header = () => {
     return user.email.charAt(0).toUpperCase();
   };
 
+  // Render a single nav item
+  const renderNavItem = (item: NavItem) => (
+    <DropdownMenuItem 
+      key={item.url}
+      onClick={() => navigate(item.url)} 
+      className={isActiveRoute(item.url) ? "bg-accent text-accent-foreground" : ""}
+    >
+      <item.icon className="mr-2 h-4 w-4" />
+      <span>{item.title}</span>
+      {isActiveRoute(item.url) && <span className="ml-auto text-xs">●</span>}
+    </DropdownMenuItem>
+  );
+
   return (
     <header className="fixed top-0 left-0 right-0 z-50 border-b-2 border-primary bg-background shadow-sm header-animated">
       <div className="px-6 py-4 flex items-center justify-between gap-4">
-        <div className="hidden md:flex h-full w-auto logo-animated">
-          
-        </div>
+        <div className="hidden md:flex h-full w-auto logo-animated" />
+        
         <div className="h-24 w-auto logo-animated mx-auto">
-          <img src={logoVersoAustral} alt="VersoAustral - Análise de Estilística de Corpus" className="h-full w-auto object-contain" />
+          <img 
+            src={logoVersoAustral} 
+            alt="VersoAustral - Análise de Estilística de Corpus" 
+            className="h-full w-auto object-contain" 
+          />
         </div>
+        
         <div className="hidden md:flex h-14 w-auto logo-animated">
           <img src={logoPpglet} alt="PPGLET" className="h-full w-auto object-contain" />
         </div>
@@ -81,143 +97,21 @@ const Header = () => {
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   
-                  {/* Páginas Principais */}
-                  <DropdownMenuLabel className="text-xs text-muted-foreground">
-                    Páginas Principais
-                  </DropdownMenuLabel>
-                  
-                  <DropdownMenuItem onClick={() => navigate("/dashboard-mvp-definitivo")} className={isActiveRoute("/dashboard-mvp-definitivo") ? "bg-accent text-accent-foreground" : ""}>
-                    <GraduationCap className="mr-2 h-4 w-4" />
-                    <span>Dashboard Educacional</span>
-                    {isActiveRoute("/dashboard-mvp-definitivo") && <span className="ml-auto text-xs">●</span>}
-                  </DropdownMenuItem>
-                  
-                  <DropdownMenuItem onClick={() => navigate("/dashboard-analise")} className={isActiveRoute("/dashboard-analise") ? "bg-accent text-accent-foreground" : ""}>
-                    <Microscope className="mr-2 h-4 w-4" />
-                    <span>Dashboard de Análise</span>
-                    {isActiveRoute("/dashboard-analise") && <span className="ml-auto text-xs">●</span>}
-                  </DropdownMenuItem>
-                  
-                  <DropdownMenuItem onClick={() => navigate("/advanced-mode")} className={isActiveRoute("/advanced-mode") ? "bg-accent text-accent-foreground" : ""}>
-                    <Sparkles className="mr-2 h-4 w-4" />
-                    <span>Modo Avançado</span>
-                    {isActiveRoute("/advanced-mode") && <span className="ml-auto text-xs">●</span>}
-                  </DropdownMenuItem>
-                  
-                  <DropdownMenuItem onClick={() => navigate("/dashboard-expandido")} className={isActiveRoute("/dashboard-expandido") ? "bg-accent text-accent-foreground" : ""}>
-                    <BookText className="mr-2 h-4 w-4" />
-                    <span>Dashboard Expandido</span>
-                    {isActiveRoute("/dashboard-expandido") && <span className="ml-auto text-xs">●</span>}
-                  </DropdownMenuItem>
-
-                  {isAdmin() && (
-                    <>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuLabel className="text-xs text-muted-foreground">
-                        Ferramentas de Dados
-                      </DropdownMenuLabel>
-                      
-                      <DropdownMenuItem onClick={() => navigate("/music-catalog")} className={isActiveRoute("/music-catalog") ? "bg-accent text-accent-foreground" : ""}>
-                        <Library className="mr-2 h-4 w-4" />
-                        <span>Catálogo de Músicas</span>
-                        {isActiveRoute("/music-catalog") && <span className="ml-auto text-xs">●</span>}
-                      </DropdownMenuItem>
-                      
-                      <DropdownMenuItem onClick={() => navigate("/music-enrichment")} className={isActiveRoute("/music-enrichment") ? "bg-accent text-accent-foreground" : ""}>
-                        <Music className="mr-2 h-4 w-4" />
-                        <span>Enriquecimento Musical</span>
-                        {isActiveRoute("/music-enrichment") && <span className="ml-auto text-xs">●</span>}
-                      </DropdownMenuItem>
-                      
-                      <DropdownMenuItem onClick={() => navigate("/admin/semantic-pipeline")} className={isActiveRoute("/admin/semantic-pipeline") ? "bg-accent text-accent-foreground" : ""}>
-                        <Activity className="mr-2 h-4 w-4" />
-                        <span>Pipeline Semântica</span>
-                        {isActiveRoute("/admin/semantic-pipeline") && <span className="ml-auto text-xs">●</span>}
-                      </DropdownMenuItem>
-                      
-                      <DropdownMenuItem onClick={() => navigate("/admin/semantic-tagset-validation")} className={isActiveRoute("/admin/semantic-tagset-validation") ? "bg-accent text-accent-foreground" : ""}>
-                        <Tags className="mr-2 h-4 w-4" />
-                        <span>Validação de Domínios</span>
-                        {isActiveRoute("/admin/semantic-tagset-validation") && <span className="ml-auto text-xs">●</span>}
-                      </DropdownMenuItem>
-                      
-                      <DropdownMenuItem onClick={() => navigate("/admin/lexicon-setup")} className={isActiveRoute("/admin/lexicon-setup") ? "bg-accent text-accent-foreground" : ""}>
-                        <Database className="mr-2 h-4 w-4" />
-                        <span>Configuração de Léxico</span>
-                        {isActiveRoute("/admin/lexicon-setup") && <span className="ml-auto text-xs">●</span>}
-                      </DropdownMenuItem>
-                      
-                      <DropdownMenuItem onClick={() => navigate("/admin/dictionary-import")} className={isActiveRoute("/admin/dictionary-import") ? "bg-accent text-accent-foreground" : ""}>
-                        <BookOpen className="mr-2 h-4 w-4" />
-                        <span>Importação de Dicionários</span>
-                        {isActiveRoute("/admin/dictionary-import") && <span className="ml-auto text-xs">●</span>}
-                      </DropdownMenuItem>
-                      
-                      <DropdownMenuItem onClick={() => navigate("/admin/quiz-curation")} className={isActiveRoute("/admin/quiz-curation") ? "bg-accent text-accent-foreground" : ""}>
-                        <FileQuestion className="mr-2 h-4 w-4" />
-                        <span>Curadoria de Quiz</span>
-                        {isActiveRoute("/admin/quiz-curation") && <span className="ml-auto text-xs">●</span>}
-                      </DropdownMenuItem>
-                      
-                      <DropdownMenuSeparator />
-                      <DropdownMenuLabel className="text-xs text-muted-foreground">
-                        Administração
-                      </DropdownMenuLabel>
-                      
-                      <DropdownMenuItem onClick={() => navigate("/admin/dashboard")} className={isActiveRoute("/admin/dashboard") ? "bg-accent text-accent-foreground" : ""}>
-                        <Key className="mr-2 h-4 w-4" />
-                        <span>Gerenciar Convites</span>
-                        {isActiveRoute("/admin/dashboard") && <span className="ml-auto text-xs">●</span>}
-                      </DropdownMenuItem>
-                      
-                      <DropdownMenuItem onClick={() => navigate("/admin/users")} className={isActiveRoute("/admin/users") ? "bg-accent text-accent-foreground" : ""}>
-                        <Users className="mr-2 h-4 w-4" />
-                        <span>Gerenciar Usuários</span>
-                        {isActiveRoute("/admin/users") && <span className="ml-auto text-xs">●</span>}
-                      </DropdownMenuItem>
-                      
-                      <DropdownMenuItem onClick={() => navigate("/admin/metrics")} className={isActiveRoute("/admin/metrics") ? "bg-accent text-accent-foreground" : ""}>
-                        <BarChart3 className="mr-2 h-4 w-4" />
-                        <span>Métricas do Sistema</span>
-                        {isActiveRoute("/admin/metrics") && <span className="ml-auto text-xs">●</span>}
-                      </DropdownMenuItem>
-                      
-                      <DropdownMenuItem onClick={() => navigate("/admin/analytics")} className={isActiveRoute("/admin/analytics") ? "bg-accent text-accent-foreground" : ""}>
-                        <BarChart3 className="mr-2 h-4 w-4" />
-                        <span>Analytics</span>
-                        {isActiveRoute("/admin/analytics") && <span className="ml-auto text-xs">●</span>}
-                      </DropdownMenuItem>
-                      
-                      <DropdownMenuSeparator />
-                      <DropdownMenuLabel className="text-xs text-muted-foreground">
-                        Desenvolvimento
-                      </DropdownMenuLabel>
-                      
-                      <DropdownMenuItem onClick={() => navigate("/developer-logs")} className={isActiveRoute("/developer-logs") ? "bg-accent text-accent-foreground" : ""}>
-                        <BookOpen className="mr-2 h-4 w-4" />
-                        <span>Developer Logs</span>
-                        {isActiveRoute("/developer-logs") && <span className="ml-auto text-xs">●</span>}
-                      </DropdownMenuItem>
-                      
-                      <DropdownMenuItem onClick={() => navigate("/developer-history")} className={isActiveRoute("/developer-history") ? "bg-accent text-accent-foreground" : ""}>
-                        <History className="mr-2 h-4 w-4" />
-                        <span>Developer History</span>
-                        {isActiveRoute("/developer-history") && <span className="ml-auto text-xs">●</span>}
-                      </DropdownMenuItem>
-                      
-                      <DropdownMenuItem onClick={() => navigate("/devops-metrics")} className={isActiveRoute("/devops-metrics") ? "bg-accent text-accent-foreground" : ""}>
-                        <CircuitBoard className="mr-2 h-4 w-4" />
-                        <span>DevOps Metrics</span>
-                        {isActiveRoute("/devops-metrics") && <span className="ml-auto text-xs">●</span>}
-                      </DropdownMenuItem>
-                      
-                      <DropdownMenuItem onClick={() => navigate("/admin/prototypes")} className={isActiveRoute("/admin/prototypes") ? "bg-accent text-accent-foreground" : ""}>
-                        <Telescope className="mr-2 h-4 w-4" />
-                        <span>Galeria de Protótipos</span>
-                        {isActiveRoute("/admin/prototypes") && <span className="ml-auto text-xs">●</span>}
-                      </DropdownMenuItem>
-                    </>
-                  )}
+                  {/* Render navigation groups from config */}
+                  {navigationGroups.map((group, index) => {
+                    // Skip admin-only groups for non-admins
+                    if (group.adminOnly && !isAdmin()) return null;
+                    
+                    return (
+                      <div key={group.label}>
+                        {index > 0 && <DropdownMenuSeparator />}
+                        <DropdownMenuLabel className="text-xs text-muted-foreground">
+                          {group.label}
+                        </DropdownMenuLabel>
+                        {group.items.map(renderNavItem)}
+                      </div>
+                    );
+                  })}
                   
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={handleSignOut}>
