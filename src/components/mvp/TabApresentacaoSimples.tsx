@@ -4,7 +4,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Music, BookOpen, BrainCircuit, Lock, Check, Guitar, User, RotateCcw } from "lucide-react";
+import { Music, BookOpen, BrainCircuit, Lock, Check, Guitar, User, RotateCcw, AlertTriangle } from "lucide-react";
 import { TabAprendizadoChamamé } from "./TabAprendizadoChamamé";
 import { TabOrigensChamamé } from "./TabOrigensChamamé";
 import { TabInstrumentosChamamé } from "./TabInstrumentosChamamé";
@@ -15,21 +15,28 @@ import { useAnalytics } from "@/hooks/useAnalytics";
 import { TransitionModal } from "./TransitionModal";
 import { PageTransition } from "./PageTransition";
 import { useNavigate } from "react-router-dom";
+import { useAuthContext } from "@/contexts/AuthContext";
 import guaraniBorder from "@/assets/guarani-border.jpg";
+
 const TAB_ORDER = ['introducao', 'aprendizado', 'origens', 'quiz-intermediario', 'instrumentos', 'voltando-ao-verso', 'quiz-final'];
+
 function TabApresentacaoSimplesContent() {
   const navigate = useNavigate();
+  const { isAdmin, isEvaluator } = useAuthContext();
   const {
     openQuiz,
     quizState,
     setOnQuizClose,
-    hasPassedQuiz
+    hasPassedFinal
   } = useQuizContext();
   const {
     trackFeatureUsage
   } = useAnalytics();
   const [showTransitionModal, setShowTransitionModal] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const [showBypassWarning, setShowBypassWarning] = useState(false);
+  
+  const canBypassQuiz = isAdmin() || isEvaluator();
   const [unlockedTabs, setUnlockedTabs] = useState<string[]>(() => {
     const saved = localStorage.getItem('mvp-unlocked-tabs');
     return saved ? JSON.parse(saved) : ['introducao'];
@@ -155,8 +162,14 @@ function TabApresentacaoSimplesContent() {
         </div>
         
         <Button
-          onClick={handleGoToAnalysis}
-          disabled={!unlockedTabs.includes('quiz-final') || !hasPassedQuiz}
+          onClick={() => {
+            if (canBypassQuiz && !hasPassedFinal) {
+              setShowBypassWarning(true);
+            } else {
+              handleGoToAnalysis();
+            }
+          }}
+          disabled={!hasPassedFinal && !canBypassQuiz}
           variant="outline"
           size="sm"
           className="gap-2"
@@ -165,6 +178,33 @@ function TabApresentacaoSimplesContent() {
           Ir à Página de Análise
         </Button>
       </div>
+      
+      {/* Dialog de aviso para Admin/Evaluator */}
+      <Dialog open={showBypassWarning} onOpenChange={setShowBypassWarning}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-yellow-500" />
+              Acesso Antecipado
+            </DialogTitle>
+            <DialogDescription className="pt-2">
+              Verso Austral recomenda que você complete todas as etapas da página atual 
+              antes de prosseguir para ter a experiência completa de usuário.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setShowBypassWarning(false)}>
+              Continuar Aqui
+            </Button>
+            <Button onClick={() => {
+              setShowBypassWarning(false);
+              handleGoToAnalysis();
+            }}>
+              Ir à Página de Análise
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       
       <Tabs defaultValue="introducao" onValueChange={handleTabChange} className="w-full">
         <TabsList className="grid w-full grid-cols-7 mb-6">

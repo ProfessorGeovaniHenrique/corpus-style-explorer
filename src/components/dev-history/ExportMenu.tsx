@@ -25,54 +25,54 @@ import {
 
 export function ExportMenu() {
   const handleExportFullPDF = async () => {
+    const toastId = toast.loading("Gerando PDF completo...");
     try {
-      toast.loading("Gerando PDF completo...");
       await exportDeveloperHistoryToPDF({
         includeTimeline: true,
         includeRoadmap: true,
         includeScientific: true,
         includeCorrections: true
       });
-      toast.success("PDF exportado com sucesso!");
+      toast.success("PDF exportado com sucesso!", { id: toastId });
     } catch (error) {
       console.error("Erro ao exportar PDF:", error);
-      toast.error("Erro ao exportar PDF");
+      toast.error("Erro ao exportar PDF", { id: toastId });
     }
   };
 
   const handleExportRoadmapPDF = async () => {
+    const toastId = toast.loading("Gerando PDF do Roadmap...");
     try {
-      toast.loading("Gerando PDF do Roadmap...");
       await exportDeveloperHistoryToPDF({
         includeTimeline: true,
         includeRoadmap: true,
         includeScientific: false,
         includeCorrections: false
       });
-      toast.success("PDF do Roadmap exportado!");
+      toast.success("PDF do Roadmap exportado!", { id: toastId });
     } catch (error) {
       console.error("Erro ao exportar PDF:", error);
-      toast.error("Erro ao exportar PDF");
+      toast.error("Erro ao exportar PDF", { id: toastId });
     }
   };
 
   const handleExportFullDOCX = async () => {
+    const toastId = toast.loading("Gerando DOCX completo...");
     try {
-      toast.loading("Gerando DOCX completo...");
       await exportDeveloperHistoryToDOCX({
         includeTimeline: true,
         includeRoadmap: true
       });
-      toast.success("DOCX exportado com sucesso!");
+      toast.success("DOCX exportado com sucesso!", { id: toastId });
     } catch (error) {
       console.error("Erro ao exportar DOCX:", error);
-      toast.error("Erro ao exportar DOCX");
+      toast.error("Erro ao exportar DOCX", { id: toastId });
     }
   };
 
   const handleExportAcademicABNT = async () => {
+    const toastId = toast.loading("Gerando Relatório Acadêmico ABNT...");
     try {
-      toast.loading("Gerando Relatório Acadêmico ABNT...");
       await exportDeveloperHistoryABNT({
         reportType: 'academic',
         authorName: 'Equipe Verso Austral',
@@ -80,16 +80,16 @@ export function ExportMenu() {
         courseName: 'Curso de Letras',
         city: 'Porto Alegre'
       });
-      toast.success("Relatório Acadêmico ABNT exportado!");
+      toast.success("Relatório Acadêmico ABNT exportado!", { id: toastId });
     } catch (error) {
       console.error("Erro ao exportar ABNT:", error);
-      toast.error("Erro ao exportar Relatório ABNT");
+      toast.error("Erro ao exportar Relatório ABNT", { id: toastId });
     }
   };
 
   const handleExportTechnicalABNT = async () => {
+    const toastId = toast.loading("Gerando Documentação Técnica ABNT...");
     try {
-      toast.loading("Gerando Documentação Técnica ABNT...");
       await exportDeveloperHistoryABNT({
         reportType: 'technical',
         authorName: 'Equipe Verso Austral',
@@ -97,10 +97,10 @@ export function ExportMenu() {
         courseName: 'Desenvolvimento de Software',
         city: 'Porto Alegre'
       });
-      toast.success("Documentação Técnica ABNT exportada!");
+      toast.success("Documentação Técnica ABNT exportada!", { id: toastId });
     } catch (error) {
       console.error("Erro ao exportar ABNT técnico:", error);
-      toast.error("Erro ao exportar Documentação Técnica");
+      toast.error("Erro ao exportar Documentação Técnica", { id: toastId });
     }
   };
 
