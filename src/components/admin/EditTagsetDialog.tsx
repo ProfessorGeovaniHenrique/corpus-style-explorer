@@ -38,6 +38,7 @@ import { validateNivelAndPai } from '@/lib/tagsetValidation';
 import { cn } from '@/lib/utils';
 
 const editTagsetSchema = z.object({
+  codigo: z.string().min(1, 'Código é obrigatório').max(20, 'Código deve ter no máximo 20 caracteres'),
   nome: z.string().min(3, 'Nome deve ter no mínimo 3 caracteres'),
   descricao: z.string().max(500, 'Descrição deve ter no máximo 500 caracteres').optional(),
   exemplos: z.array(z.object({ value: z.string().min(1) })).optional(),
@@ -110,6 +111,7 @@ export function EditTagsetDialog({
   const form = useForm<EditTagsetForm>({
     resolver: zodResolver(editTagsetSchema),
     defaultValues: {
+      codigo: '',
       nome: '',
       descricao: '',
       exemplos: [],
@@ -128,6 +130,7 @@ export function EditTagsetDialog({
   useEffect(() => {
     if (tagset) {
       form.reset({
+        codigo: tagset.codigo,
         nome: tagset.nome,
         descricao: tagset.descricao || '',
         exemplos: (tagset.exemplos || []).map(e => ({ value: e })),
@@ -185,6 +188,7 @@ export function EditTagsetDialog({
       });
 
       await updateTagset(tagset.id, {
+        codigo: data.codigo,
         nome: data.nome,
         descricao: data.descricao || null,
         exemplos: (data.exemplos || []).map(e => e.value),
@@ -238,19 +242,38 @@ export function EditTagsetDialog({
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            <FormField
-              control={form.control}
-              name="nome"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Nome do Domínio *</FormLabel>
-                  <FormControl>
-                    <Input {...field} placeholder="Ex: Cultura Gaúcha" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            <div className="grid grid-cols-3 gap-4">
+              <FormField
+                control={form.control}
+                name="codigo"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Código/Etiqueta *</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="Ex: CG.TR.EQ" className="font-mono" />
+                    </FormControl>
+                    <FormDescription className="text-xs">
+                      Código hierárquico único
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="nome"
+                render={({ field }) => (
+                  <FormItem className="col-span-2">
+                    <FormLabel>Nome do Domínio *</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="Ex: Cultura Gaúcha" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
 
             <FormField
               control={form.control}
