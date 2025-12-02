@@ -403,6 +403,14 @@ export const milestones: Milestone[] = [
     description: 'Sprints F0-F7: NavigationConfig (-24% código), AdminUsers (-54%), MusicCatalog (-80%), LoadingSpinner, PageContainer, Logger estruturado. Zero bugs em produção durante refatoração.'
   },
   {
+    id: 'sprint5-catalog-metrics',
+    date: 'Dez 02, 2025',
+    title: 'Sprint 5: Métricas do Catálogo Corrigidas',
+    epicIds: ['epic-data-quality', 'epic-refactoring'],
+    status: 'completed',
+    description: 'Correção do limite de 1000 entradas via COUNT queries, dados por corpus (Gaúcho, Nordestino, Sertanejo), filtros por corpus na aba Métricas, card de overview na página principal do catálogo, atualização real-time com subscriptions.'
+  },
+  {
     id: 'deduplication-complete',
     date: 'Dez 02, 2025',
     title: 'Deduplicação de Músicas 100% Concluída',

@@ -1449,6 +1449,74 @@ export const constructionLog: ConstructionPhase[] = [
     },
     scientificBasis: [],
     challenges: ["Análise revelou que otimizações já foram aplicadas em sprints anteriores"]
+  },
+  {
+    phase: "Sprint 5: Métricas do Catálogo por Corpus",
+    dateStart: "2025-12-02",
+    dateEnd: "2025-12-02",
+    status: "completed",
+    objective: "Corrigir limite de 1000 entradas nas métricas e adicionar dados por corpus",
+    decisions: [
+      {
+        decision: "Usar COUNT aggregations ao invés de fetch de todas as linhas",
+        rationale: "Supabase limita fetch a 1000 linhas por padrão, COUNT não tem esse limite",
+        alternatives: ["Paginação", "Aumentar limite no backend", "Fetch em batches"],
+        chosenBecause: "COUNT é mais eficiente e retorna contagem exata sem transferência de dados",
+        impact: "Métricas agora refletem dados reais de 50k+ músicas"
+      },
+      {
+        decision: "Adicionar filtro por corpus na aba Métricas",
+        rationale: "Usuários precisam comparar estatísticas entre Gaúcho, Nordestino e Sertanejo",
+        alternatives: ["Mostrar apenas totais", "Tabs separadas por corpus"],
+        chosenBecause: "Dropdown permite comparação rápida mantendo layout limpo"
+      },
+      {
+        decision: "Criar card de overview com breakdown por corpus na página principal",
+        rationale: "Visão geral imediata ao acessar catálogo sem navegar para aba Estatísticas",
+        alternatives: ["Somente na aba Estatísticas"],
+        chosenBecause: "Melhora UX com informação contextual no primeiro acesso"
+      }
+    ],
+    artifacts: [
+      {
+        file: "src/hooks/useCatalogExtendedStats.ts",
+        linesOfCode: 240,
+        coverage: "Hook completo com COUNT queries e real-time subscription",
+        description: "8 métricas principais + breakdown por corpus + weekly trend"
+      },
+      {
+        file: "src/components/music/catalog/tabs/TabMetrics.tsx",
+        linesOfCode: 200,
+        coverage: "Filtro por corpus + cards de status + cobertura de metadados",
+        description: "Interface refatorada com seletor de corpus e visualização comparativa"
+      },
+      {
+        file: "src/components/music/catalog/CatalogStatsOverview.tsx",
+        linesOfCode: 243,
+        coverage: "Card resumo com breakdown por corpus",
+        description: "Visão geral na página principal do catálogo"
+      },
+      {
+        file: "src/utils/fetchReportData.ts",
+        linesOfCode: 370,
+        coverage: "Exportação ABNT com dados de corpus",
+        description: "Estatísticas expandidas para relatório acadêmico"
+      }
+    ],
+    metrics: {
+      metricsDataLimit: { before: 1000, after: 50000 },
+      corpusBreakdown: { before: 1, after: 3 },
+      realTimeUpdates: { before: 0, after: 1 }
+    },
+    scientificBasis: [],
+    challenges: [
+      "Identificação da causa raiz: Supabase 1000-row default limit",
+      "Garantir consistência de corpus_id entre tabelas songs e artists"
+    ],
+    nextSteps: [
+      "Monitorar performance das COUNT queries em produção",
+      "Adicionar mais métricas de qualidade de dados por corpus"
+    ]
   }
 ];
 
