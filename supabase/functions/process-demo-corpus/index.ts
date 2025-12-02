@@ -11,11 +11,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { withInstrumentation } from "../_shared/instrumentation.ts";
 import { createHealthCheck } from "../_shared/health-check.ts";
 import { createEdgeLogger } from '../_shared/unified-logger.ts';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { corsHeaders, handleCorsPreflightRequest } from '../_shared/cors.ts';
 
 // 🎨 SISTEMA CENTRALIZADO DE CORES (inline para edge function)
 const SEMANTIC_DOMAIN_COLORS = {

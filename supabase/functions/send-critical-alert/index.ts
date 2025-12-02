@@ -3,13 +3,9 @@ import { Resend } from "https://esm.sh/resend@4.0.0";
 import { withInstrumentation } from "../_shared/instrumentation.ts";
 import { createHealthCheck } from "../_shared/health-check.ts";
 import { createEdgeLogger } from '../_shared/unified-logger.ts';
+import { corsHeaders, handleCorsPreflightRequest } from '../_shared/cors.ts';
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
 
 interface CriticalAlertRequest {
   analysisId: string;

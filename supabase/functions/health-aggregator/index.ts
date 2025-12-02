@@ -1,11 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { withInstrumentation } from "../_shared/instrumentation.ts";
 import { createLogger } from "../_shared/structured-logger.ts";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { corsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
 
 interface FunctionHealth {
   name: string;
@@ -101,9 +97,8 @@ async function handler(req: Request): Promise<Response> {
   const logger = createLogger("health-aggregator");
   
   // Handle CORS preflight
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const corsResponse = handleCorsPreflightRequest(req);
+  if (corsResponse) return corsResponse;
   
   if (req.method !== "GET") {
     return new Response(

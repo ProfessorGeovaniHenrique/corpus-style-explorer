@@ -1,15 +1,11 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createSupabaseClient } from "../_shared/supabase.ts";
+import { corsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 const RESEND_FROM_EMAIL = Deno.env.get("RESEND_FROM_EMAIL") || "Verso Austral <onboarding@resend.dev>";
 const RESEND_REPLY_TO = Deno.env.get("RESEND_REPLY_TO");
 const SITE_URL = Deno.env.get("SITE_URL") || Deno.env.get("SUPABASE_URL");
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
 
 interface SendMagicLinkRequest {
   recipientEmail: string;
@@ -18,9 +14,8 @@ interface SendMagicLinkRequest {
 }
 
 const handler = async (req: Request): Promise<Response> => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const corsResponse = handleCorsPreflightRequest(req);
+  if (corsResponse) return corsResponse;
 
   try {
     const supabase = createSupabaseClient();

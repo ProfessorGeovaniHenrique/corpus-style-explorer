@@ -13,11 +13,7 @@ import { withTimeout, Timeouts } from "../_shared/timeout.ts";
 import { withInstrumentation } from "../_shared/instrumentation.ts";
 import { createHealthCheck } from "../_shared/health-check.ts";
 import { createEdgeLogger } from "../_shared/unified-logger.ts";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { corsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
 
 serve(withInstrumentation('cancel-dictionary-job', async (req) => {
   const requestId = crypto.randomUUID();
@@ -35,9 +31,8 @@ serve(withInstrumentation('cancel-dictionary-job', async (req) => {
   }
 
   // Handle CORS preflight
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const corsResponse = handleCorsPreflightRequest(req);
+  if (corsResponse) return corsResponse;
 
   try {
     log.info('Cancel dictionary job request received');

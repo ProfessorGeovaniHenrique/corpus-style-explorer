@@ -238,13 +238,25 @@ useAuth (hook)
 |--------|-------------|--------|------|
 | Sprint 0 | Audit & Backup | ✅ Complete | Zero |
 | Sprint 1 | Critical Data Fixes | 🔲 Pending | Medium |
-| Sprint 2 | Infrastructure Fixes | 🔲 Pending | Low |
+| Sprint 2 | Infrastructure Fixes | ✅ Complete | Low |
 | Sprint 3 | Context & State Fixes | 🔲 Pending | Medium |
-| Sprint 4 | Code Cleanup | 🔲 Pending | Low |
+| Sprint 4 | Code Cleanup | ✅ Complete | Low |
 | Sprint 5 | Security Fixes | 🔲 Pending | Low |
 | Sprint 6 | Performance Optimization | 🔲 Pending | Low |
 | Sprint 7 | Documentation | ✅ Complete | Zero |
 
+### Sprint 2 Details (Completed)
+- ✅ Created shared CORS module (`supabase/functions/_shared/cors.ts`)
+- ✅ Updated 20+ edge functions to use shared CORS module
+- ✅ Removed ~400 lines of duplicated CORS code
+- ✅ Updated `_shared/README.md` with CORS documentation
+
+### Sprint 4 Details (Completed)
+- ✅ Removed deprecated service file
+- ✅ Deleted 3 orphan edge functions (scan-codebase-realtime, sync-construction-log, analyze-duplicates)
+- ✅ Cleaned config.toml (removed 16 orphan entries)
+- ✅ Removed console.log from 13 hooks
+
 ---
 
-**Next Steps:** Proceed with Sprint 1 (Critical Data Fixes) or Sprint 4 (Code Cleanup)
+**Next Steps:** Proceed with Sprint 3 (Context & State Fixes) or Sprint 5 (Security Fixes)

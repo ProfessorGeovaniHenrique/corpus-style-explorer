@@ -7,11 +7,7 @@ import { getGutenbergPOS } from "../_shared/gutenberg-pos-lookup.ts";
 import { classifySafeStopword, isContextDependent } from "../_shared/stopwords-classifier.ts";
 import { getLexiconClassification, getLexiconBase } from "../_shared/semantic-lexicon-lookup.ts";
 import { applyMorphologicalRules, hasMorphologicalPattern } from "../_shared/morphological-rules.ts";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { corsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
 
 interface AnnotationRequest {
   palavra: string;
@@ -29,9 +25,8 @@ interface SemanticDomainResult {
 }
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const corsResponse = handleCorsPreflightRequest(req);
+  if (corsResponse) return corsResponse;
 
   const requestId = crypto.randomUUID();
   const logger = createEdgeLogger('annotate-semantic-domain', requestId);

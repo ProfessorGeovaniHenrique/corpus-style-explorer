@@ -7,11 +7,7 @@ import { inheritDomainFromSynonyms } from "../_shared/synonym-propagation.ts";
 import { detectGauchoMWEs } from "../_shared/gaucho-mwe.ts";
 import { enrichTokensWithPOS, calculatePOSCoverage } from "../_shared/pos-enrichment.ts";
 import { normalizeText } from "../_shared/text-normalizer.ts";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { corsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
 
 interface AnnotateArtistRequest {
   artistId?: string;

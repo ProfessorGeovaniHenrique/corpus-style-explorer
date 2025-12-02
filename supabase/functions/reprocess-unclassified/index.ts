@@ -2,11 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createSupabaseClient } from "../_shared/supabase.ts";
 import { createEdgeLogger } from "../_shared/unified-logger.ts";
 import { classifyBatchWithGemini } from "../_shared/gemini-batch-classifier.ts";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { corsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
 
 interface ReprocessCriteria {
   includeNC: boolean;
@@ -26,9 +22,8 @@ const CHUNK_SIZE = 100;
 const BATCH_SIZE = 15;
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const corsResponse = handleCorsPreflightRequest(req);
+  if (corsResponse) return corsResponse;
 
   const requestId = crypto.randomUUID();
   const logger = createEdgeLogger('reprocess-unclassified', requestId);

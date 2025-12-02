@@ -13,11 +13,7 @@ import { applyMorphologicalRules, hasMorphologicalPattern } from '../_shared/mor
 import { getLexiconBase, saveLexiconClassification, clearMemoryCache } from '../_shared/semantic-lexicon-lookup.ts';
 import { classifyBatchWithGemini } from '../_shared/gemini-batch-classifier.ts';
 import { classifyBatchWithGPT5 } from '../_shared/gpt5-batch-classifier.ts';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { corsHeaders, handleCorsPreflightRequest } from '../_shared/cors.ts';
 
 interface BatchSeedRequest {
   mode?: 'analyze' | 'seed' | 'continue';
@@ -46,9 +42,8 @@ const GEMINI_BATCH_SIZE = 15; // Palavras por chamada Gemini
 const DELAY_BETWEEN_BATCHES = 2000; // 2s entre batches Gemini
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const corsResponse = handleCorsPreflightRequest(req);
+  if (corsResponse) return corsResponse;
 
   try {
     const supabase = createSupabaseClient();

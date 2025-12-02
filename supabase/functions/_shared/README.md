@@ -1,10 +1,36 @@
-# 🛡️ Shared Utilities - Sprint 2 & Sprint 3
+# 🛡️ Shared Utilities - Edge Functions
 
-Módulos reutilizáveis para garantir resiliência, validação e rate limiting nas edge functions.
+Módulos reutilizáveis para garantir resiliência, validação, rate limiting e CORS nas edge functions.
 
 ## 📦 Módulos Disponíveis
 
-### 1. **validation.ts** - Validação de Entrada (Sprint 2)
+### 0. **cors.ts** - CORS Headers Compartilhados (Sprint 2 Refactoring)
+
+Módulo centralizado para headers CORS e tratamento de preflight requests.
+
+```typescript
+import { corsHeaders, handleCorsPreflightRequest, createCorsResponse, createErrorResponse } from "../_shared/cors.ts";
+
+// No início do handler
+const corsResponse = handleCorsPreflightRequest(req);
+if (corsResponse) return corsResponse;
+
+// Resposta com CORS
+return createCorsResponse({ success: true, data });
+
+// Erro com CORS
+return createErrorResponse('Algo deu errado', 500);
+```
+
+**Exports:**
+- `corsHeaders` - Headers CORS padrão
+- `handleCorsPreflightRequest(req)` - Retorna Response para OPTIONS ou null
+- `createCorsResponse(data, status)` - JSON response com CORS
+- `createErrorResponse(error, status)` - Error response com CORS
+
+---
+
+### 1. **validation.ts** - Validação de Entrada
 
 Schemas Zod para validação de payloads + middleware reutilizável.
 
@@ -279,19 +305,21 @@ serve(async (req) => {
 
 ## 📊 Métricas de Melhoria
 
-**Antes dos Sprints 2 & 3:**
+**Antes dos Sprints de Refatoração:**
 - Race conditions em cancelamentos simultâneos
 - Sem proteção contra abuse (rate limiting)
 - Timeouts hardcoded no código
 - Falhas em cascata sem circuit breaker
 - Retry ad-hoc e inconsistente
+- CORS duplicado em 61 edge functions (~1,200 linhas)
 
-**Depois dos Sprints 2 & 3:**
+**Depois dos Sprints de Refatoração:**
 - ✅ Zero race conditions (advisory locks)
 - ✅ Rate limit configurável por endpoint
 - ✅ Timeouts via ENV (fácil ajuste)
 - ✅ Proteção contra falhas em cascata
 - ✅ Retry consistente em todas edge functions
+- ✅ CORS centralizado em módulo único (~50 linhas)
 
 ---
 

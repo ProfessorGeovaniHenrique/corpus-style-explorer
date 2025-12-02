@@ -3,13 +3,9 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.81.1';
 import { withInstrumentation } from "../_shared/instrumentation.ts";
 import { createHealthCheck } from "../_shared/health-check.ts";
 import { createEdgeLogger } from "../_shared/unified-logger.ts";
+import { corsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
 
 interface SendInviteRequest {
   recipientEmail: string;

@@ -12,11 +12,7 @@ import { annotateWithSpacy, checkSpacyHealth } from '../_shared/spacy-annotator.
 import { annotateWithGemini } from '../_shared/gemini-pos-annotator.ts';
 import { getCacheStatistics } from "../_shared/pos-annotation-cache.ts";
 import { getGutenbergPOS } from "../_shared/gutenberg-pos-lookup.ts";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { corsHeaders, handleCorsPreflightRequest } from "../_shared/cors.ts";
 
 interface POSToken {
   palavra: string;
@@ -174,9 +170,8 @@ Deno.serve(withInstrumentation('annotate-pos', async (req) => {
     });
   }
 
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const corsResponse = handleCorsPreflightRequest(req);
+  if (corsResponse) return corsResponse;
 
   // Inicializar logger
   const logger = new EdgeFunctionLogger('annotate-pos');
