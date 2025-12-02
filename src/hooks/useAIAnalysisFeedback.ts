@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { retrySupabaseOperation } from '@/lib/retryUtils';
 import { notifications } from '@/lib/notifications';
+import { useAuthContext } from '@/contexts/AuthContext';
 
 export interface AIAnalysisFeedback {
   id: string;
@@ -19,6 +20,7 @@ export interface AIAnalysisFeedback {
  */
 export function useAIAnalysisFeedback(analysisId?: string) {
   const queryClient = useQueryClient();
+  const { user } = useAuthContext();
 
   const query = useQuery({
     queryKey: ['ai-analysis-feedback', analysisId],
@@ -60,7 +62,7 @@ export function useAIAnalysisFeedback(analysisId?: string) {
             suggestion_id: suggestionId,
             human_verdict: verdict,
             validator_notes: notes,
-            validated_by: 'developer', // TODO: usar user ID real quando auth for implementado
+            validated_by: user?.id || 'anonymous',
           });
 
         if (error) throw error;
