@@ -3,11 +3,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import { Play, X, AlertTriangle, RefreshCw } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Play, X, AlertTriangle, RefreshCw, Clock, Zap, Timer, RotateCcw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { useJobAutoRefresh } from '@/hooks/useJobAutoRefresh';
 
 interface Job {
   id: string;
@@ -21,6 +23,8 @@ interface Job {
   erro_mensagem: string | null;
   last_chunk_at: string | null;
   chunks_processed: number | null;
+  current_song_index?: number | null;
+  current_word_index?: number | null;
 }
 
 interface AnnotationJobsTableProps {
@@ -28,21 +32,29 @@ interface AnnotationJobsTableProps {
   onRefresh: () => void;
 }
 
-const STUCK_THRESHOLD_MINUTES = 5; // Job considerado travado após 5 min sem atividade
-
 export function AnnotationJobsTable({ jobs, onRefresh }: AnnotationJobsTableProps) {
   const [resumingJobId, setResumingJobId] = useState<string | null>(null);
 
-  const isJobStuck = (job: Job): boolean => {
-    if (job.status !== 'processando') return false;
-    if (!job.last_chunk_at) return true; // Nunca processou
-
-    const lastActivity = new Date(job.last_chunk_at).getTime();
-    const now = Date.now();
-    const minutesSinceActivity = (now - lastActivity) / (1000 * 60);
-    
-    return minutesSinceActivity > STUCK_THRESHOLD_MINUTES;
-  };
+  const {
+    timeToRefresh,
+    isRefreshing,
+    lastRefreshAt,
+    autoResumeEnabled,
+    toggleAutoResume,
+    autoResumeAttempts,
+    autoResumeStats,
+    maxAutoResumeAttempts,
+    resetAttempts,
+    isJobStuck,
+    getProcessingRate,
+    getETASeconds,
+    getElapsedSeconds
+  } = useJobAutoRefresh(jobs, onRefresh, {
+    refreshInterval: 30000,
+    enableAutoResume: true,
+    maxAutoResumeAttempts: 3,
+    stuckThresholdMinutes: 5
+  });
 
   const getMinutesSinceActivity = (job: Job): number | null => {
     if (!job.last_chunk_at) return null;
@@ -72,7 +84,6 @@ export function AnnotationJobsTable({ jobs, onRefresh }: AnnotationJobsTableProp
   const handleResume = async (jobId: string) => {
     setResumingJobId(jobId);
     try {
-      // Primeiro, buscar dados do job atual
       const { data: jobData, error: fetchError } = await supabase
         .from('semantic_annotation_jobs')
         .select('*')
@@ -83,7 +94,6 @@ export function AnnotationJobsTable({ jobs, onRefresh }: AnnotationJobsTableProp
         throw new Error('Job não encontrado');
       }
 
-      // Resetar last_chunk_at para permitir novo processamento
       const oneMinuteAgo = new Date(Date.now() - 60000).toISOString();
       
       const { error: updateError } = await supabase
@@ -97,8 +107,7 @@ export function AnnotationJobsTable({ jobs, onRefresh }: AnnotationJobsTableProp
 
       if (updateError) throw updateError;
 
-      // Invocar edge function para continuar processamento
-      const { data, error: invokeError } = await supabase.functions.invoke('annotate-artist-songs', {
+      await supabase.functions.invoke('annotate-artist-songs', {
         body: { 
           jobId,
           continueFrom: {
@@ -108,11 +117,8 @@ export function AnnotationJobsTable({ jobs, onRefresh }: AnnotationJobsTableProp
         }
       });
 
-      if (invokeError) {
-        console.warn('Edge function invoke warning:', invokeError);
-        // Não falhar - a função pode ter iniciado
-      }
-
+      // Reset auto-resume attempts for this job
+      resetAttempts(jobId);
       toast.success('Job retomado! Processamento reiniciado.');
       onRefresh();
     } catch (error) {
@@ -127,10 +133,11 @@ export function AnnotationJobsTable({ jobs, onRefresh }: AnnotationJobsTableProp
     const stuck = isJobStuck(job);
     
     if (stuck) {
+      const attempts = autoResumeAttempts[job.id] || 0;
       return (
         <Badge variant="destructive" className="flex items-center gap-1">
           <AlertTriangle className="h-3 w-3" />
-          Travado
+          Travado {attempts > 0 && `(${attempts}/${maxAutoResumeAttempts})`}
         </Badge>
       );
     }
@@ -149,31 +156,74 @@ export function AnnotationJobsTable({ jobs, onRefresh }: AnnotationJobsTableProp
     return <Badge variant={config.variant}>{config.label}</Badge>;
   };
 
-  const calculateETA = (job: Job) => {
-    if (job.status !== 'processando' || job.processed_words === 0) return 'N/A';
-    if (isJobStuck(job)) return 'Travado';
-    
-    const elapsed = Date.now() - new Date(job.tempo_inicio).getTime();
-    const wordsPerMs = job.processed_words / elapsed;
-    const remainingWords = job.total_words - job.processed_words;
-    const etaMs = remainingWords / wordsPerMs;
-    
-    return formatDistanceToNow(new Date(Date.now() + etaMs), { 
-      locale: ptBR,
-      addSuffix: false 
-    });
+  const formatTime = (seconds: number): string => {
+    if (seconds < 60) return `${Math.round(seconds)}s`;
+    if (seconds < 3600) return `${Math.floor(seconds / 60)}m ${Math.round(seconds % 60)}s`;
+    const hours = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
+    return `${hours}h ${mins}m`;
+  };
+
+  const formatRate = (rate: number): string => {
+    if (rate < 1) return `${(rate * 60).toFixed(1)}/min`;
+    return `${rate.toFixed(2)}/s`;
   };
 
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle>Jobs de Anotação Semântica</CardTitle>
-        <Button variant="outline" size="sm" onClick={onRefresh}>
-          <RefreshCw className="h-4 w-4 mr-2" />
-          Atualizar
-        </Button>
+        <div className="space-y-1">
+          <CardTitle>Jobs de Anotação Semântica</CardTitle>
+          <p className="text-xs text-muted-foreground">
+            Última atualização: {lastRefreshAt.toLocaleTimeString('pt-BR')}
+          </p>
+        </div>
+        <div className="flex items-center gap-4">
+          {/* Auto-refresh indicator */}
+          <div className="flex items-center gap-2 text-sm">
+            <div className={`relative flex items-center justify-center w-8 h-8 rounded-full border-2 ${isRefreshing ? 'border-primary animate-pulse' : 'border-muted'}`}>
+              <span className="text-xs font-mono">{timeToRefresh}</span>
+            </div>
+            <span className="text-muted-foreground text-xs">Auto-refresh</span>
+          </div>
+          
+          {/* Auto-resume toggle */}
+          <div className="flex items-center gap-2">
+            <Switch
+              checked={autoResumeEnabled}
+              onCheckedChange={toggleAutoResume}
+              id="auto-resume"
+            />
+            <label htmlFor="auto-resume" className="text-xs text-muted-foreground cursor-pointer">
+              Auto-retomada
+            </label>
+          </div>
+          
+          <Button variant="outline" size="sm" onClick={onRefresh} disabled={isRefreshing}>
+            <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+            Atualizar
+          </Button>
+        </div>
       </CardHeader>
       <CardContent>
+        {/* Auto-resume stats */}
+        {autoResumeStats.attemptsToday > 0 && (
+          <div className="mb-4 p-3 bg-muted/50 rounded-lg flex items-center justify-between">
+            <div className="flex items-center gap-4 text-sm">
+              <span className="flex items-center gap-1">
+                <RotateCcw className="h-4 w-4" />
+                <span className="text-muted-foreground">Retomadas hoje:</span>
+                <span className="font-medium">{autoResumeStats.attemptsToday}</span>
+              </span>
+              <span className="text-green-600">✓ {autoResumeStats.successfulResumes}</span>
+              <span className="text-red-600">✗ {autoResumeStats.failedResumes}</span>
+            </div>
+            <Button variant="ghost" size="sm" onClick={() => resetAttempts()}>
+              Limpar histórico
+            </Button>
+          </div>
+        )}
+
         <div className="space-y-4">
           {jobs.length === 0 ? (
             <p className="text-center text-muted-foreground py-8">
@@ -184,6 +234,10 @@ export function AnnotationJobsTable({ jobs, onRefresh }: AnnotationJobsTableProp
               const stuck = isJobStuck(job);
               const minutesSince = getMinutesSinceActivity(job);
               const isResuming = resumingJobId === job.id;
+              const rate = getProcessingRate(job);
+              const etaSeconds = getETASeconds(job);
+              const elapsedSeconds = getElapsedSeconds(job);
+              const attempts = autoResumeAttempts[job.id] || 0;
 
               return (
                 <div 
@@ -191,29 +245,71 @@ export function AnnotationJobsTable({ jobs, onRefresh }: AnnotationJobsTableProp
                   className={`border rounded-lg p-4 space-y-3 ${stuck ? 'border-destructive bg-destructive/5' : ''}`}
                 >
                   <div className="flex items-start justify-between">
-                    <div className="space-y-1">
+                    <div className="space-y-1 flex-1">
                       <div className="flex items-center gap-2">
                         <h4 className="font-semibold">{job.artist_name}</h4>
                         {getStatusBadge(job)}
                       </div>
-                      <p className="text-sm text-muted-foreground">
+                      
+                      {/* Detailed metrics */}
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-2">
+                        <div className="flex items-center gap-1 text-sm">
+                          <Clock className="h-3 w-3 text-muted-foreground" />
+                          <span className="text-muted-foreground">Tempo:</span>
+                          <span className="font-medium">{formatTime(elapsedSeconds)}</span>
+                        </div>
+                        
+                        {rate > 0 && !stuck && (
+                          <div className="flex items-center gap-1 text-sm">
+                            <Zap className="h-3 w-3 text-yellow-500" />
+                            <span className="text-muted-foreground">Taxa:</span>
+                            <span className="font-medium">{formatRate(rate)}</span>
+                          </div>
+                        )}
+                        
+                        {etaSeconds && !stuck && (
+                          <div className="flex items-center gap-1 text-sm">
+                            <Timer className="h-3 w-3 text-blue-500" />
+                            <span className="text-muted-foreground">ETA:</span>
+                            <span className="font-medium">{formatTime(etaSeconds)}</span>
+                          </div>
+                        )}
+                        
+                        {job.chunks_processed !== null && (
+                          <div className="flex items-center gap-1 text-sm">
+                            <span className="text-muted-foreground">Chunks:</span>
+                            <span className="font-medium">{job.chunks_processed}</span>
+                          </div>
+                        )}
+                      </div>
+                      
+                      <p className="text-sm text-muted-foreground mt-1">
                         {job.processed_words.toLocaleString()} / {job.total_words.toLocaleString()} palavras
-                        {job.chunks_processed !== null && ` • ${job.chunks_processed} chunks`}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        Iniciado {formatDistanceToNow(new Date(job.tempo_inicio), { locale: ptBR, addSuffix: true })}
-                        {!stuck && job.status === 'processando' && ` • ETA: ${calculateETA(job)}`}
+                        <span className="ml-2 text-xs">
+                          ({((job.processed_words / job.total_words) * 100).toFixed(1)}%)
+                        </span>
                       </p>
                       
                       {stuck && minutesSince !== null && (
-                        <p className="text-xs text-destructive font-medium">
-                          ⚠️ Sem atividade há {minutesSince} minutos - clique em "Retomar" para continuar
-                        </p>
+                        <div className="flex items-center gap-2 mt-2">
+                          <p className="text-xs text-destructive font-medium">
+                            ⚠️ Sem atividade há {minutesSince} minutos
+                          </p>
+                          {autoResumeEnabled && attempts < maxAutoResumeAttempts && (
+                            <Badge variant="outline" className="text-xs">
+                              🔄 Retomada automática em breve...
+                            </Badge>
+                          )}
+                          {attempts >= maxAutoResumeAttempts && (
+                            <Badge variant="destructive" className="text-xs">
+                              ❌ Limite de tentativas atingido
+                            </Badge>
+                          )}
+                        </div>
                       )}
                     </div>
                     
                     <div className="flex gap-2">
-                      {/* Botão Retomar - para jobs pausados ou travados */}
                       {(job.status === 'pausado' || stuck) && (
                         <Button
                           size="sm"
@@ -231,7 +327,6 @@ export function AnnotationJobsTable({ jobs, onRefresh }: AnnotationJobsTableProp
                         </Button>
                       )}
                       
-                      {/* Botão Cancelar */}
                       {(job.status === 'processando' || job.status === 'pausado') && (
                         <Button
                           size="sm"

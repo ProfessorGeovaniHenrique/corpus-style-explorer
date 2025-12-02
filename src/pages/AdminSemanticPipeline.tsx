@@ -231,6 +231,13 @@ export default function AdminSemanticPipeline() {
             <Badge variant={systemStatus.variant}>{systemStatus.label}</Badge>
           </div>
           <div className="flex items-center justify-between">
+            <span className="text-sm">Auto-Refresh</span>
+            <Badge variant="outline" className="flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+              Ativo (30s)
+            </Badge>
+          </div>
+          <div className="flex items-center justify-between">
             <span className="text-sm">Última Atualização</span>
             <span className="text-sm text-muted-foreground">
               {new Date().toLocaleString('pt-BR')}
