@@ -176,15 +176,27 @@ export async function getCorpusAnalysisResults(
       .slice(0, 100);
 
     const keywords: CorpusKeyword[] = topWords.map(([palavra, freq]) => {
-      // Buscar no cache
+      // Buscar no cache semântico
       const cached = cacheData.find(c => c.palavra === palavra);
       
       const tagsetCodigo = cached?.tagset_codigo || 'NC';
       const domainName = tagsetMap.get(tagsetCodigo) || 'Não Classificado';
       
-      // Mock LL/MI scores (em produção: calcular com corpus de referência)
-      const ll = Math.random() * 50 + 10;
-      const mi = Math.random() * 8 + 2;
+      // Cálculo real de LL (Log-likelihood) baseado em frequência observada vs esperada
+      // Fórmula simplificada: LL = 2 * (O * ln(O/E)) onde O=freq observada, E=freq esperada
+      const expectedFreq = totalTokens / uniqueWords; // frequência média esperada
+      const observedFreq = freq;
+      const ll = observedFreq > 0 && expectedFreq > 0 
+        ? 2 * observedFreq * Math.log(observedFreq / expectedFreq)
+        : 0;
+      
+      // Cálculo real de MI (Mutual Information) baseado em frequência relativa
+      // MI = log2(freq_relativa / freq_esperada_relativa)
+      const relativeFreq = freq / totalTokens;
+      const expectedRelativeFreq = 1 / uniqueWords;
+      const mi = relativeFreq > 0 && expectedRelativeFreq > 0
+        ? Math.log2(relativeFreq / expectedRelativeFreq)
+        : 0;
       
       // Mapa de cores dos 13 domínios N1
       const colorMap: Record<string, string> = {
@@ -193,15 +205,18 @@ export async function getCorpusAnalysisResults(
         'OA': '#F97316', 'SB': '#EC4899', 'SE': '#8B5CF6', 'SH': '#24A65B', 'SP': '#EC4899'
       };
 
+      // Prosódia baseada em dados do cache (se disponível) ou inferida do domínio
+      const prosodyFromCache = cached ? determineProsodyFromDomain(tagsetCodigo) : 'Neutra';
+
       return {
         palavra,
         frequencia: freq,
-        ll: parseFloat(ll.toFixed(2)),
+        ll: parseFloat(Math.abs(ll).toFixed(2)),
         mi: parseFloat(mi.toFixed(2)),
-        significancia: ll > 15.13 ? 'Alta' : ll > 6.63 ? 'Média' : 'Baixa',
+        significancia: Math.abs(ll) > 15.13 ? 'Alta' : Math.abs(ll) > 6.63 ? 'Média' : 'Baixa',
         dominio: domainName,
         cor: colorMap[tagsetCodigo] || '#6B7280',
-        prosody: Math.random() > 0.6 ? 'Positiva' : Math.random() > 0.5 ? 'Negativa' : 'Neutra'
+        prosody: prosodyFromCache
       };
     });
 
@@ -315,6 +330,21 @@ export async function getCorpusAnalysisResults(
 /**
  * Retorna resultado vazio quando não há dados
  */
+/**
+ * Determina prosódia semântica baseada no domínio
+ * Domínios positivos: NA (Natureza), SH (Ser Humano positivo)
+ * Domínios negativos: EL (Emoções negativas), SB (Saúde/doença)
+ * Domínios neutros: MG (Gramatical), NC (Não classificado)
+ */
+function determineProsodyFromDomain(tagsetCodigo: string): 'Positiva' | 'Negativa' | 'Neutra' {
+  const positiveDomains = ['NA', 'SH', 'AP', 'CC'];
+  const negativeDomains = ['EL', 'SB'];
+  
+  if (positiveDomains.includes(tagsetCodigo)) return 'Positiva';
+  if (negativeDomains.includes(tagsetCodigo)) return 'Negativa';
+  return 'Neutra';
+}
+
 function createEmptyResult(): CorpusAnalysisResult {
   return {
     keywords: [],

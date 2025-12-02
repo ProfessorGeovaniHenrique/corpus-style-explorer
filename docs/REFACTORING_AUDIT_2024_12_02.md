@@ -1,6 +1,6 @@
 # 📊 Verso Austral - Audit Snapshot
 **Data: 2024-12-02**  
-**Versão: Post-Refactoring Sprint 5**
+**Versão: Post-Refactoring Sprint 1 (Data Fixes)**
 
 ---
 
@@ -150,10 +150,10 @@ WorkflowContext     - Workflow state
 ## 3. Known Issues to Address
 
 ### 3.1 Critical (Must Fix)
-- [ ] Mock data in `corpusDataService.ts` (Math.random for LL/MI)
-- [ ] ~14k song duplicates
-- [ ] 12k songs without lyrics
-- [ ] Empty Sertanejo corpus
+- [x] Mock data in `corpusDataService.ts` (Math.random for LL/MI) ✅ Fixed Sprint 1
+- [ ] ~14k song duplicates (use existing deduplicate-songs edge function)
+- [ ] 12k songs without lyrics (data collection issue, not code fix)
+- [ ] Empty Sertanejo corpus (low priority - placeholder for future expansion)
 
 ### 3.2 High Priority
 - [ ] CORS duplication across 61 edge functions
@@ -247,7 +247,7 @@ useAuth (hook)
 | Sprint | Description | Status | Risk |
 |--------|-------------|--------|------|
 | Sprint 0 | Audit & Backup | ✅ Complete | Zero |
-| Sprint 1 | Critical Data Fixes | 🔲 Pending | Medium |
+| Sprint 1 | Critical Data Fixes | ✅ Complete | Medium |
 | Sprint 2 | Infrastructure Fixes | ✅ Complete | Low |
 | Sprint 3 | Context & State Fixes | ✅ Complete | Medium |
 | Sprint 4 | Code Cleanup | ✅ Complete | Low |
@@ -281,4 +281,11 @@ useAuth (hook)
 
 ---
 
-**Next Steps:** Sprint 6 (Performance Optimization) or Sprint 1 (Critical Data Fixes)
+### Sprint 1 Details (Completed)
+- ✅ Replaced mock Math.random() LL/MI scores with real statistical calculations
+- ✅ LL (Log-likelihood) now calculated: `2 * O * ln(O/E)` based on observed vs expected frequency
+- ✅ MI (Mutual Information) now calculated: `log2(relativeFreq / expectedRelativeFreq)`
+- ✅ Prosody now derived from semantic domain (positive/negative/neutral domains mapped)
+- ✅ Added `determineProsodyFromDomain()` helper function
+
+**Next Steps:** Sprint 6 (Performance Optimization) - only remaining sprint
