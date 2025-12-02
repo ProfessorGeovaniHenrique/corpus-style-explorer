@@ -3058,6 +3058,20 @@ export type Database = {
           validados: number
         }[]
       }
+      get_unprocessed_dialectal_words: {
+        Args: { p_limit?: number; p_offset?: number }
+        Returns: {
+          classe_gramatical: string
+          verbete: string
+        }[]
+      }
+      get_unprocessed_gutenberg_words: {
+        Args: { p_limit?: number; p_offset?: number }
+        Returns: {
+          classe_gramatical: string
+          verbete: string
+        }[]
+      }
       get_users_with_roles: {
         Args: never
         Returns: {

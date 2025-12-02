@@ -6,6 +6,7 @@ import { getLexiconRule } from "../_shared/semantic-rules-lexicon.ts";
 import { inheritDomainFromSynonyms } from "../_shared/synonym-propagation.ts";
 import { detectGauchoMWEs } from "../_shared/gaucho-mwe.ts";
 import { enrichTokensWithPOS, calculatePOSCoverage } from "../_shared/pos-enrichment.ts";
+import { normalizeText } from "../_shared/text-normalizer.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -786,11 +787,15 @@ async function processChunk(
 /**
  * Tokenizador simples (sem MWEs)
  * Usado internamente por tokenizeLyricsWithMWEs
+ * FASE 3: Normaliza texto e divide por espaços E hífens
  */
 function simpleTokenize(text: string): string[] {
-  return text
+  // FASE 3: Normalizar texto antes de tokenizar
+  const normalized = normalizeText(text);
+  
+  return normalized
     .toLowerCase()
-    .split(/\s+/)
+    .split(/[\s\-]+/) // Dividir por espaços E hífens
     .map(w => w.replace(/[^\wáàâãéèêíïóôõöúçñ]/gi, ''))
     .filter(w => w.length > 1);
 }

@@ -7,6 +7,7 @@ import { useSemanticPipelineStats } from '@/hooks/useSemanticPipelineStats';
 import { SemanticDomainChart } from '@/components/admin/SemanticDomainChart';
 import { AnnotationJobsTable } from '@/components/admin/AnnotationJobsTable';
 import { NCWordsPanel } from '@/components/admin/NCWordsPanel';
+import { NCWordCorrectionTool } from '@/components/admin/NCWordCorrectionTool';
 import { BatchSeedingControl } from '@/components/admin/BatchSeedingControl';
 import { DuplicateMonitoringCard } from '@/components/admin/DuplicateMonitoringCard';
 import { PipelineTestInterface } from '@/components/admin/PipelineTestInterface';
@@ -215,6 +216,9 @@ export default function AdminSemanticPipeline() {
 
       {/* NC Words Panel */}
       <NCWordsPanel />
+
+      {/* NC Word Correction Tool */}
+      <NCWordCorrectionTool />
 
       {/* System Health Summary */}
       <Card>

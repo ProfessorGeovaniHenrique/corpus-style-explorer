@@ -5,6 +5,7 @@ import { classifySafeStopword, isContextDependent } from "../_shared/stopwords-c
 import { getLexiconRule } from "../_shared/semantic-rules-lexicon.ts";
 import { inheritDomainFromSynonyms } from "../_shared/synonym-propagation.ts";
 import { enrichTokensWithPOS, calculatePOSCoverage } from "../_shared/pos-enrichment.ts";
+import { normalizeText } from "../_shared/text-normalizer.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -422,9 +423,12 @@ serve(async (req) => {
 // ============= UTILITY FUNCTIONS =============
 
 function tokenizeLyrics(lyrics: string): string[] {
-  return lyrics
+  // FASE 3: Normalizar texto antes de tokenizar
+  const normalized = normalizeText(lyrics);
+  
+  return normalized
     .toLowerCase()
-    .split(/\s+/)
+    .split(/[\s\-]+/) // Dividir por espaços E hífens
     .map(w => w.replace(/[^\wáàâãéèêíïóôõöúçñ]/gi, ''))
     .filter(w => w.length > 1);
 }

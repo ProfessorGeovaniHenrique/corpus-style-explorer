@@ -388,81 +388,52 @@ async function getCandidateWords(
 
   console.log(`[getCandidateWords] Starting with source=${source}, limit=${limit}, offset=${offset}`);
 
-  // 1. Gutenberg (priorizar substantivos, verbos, adjetivos)
+  // 1. Gutenberg (priorizar substantivos, verbos, adjetivos) - USAR LEFT JOIN NO BANCO
   if (source === 'gutenberg' || source === 'all') {
-    // Buscar palavras que ainda não estão no semantic_lexicon
-    const { data: existingWords } = await supabase
-      .from('semantic_lexicon')
-      .select('palavra');
+    const { data: gutenbergWords, error } = await supabase.rpc('get_unprocessed_gutenberg_words', {
+      p_limit: Math.floor(limit * 0.6),
+      p_offset: offset
+    });
     
-    console.log(`[getCandidateWords] Existing words in lexicon: ${existingWords?.length || 0}`);
-    
-    const existingSet = new Set(existingWords?.map((w: { palavra: string }) => w.palavra) || []);
-    
-    const { data: allGutenbergWords } = await supabase
-      .from('gutenberg_lexicon')
-      .select('verbete, classe_gramatical')
-      .not('classe_gramatical', 'is', null)
-      .order('verbete')
-      .limit(1000);
-    
-    console.log(`[getCandidateWords] Gutenberg words fetched: ${allGutenbergWords?.length || 0}`);
-    
-    // Filtrar por classes gramaticais relevantes (substantivos, verbos, adjetivos, advérbios)
-    const gutenbergWords = allGutenbergWords
-      ?.filter((w: any) => {
-        const classe = w.classe_gramatical || '';
-        // m. = masculino, f. = feminino (substantivos)
-        // adj. = adjetivo
-        // v. = verbo
-        // adv. = advérbio
-        return (
-          classe.includes('m.') || classe.includes('f.') || 
-          classe.includes('adj') || classe.includes('v.') || 
-          classe.includes('adv')
-        ) && !existingSet.has(w.verbete.toLowerCase().trim());
-      })
-      .slice(offset, offset + Math.floor(limit * 0.6));
-    
-    console.log(`[getCandidateWords] Gutenberg filtered: ${gutenbergWords?.length || 0}`);
-    
-    if (gutenbergWords) {
-      candidates.push(...gutenbergWords.map((w: any) => ({
-        palavra: w.verbete.toLowerCase().trim(),
-        pos: mapPOSFromGutenberg(w.classe_gramatical),
-        origem: 'gutenberg'
-      })));
+    if (error) {
+      console.error('[getCandidateWords] Erro ao buscar palavras Gutenberg:', error);
+    } else {
+      console.log(`[getCandidateWords] Gutenberg candidates: ${gutenbergWords?.length || 0}`);
+      
+      if (gutenbergWords) {
+        candidates.push(...gutenbergWords.map((w: any) => ({
+          palavra: w.verbete.toLowerCase().trim(),
+          pos: mapPOSFromGutenberg(w.classe_gramatical),
+          origem: 'gutenberg'
+        })));
+      }
     }
   }
 
-  // 2. Dialectal (todas categorias temáticas)
+  // 2. Dialectal (todas categorias temáticas) - USAR LEFT JOIN NO BANCO
   if (source === 'dialectal' || source === 'all') {
-    const { data: existingWords } = await supabase
-      .from('semantic_lexicon')
-      .select('palavra');
+    const { data: dialectalWords, error } = await supabase.rpc('get_unprocessed_dialectal_words', {
+      p_limit: Math.floor(limit * 0.4),
+      p_offset: offset
+    });
     
-    const existingSet = new Set(existingWords?.map((w: { palavra: string }) => w.palavra) || []);
-    
-    const { data: allDialectalWords } = await supabase
-      .from('dialectal_lexicon')
-      .select('verbete, classe_gramatical')
-      .order('verbete')
-      .limit(1000);
-    
-    const dialectalWords = allDialectalWords
-      ?.filter((w: any) => !existingSet.has(w.verbete.toLowerCase().trim()))
-      .slice(offset, offset + Math.floor(limit * 0.4));
-    
-    if (dialectalWords) {
-      candidates.push(...dialectalWords.map((w: any) => ({
-        palavra: w.verbete.toLowerCase().trim(),
-        pos: mapPOSFromDialectal(w.classe_gramatical),
-        origem: 'dialectal'
-      })));
+    if (error) {
+      console.error('[getCandidateWords] Erro ao buscar palavras Dialectal:', error);
+    } else {
+      console.log(`[getCandidateWords] Dialectal candidates: ${dialectalWords?.length || 0}`);
+      
+      if (dialectalWords) {
+        candidates.push(...dialectalWords.map((w: any) => ({
+          palavra: w.verbete.toLowerCase().trim(),
+          pos: mapPOSFromDialectal(w.classe_gramatical),
+          origem: 'dialectal'
+        })));
+      }
     }
   }
 
-  return candidates.slice(0, limit);
+  console.log(`[getCandidateWords] Total candidates: ${candidates.length}`);
+  return candidates;
 }
 
 /**

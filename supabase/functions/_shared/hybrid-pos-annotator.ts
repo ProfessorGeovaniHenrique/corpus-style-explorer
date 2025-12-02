@@ -138,13 +138,13 @@ function tokenizeRespectingMWEs(texto: string, mwes: ReturnType<typeof detectGau
 }
 
 /**
- * Tokenização simples (espaços e pontuação)
+ * Tokenização simples (espaços, pontuação e hífens)
  */
 function simpleTokenize(text: string): string[] {
   return text
-    .split(/\s+/)
+    .split(/[\s\-]+/) // FASE 3: Dividir por espaços E hífens
     .map(t => t.trim())
-    .filter(t => t.length > 0 && !/^[.,!?;:()"\-]+$/.test(t)); // Remover pontuação isolada
+    .filter(t => t.length > 1 && !/^[.,!?;:()"\-]+$/.test(t)); // Remover pontuação isolada
 }
 
 /**
