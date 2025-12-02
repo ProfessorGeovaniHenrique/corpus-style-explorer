@@ -130,14 +130,19 @@ Create single source of truth for all navigation items, eliminating 600+ lines o
 - [x] usePerformanceMonitor.ts - Migrado para createLogger
 - [x] useBlauNunesClassification.ts - Migrado para createLogger
 - [x] useTagsetCuration.ts - Migrado para createLogger
+- [x] enrichmentService.ts - Migrado para createLogger (14 logs)
+- [x] kwicService.ts - Migrado para createLogger (4 logs)
+- [x] ngramsService.ts - Migrado para createLogger (4 logs)
+- [x] demoCorpusService.ts - Migrado para createLogger (4 logs)
+- [x] dispersionService.ts - Migrado para createLogger (3 logs)
+- [x] keywordService.ts - Migrado para createLogger (2 logs)
 - [ ] CorpusContext.tsx (~15 logs)
 - [ ] ToolsContext.tsx (~15 logs)
-- [ ] Demais hooks críticos (~15 arquivos)
-- [ ] Services (~10 arquivos)
+- [ ] Demais hooks críticos (~10 arquivos)
 - [ ] Componentes de página (~15 arquivos)
 
-**Hooks Migrados (7 de ~35):** 20%
-**Impacto:** ~50 console.log removidos, substituídos por logging estruturado
+**Arquivos Migrados (13 de ~35):** 37%
+**Impacto:** ~85 console.log removidos, substituídos por logging estruturado
 
 **Infraestrutura existente:**
 - `src/lib/logger.ts` - StructuredLogger com Sentry integration

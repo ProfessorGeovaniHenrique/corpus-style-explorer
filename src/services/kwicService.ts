@@ -1,4 +1,7 @@
 import { CorpusCompleto, KWICContext } from "@/data/types/full-text-corpus.types";
+import { createLogger } from '@/lib/loggerFactory';
+
+const log = createLogger('kwicService');
 
 /**
  * Generate KWIC (Keyword in Context) concordances
@@ -18,7 +21,7 @@ export function generateKWIC(
   const resultados: KWICContext[] = [];
   const palavraNormalizada = palavraChave.toLowerCase().trim();
   
-  console.log(`🔍 Buscando KWIC para "${palavraChave}" com contexto ${contextoEsquerdaSize}←/→${contextoDireita}`);
+  log.debug(`Buscando KWIC para "${palavraChave}"`, { contextoEsquerdaSize, contextoDireita });
   
   corpus.musicas.forEach((musica, musicaIdx) => {
     musica.palavras.forEach((palavra, idx) => {
@@ -41,12 +44,10 @@ export function generateKWIC(
       }
     });
     
-    if (musicaIdx < 3 && resultados.length > 0) {
-      console.log(`  ✓ Música ${musicaIdx + 1}: ${resultados.length} ocorrências até agora`);
-    }
+    // Progress logging removed - too verbose
   });
   
-  console.log(`✅ Total de ${resultados.length} ocorrências de "${palavraChave}"`);
+  log.info(`KWIC concluído para "${palavraChave}"`, { totalOcorrencias: resultados.length });
   
   return resultados;
 }

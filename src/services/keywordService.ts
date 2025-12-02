@@ -2,6 +2,9 @@ import { TrendingUp, TrendingDown } from "lucide-react";
 import { CorpusWord, KeywordEntry } from "@/data/types/corpus-tools.types";
 import { calculateLogLikelihood, calculateMutualInformation, interpretLL } from "@/lib/keywordCalculator";
 import { calculateTotalTokens } from "@/lib/corpusParser";
+import { createLogger } from '@/lib/loggerFactory';
+
+const log = createLogger('keywordService');
 
 /**
  * Generate keywords by comparing study corpus against reference corpus
@@ -26,8 +29,7 @@ export function generateKeywords(
       : 6.63  // p < 0.01 for large corpora
   );
   
-  console.log(`📊 Corpus Sizes - Study: ${totalEstudo} tokens | Reference: ${totalReferencia} tokens`);
-  console.log(`🎯 Effective LL Threshold: ${effectiveMinLL.toFixed(2)} (${effectiveMinLL === 3.84 ? 'p < 0.05' : 'p < 0.01'})`)
+  log.info('Gerando keywords', { totalEstudo, totalReferencia, effectiveMinLL });
   
   // Create lookup map for reference corpus
   const refMap = new Map(

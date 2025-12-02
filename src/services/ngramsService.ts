@@ -1,4 +1,7 @@
 import { CorpusCompleto, NGram, NGramAnalysis } from "@/data/types/full-text-corpus.types";
+import { createLogger } from '@/lib/loggerFactory';
+
+const log = createLogger('ngramsService');
 
 /**
  * Generate N-grams from corpus
@@ -19,7 +22,7 @@ export function generateNGrams(
     throw new Error('N deve estar entre 2 e 5');
   }
   
-  console.log(`🔢 Gerando ${n}-grams (min freq: ${minFrequencia})...`);
+  log.debug(`Gerando ${n}-grams`, { minFrequencia });
   
   const ngramsMap = new Map<string, NGram>();
   let totalNGrams = 0;
@@ -57,9 +60,7 @@ export function generateNGrams(
       }
     }
     
-    if (musicaIdx % 100 === 0 && musicaIdx > 0) {
-      console.log(`  ✓ Processadas ${musicaIdx} músicas...`);
-    }
+    // Progress logging removed - too verbose
   });
   
   // Filter by minimum frequency and sort by frequency
@@ -68,8 +69,7 @@ export function generateNGrams(
     .sort((a, b) => b.frequencia - a.frequencia)
     .slice(0, maxResults);
   
-  console.log(`✅ ${ngramsFiltered.length} ${n}-grams únicos (de ${ngramsMap.size} totais)`);
-  console.log(`📊 Total de ${totalNGrams} ${n}-grams processados`);
+  log.info(`N-grams gerados`, { n, unicos: ngramsFiltered.length, totais: ngramsMap.size, processados: totalNGrams });
   
   return {
     n,

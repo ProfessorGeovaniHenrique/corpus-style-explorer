@@ -5,13 +5,16 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import type { EnrichmentResult } from '@/types/music';
+import { createLogger } from '@/lib/loggerFactory';
+
+const log = createLogger('enrichmentService');
 
 export const enrichmentService = {
   /**
    * Enriquece uma música individual com modo específico
    */
   async enrichSong(songId: string, mode: 'full' | 'metadata-only' | 'youtube-only' = 'full', forceReenrich: boolean = false): Promise<EnrichmentResult> {
-    console.log(`[enrichmentService] Starting enrichment for song ${songId} with mode: ${mode}, forceReenrich: ${forceReenrich}`);
+    log.info(`Starting enrichment for song ${songId}`, { mode, forceReenrich });
     
     try {
       const { data, error } = await supabase.functions.invoke('enrich-music-data', {
@@ -19,12 +22,12 @@ export const enrichmentService = {
       });
       
       if (error) {
-        console.error(`[enrichmentService] Edge function error:`, error);
+        log.error(`Edge function error for song ${songId}`, error as Error);
         throw error;
       }
       
       if (!data || !data.success) {
-        console.error(`[enrichmentService] Enrichment failed:`, data);
+        log.warn(`Enrichment failed for song ${songId}`, { data });
         return {
           success: false,
           songId,
@@ -32,14 +35,14 @@ export const enrichmentService = {
         };
       }
       
-      console.log(`[enrichmentService] Success for song ${songId}:`, data);
+      log.info(`Success for song ${songId}`, { data });
       return {
         success: true,
         songId,
         data: data.data
       };
     } catch (error) {
-      console.error(`[enrichmentService] Error enriching song ${songId}:`, error);
+      log.error(`Error enriching song ${songId}`, error as Error);
       return { 
         success: false,
         songId,
@@ -57,7 +60,7 @@ export const enrichmentService = {
     mode: 'full' | 'metadata-only' | 'youtube-only' = 'metadata-only',
     forceReenrich: boolean = false
   ): Promise<EnrichmentResult[]> {
-    console.log(`[enrichmentService] Starting batch enrichment for ${songIds.length} songs with mode: ${mode}, forceReenrich: ${forceReenrich}`);
+    log.info(`Starting batch enrichment for ${songIds.length} songs`, { mode, forceReenrich });
     
     const results: EnrichmentResult[] = [];
     
@@ -76,7 +79,7 @@ export const enrichmentService = {
     }
     
     const successCount = results.filter(r => r.success).length;
-    console.log(`[enrichmentService] Batch complete: ${successCount}/${songIds.length} successful`);
+    log.info(`Batch complete: ${successCount}/${songIds.length} successful`);
     
     return results;
   },
@@ -85,7 +88,7 @@ export const enrichmentService = {
    * Enriquece automaticamente músicas pendentes após importação
    */
   async autoEnrichNewSongs(corpusId?: string | null, limit: number = 10): Promise<void> {
-    console.log(`[enrichmentService] Auto-enriching up to ${limit} pending songs`);
+    log.info(`Auto-enriching up to ${limit} pending songs`);
     
     try {
       let query = supabase
@@ -104,22 +107,22 @@ export const enrichmentService = {
       if (error) throw error;
       
       if (!data || data.length === 0) {
-        console.log('[enrichmentService] No pending songs to enrich');
+        log.info('No pending songs to enrich');
         return;
       }
       
-      console.log(`[enrichmentService] Found ${data.length} pending songs, starting enrichment`);
+      log.info(`Found ${data.length} pending songs, starting enrichment`);
       
       await this.enrichBatch(
         data.map(s => s.id),
         (current, total) => {
-          console.log(`[enrichmentService] Auto-enrichment progress: ${current}/${total}`);
+          log.debug(`Auto-enrichment progress: ${current}/${total}`);
         }
       );
       
-      console.log('[enrichmentService] Auto-enrichment complete');
+      log.info('Auto-enrichment complete');
     } catch (error) {
-      console.error('[enrichmentService] Error in auto-enrichment:', error);
+      log.error('Error in auto-enrichment', error as Error);
       throw error;
     }
   }

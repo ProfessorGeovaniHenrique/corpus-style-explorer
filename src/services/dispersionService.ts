@@ -1,4 +1,7 @@
 import { CorpusCompleto, DispersionPoint, DispersionAnalysis } from "@/data/types/full-text-corpus.types";
+import { createLogger } from '@/lib/loggerFactory';
+
+const log = createLogger('dispersionService');
 
 /**
  * Calculate dispersion coefficient using Juilland's D
@@ -41,7 +44,7 @@ export function generateDispersion(
   const frequenciesPorMusica: number[] = [];
   let musicasComPalavra = 0;
   
-  console.log(`📊 Analisando dispersão de "${palavra}"`);
+  log.debug(`Analisando dispersão de "${palavra}"`);
   
   corpus.musicas.forEach((musica, musicaIdx) => {
     let freqNaMusica = 0;
@@ -77,8 +80,7 @@ export function generateDispersion(
   else if (coeficienteDispersao > 0.4) densidade = 'Média';
   else densidade = 'Baixa';
   
-  console.log(`  ✓ ${pontos.length} ocorrências em ${musicasComPalavra} músicas`);
-  console.log(`  ✓ Coeficiente de dispersão: ${coeficienteDispersao.toFixed(3)} (${densidade})`);
+  log.info(`Dispersão calculada para "${palavra}"`, { ocorrencias: pontos.length, musicasComPalavra, coeficiente: coeficienteDispersao.toFixed(3), densidade });
   
   return {
     palavra,

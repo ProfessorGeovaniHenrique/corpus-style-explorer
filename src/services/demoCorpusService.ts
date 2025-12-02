@@ -6,6 +6,9 @@
  */
 
 import { supabase } from '@/integrations/supabase/client';
+import { createLogger } from '@/lib/loggerFactory';
+
+const log = createLogger('demoCorpusService');
 
 export interface DemoKeyword {
   palavra: string;
@@ -71,12 +74,12 @@ export async function getDemoAnalysisResults(): Promise<DemoAnalysisResult> {
   }
 
   try {
-    console.log('📊 Buscando análise do corpus demo...');
+    log.debug('Buscando análise do corpus demo...');
 
     const { data, error } = await supabase.functions.invoke('process-demo-corpus');
 
     if (error) {
-      console.error('Erro ao buscar análise demo:', error);
+      log.error('Erro ao buscar análise demo', error as Error);
       throw error;
     }
 
@@ -87,11 +90,11 @@ export async function getDemoAnalysisResults(): Promise<DemoAnalysisResult> {
     // Armazenar em cache
     cachedData = data as DemoAnalysisResult;
 
-    console.log(`✅ Análise carregada: ${cachedData.keywords.length} palavras-chave, ${cachedData.dominios.length} domínios`);
+    log.info('Análise demo carregada', { keywords: cachedData.keywords.length, dominios: cachedData.dominios.length });
 
     return cachedData;
   } catch (error) {
-    console.error('Erro ao processar corpus demo:', error);
+    log.error('Erro ao processar corpus demo', error as Error);
     throw error;
   }
 }
