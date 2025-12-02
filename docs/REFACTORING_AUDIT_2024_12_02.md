@@ -249,7 +249,7 @@ useAuth (hook)
 | Sprint 0 | Audit & Backup | ✅ Complete | Zero |
 | Sprint 1 | Critical Data Fixes | 🔲 Pending | Medium |
 | Sprint 2 | Infrastructure Fixes | ✅ Complete | Low |
-| Sprint 3 | Context & State Fixes | 🔲 Pending | Medium |
+| Sprint 3 | Context & State Fixes | ✅ Complete | Medium |
 | Sprint 4 | Code Cleanup | ✅ Complete | Low |
 | Sprint 5 | Security Fixes | ✅ Complete | Low |
 | Sprint 6 | Performance Optimization | 🔲 Pending | Low |
@@ -261,11 +261,11 @@ useAuth (hook)
 - ✅ Removed ~400 lines of duplicated CORS code
 - ✅ Updated `_shared/README.md` with CORS documentation
 
-### Sprint 5 Details (Completed)
-- ✅ Revoked direct API access to `artist_stats_mv` materialized view
-- ✅ Created secure RPC function `get_artist_statistics(p_corpus_id)` with SECURITY DEFINER
-- ✅ Enabled leaked password protection via auth configuration
-- ⚠️ Extensions in public schema: Low risk, requires manual Supabase dashboard migration
+### Sprint 3 Details (Completed)
+- ✅ Fixed memory leak in `useBatchSeedingExecution` (useRef + cleanup)
+- ✅ Added `SubcorpusProvider` and `CorpusProvider` to `DashboardAnalise.tsx`
+- ✅ Removed ~20 debug console.log statements from `ArtistDetailsSheet.tsx`
+- ✅ All hooks now have proper interval cleanup on unmount
 
 ### Sprint 4 Details (Completed)
 - ✅ Removed deprecated service file
@@ -273,6 +273,12 @@ useAuth (hook)
 - ✅ Cleaned config.toml (removed 16 orphan entries)
 - ✅ Removed console.log from 13 hooks
 
+### Sprint 5 Details (Completed)
+- ✅ Revoked direct API access to `artist_stats_mv` materialized view
+- ✅ Created secure RPC function `get_artist_statistics(p_corpus_id)` with SECURITY DEFINER
+- ✅ Enabled leaked password protection via auth configuration
+- ⚠️ Extensions in public schema: Low risk, requires manual Supabase dashboard migration
+
 ---
 
-**Next Steps:** Proceed with Sprint 3 (Context & State Fixes) or Sprint 5 (Security Fixes)
+**Next Steps:** Sprint 6 (Performance Optimization) or Sprint 1 (Critical Data Fixes)
