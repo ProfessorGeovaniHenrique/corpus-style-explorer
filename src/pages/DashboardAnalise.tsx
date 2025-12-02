@@ -11,6 +11,8 @@ import { TabEstatisticas } from "@/components/analise/TabEstatisticas";
 import { TabVisualizacoes } from "@/components/analise/TabVisualizacoes";
 import { Link, useSearchParams } from "react-router-dom";
 import { DashboardAnaliseProvider } from "@/contexts/DashboardAnaliseContext";
+import { SubcorpusProvider } from "@/contexts/SubcorpusContext";
+import { CorpusProvider } from "@/contexts/CorpusContext";
 
 export default function DashboardAnalise() {
   const [searchParams] = useSearchParams();
@@ -43,9 +45,11 @@ export default function DashboardAnalise() {
   };
 
   return (
-    <DashboardAnaliseProvider>
-      <div className="min-h-screen flex flex-col bg-background">
-        <MVPHeader />
+    <CorpusProvider>
+      <SubcorpusProvider>
+        <DashboardAnaliseProvider>
+          <div className="min-h-screen flex flex-col bg-background">
+            <MVPHeader />
         
         <main className="container-academic py-4 md:py-8 mt-[180px]">
           {/* Botão de Retorno */}
@@ -114,10 +118,12 @@ export default function DashboardAnalise() {
             <TabVisualizacoes />
           </TabsContent>
         </Tabs>
-      </main>
-      
-      <MVPFooter />
-    </div>
-    </DashboardAnaliseProvider>
+        </main>
+        
+        <MVPFooter />
+      </div>
+        </DashboardAnaliseProvider>
+      </SubcorpusProvider>
+    </CorpusProvider>
   );
 }

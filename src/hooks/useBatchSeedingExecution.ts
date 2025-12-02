@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -12,6 +12,22 @@ export function useBatchSeedingExecution() {
   const [isExecuting, setIsExecuting] = useState(false);
   const [logs, setLogs] = useState<BatchSeedingLog[]>([]);
   const [progress, setProgress] = useState(0);
+  
+  // Refs para controle de intervalos - evita memory leaks
+  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Cleanup ao desmontar componente
+  useEffect(() => {
+    return () => {
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+      }
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
 
   const addLog = (message: string, type: BatchSeedingLog['type'] = 'info') => {
     setLogs(prev => [...prev, {
@@ -19,6 +35,17 @@ export function useBatchSeedingExecution() {
       message,
       type
     }]);
+  };
+
+  const stopPolling = () => {
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current);
+      pollIntervalRef.current = null;
+    }
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
   };
 
   const executeBatchSeeding = async () => {
@@ -29,7 +56,6 @@ export function useBatchSeedingExecution() {
     addLog('🚀 Iniciando batch seeding do léxico semântico...', 'info');
 
     try {
-      // Invoke edge function com parâmetros corretos
       const { data, error } = await supabase.functions.invoke('batch-seed-semantic-lexicon', {
         body: {
           mode: 'seed',
@@ -45,26 +71,31 @@ export function useBatchSeedingExecution() {
         throw error;
       }
 
-      // Parse resposta correta da edge function
       if (data.mode === 'processing') {
         addLog(`✅ Chunk processado: ${data.chunk_processed} palavras`, 'success');
-        addLog(`📊 Morfológico: ${data.results.morfologico}, Herança: ${data.results.heranca}, Gemini: ${data.results.gemini}`, 'info');
-        if (data.results.failed > 0) {
-          addLog(`⚠️ Falhas: ${data.results.failed}`, 'warning');
-        }
+        addLog(`📊 Status: Gemini: ${data.stats?.gemini || 0}, Regras: ${data.stats?.morfologico || 0}, Herança: ${data.stats?.heranca || 0}`, 'info');
         
-        // Iniciar polling de progresso
-        pollJobProgress();
-      } else if (data.mode === 'complete') {
-        addLog('✅ Batch seeding concluído!', 'success');
+        if (data.has_more) {
+          addLog(`⏳ Continuação agendada: offset ${data.next_offset}`, 'info');
+          pollJobProgress();
+        } else {
+          addLog('✅ Batch seeding concluído!', 'success');
+          toast.success('Batch seeding concluído');
+          setIsExecuting(false);
+        }
+      } else if (data.mode === 'completed') {
+        addLog('✅ Batch seeding já estava completo', 'success');
         setProgress(100);
-        toast.success('Batch seeding concluído com sucesso');
         setIsExecuting(false);
+      } else {
+        addLog(`📋 Modo: ${data.mode}`, 'info');
+        if (data.candidates) {
+          addLog(`📈 Candidatos encontrados: ${data.candidates}`, 'info');
+        }
       }
 
     } catch (error) {
       console.error('Batch seeding error:', error);
-      addLog(`❌ Erro fatal: ${error}`, 'error');
       setIsExecuting(false);
     }
   };
@@ -72,7 +103,10 @@ export function useBatchSeedingExecution() {
   const pollJobProgress = async () => {
     let previousCount = 0;
     
-    const pollInterval = setInterval(async () => {
+    // Limpar intervalos anteriores
+    stopPolling();
+    
+    pollIntervalRef.current = setInterval(async () => {
       try {
         const { count: lexiconCount, error } = await supabase
           .from('semantic_lexicon')
@@ -86,35 +120,31 @@ export function useBatchSeedingExecution() {
         
         setProgress(newProgress);
         
-        // Só loga se houve mudança
         if (currentCount !== previousCount) {
           const delta = currentCount - previousCount;
           addLog(`📈 Progresso: ${currentCount}/${estimatedTotal} palavras (+${delta})`, 'info');
           previousCount = currentCount;
         }
 
-        // Considera completo quando atingir 95% ou mais (2000 palavras)
         if (newProgress >= 95) {
-          clearInterval(pollInterval);
+          stopPolling();
           addLog('✅ Batch seeding concluído com sucesso!', 'success');
           toast.success(`Batch seeding concluído: ${currentCount} palavras processadas`);
           setIsExecuting(false);
         }
       } catch (error) {
         console.error('Polling error:', error);
-        clearInterval(pollInterval);
+        stopPolling();
         addLog('❌ Erro ao monitorar progresso', 'error');
         setIsExecuting(false);
       }
-    }, 5000); // Poll every 5s
+    }, 5000);
 
     // Auto-stop after 30 minutes
-    setTimeout(() => {
-      clearInterval(pollInterval);
-      if (isExecuting) {
-        addLog('⏱️ Timeout: processo excedeu 30 minutos', 'warning');
-        setIsExecuting(false);
-      }
+    timeoutRef.current = setTimeout(() => {
+      stopPolling();
+      addLog('⏱️ Timeout: processo excedeu 30 minutos', 'warning');
+      setIsExecuting(false);
     }, 30 * 60 * 1000);
   };
 
