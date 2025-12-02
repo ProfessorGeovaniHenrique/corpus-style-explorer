@@ -42,7 +42,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Plus, Copy, Check, Calendar, Users, Key, CheckCircle, Database as DatabaseIcon, FileText, BarChart3, Settings, UserCog } from "lucide-react";
+import { Plus, Copy, Check, Calendar, Users, Key, CheckCircle, Database as DatabaseIcon, FileText, BarChart3, Settings, UserCog, Trash2 } from "lucide-react";
 import type { Database } from "@/integrations/supabase/types";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -177,6 +177,25 @@ export default function AdminDashboard() {
       setTimeout(() => setCopiedId(null), 2000);
     } catch (error) {
       toast.error("Erro ao copiar código");
+    }
+  };
+
+  const deleteInvite = async (inviteId: string, keyCode: string) => {
+    if (!confirm(`Tem certeza que deseja excluir o convite ${keyCode}?`)) return;
+    
+    try {
+      const { error } = await supabase
+        .from("invite_keys")
+        .delete()
+        .eq("id", inviteId);
+
+      if (error) throw error;
+
+      toast.success("Convite excluído com sucesso!");
+      fetchInvites();
+    } catch (error: any) {
+      toast.error(error.message || "Erro ao excluir convite");
+      log.error('Erro ao excluir convite', error, { inviteId });
     }
   };
 
@@ -601,20 +620,32 @@ export default function AdminDashboard() {
                                 {invite.notes || "-"}
                               </TableCell>
                               <TableCell className="text-right">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() =>
-                                    copyToClipboard(invite.key_code, invite.id)
-                                  }
-                                  disabled={isUsed || isExpired}
-                                >
-                                  {copiedId === invite.id ? (
-                                    <Check className="h-4 w-4 text-green-500" />
-                                  ) : (
-                                    <Copy className="h-4 w-4" />
-                                  )}
-                                </Button>
+                                <div className="flex items-center justify-end gap-1">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() =>
+                                      copyToClipboard(invite.key_code, invite.id)
+                                    }
+                                    disabled={isUsed || isExpired}
+                                    title="Copiar código"
+                                  >
+                                    {copiedId === invite.id ? (
+                                      <Check className="h-4 w-4 text-green-500" />
+                                    ) : (
+                                      <Copy className="h-4 w-4" />
+                                    )}
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => deleteInvite(invite.id, invite.key_code)}
+                                    className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                                    title="Excluir convite"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </div>
                               </TableCell>
                             </TableRow>
                           );
