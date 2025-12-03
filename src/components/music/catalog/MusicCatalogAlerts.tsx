@@ -1,11 +1,12 @@
 /**
- * Alerts do MusicCatalog
- * Sprint F2.1 - Refatoração
+ * Alerts do MusicCatalog com integração ao sistema de jobs persistentes
  */
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { AlertCircle, Filter, RefreshCw, Sparkles, Youtube } from 'lucide-react';
+import { AlertCircle, Filter, RefreshCw, Sparkles, Youtube, Loader2 } from 'lucide-react';
+import { useEnrichmentJob } from '@/hooks/useEnrichmentJob';
+import { EnrichmentJobCard } from '@/components/music/EnrichmentJobCard';
 
 interface MusicCatalogAlertsProps {
   // Active filters alert
@@ -37,6 +38,18 @@ export function MusicCatalogAlerts({
 }: MusicCatalogAlertsProps) {
   const hasActiveFilters = statusFilter !== 'all' || selectedCorpusFilter !== 'all' || showSuspiciousOnly;
   
+  // Hooks para jobs de enriquecimento persistentes
+  const metadataJob = useEnrichmentJob({ jobType: 'metadata' });
+  const youtubeJob = useEnrichmentJob({ jobType: 'youtube' });
+
+  const handleStartMetadataJob = async () => {
+    await metadataJob.startJob({ scope: 'all', jobType: 'metadata' });
+  };
+
+  const handleStartYouTubeJob = async () => {
+    await youtubeJob.startJob({ scope: 'all', jobType: 'youtube' });
+  };
+
   return (
     <div className="space-y-4">
       {/* Active Filters Alert */}
@@ -63,8 +76,24 @@ export function MusicCatalogAlerts({
         </Alert>
       )}
 
-      {/* Pending Enrichment Alert */}
-      {pendingSongs > 0 && (
+      {/* Job de Metadados Ativo */}
+      {metadataJob.activeJob && (
+        <EnrichmentJobCard
+          jobType="metadata"
+          compact={true}
+        />
+      )}
+
+      {/* Job de YouTube Ativo */}
+      {youtubeJob.activeJob && (
+        <EnrichmentJobCard
+          jobType="youtube"
+          compact={true}
+        />
+      )}
+
+      {/* Pending Enrichment Alert - só mostra se não há job ativo */}
+      {pendingSongs > 0 && !metadataJob.activeJob && (
         <Alert className="border-primary/50 bg-primary/5">
           <AlertCircle className="h-4 w-4 text-primary" />
           <AlertTitle>Músicas Aguardando Enriquecimento</AlertTitle>
@@ -73,17 +102,26 @@ export function MusicCatalogAlerts({
               <span>
                 {pendingSongs} música{pendingSongs > 1 ? 's' : ''} precisa{pendingSongs > 1 ? 'm' : ''} ser enriquecida{pendingSongs > 1 ? 's' : ''}.
               </span>
-              <Button size="sm" onClick={onBatchEnrich} className="w-full sm:w-auto">
-                <Sparkles className="h-4 w-4 mr-2" />
-                Enriquecer Metadados ({pendingSongs})
+              <Button 
+                size="sm" 
+                onClick={handleStartMetadataJob} 
+                disabled={metadataJob.isLoading}
+                className="w-full sm:w-auto"
+              >
+                {metadataJob.isLoading ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Sparkles className="h-4 w-4 mr-2" />
+                )}
+                Iniciar Job de Metadados ({pendingSongs})
               </Button>
             </div>
           </AlertDescription>
         </Alert>
       )}
 
-      {/* YouTube Enrichment Alert */}
-      {songsWithoutYouTube > 0 && (
+      {/* YouTube Enrichment Alert - só mostra se não há job ativo */}
+      {songsWithoutYouTube > 0 && !youtubeJob.activeJob && (
         <Alert className="border-red-500/50 bg-red-50/50 dark:bg-red-950/20">
           <Youtube className="h-4 w-4 text-red-500" />
           <AlertTitle>Músicas sem Link do YouTube</AlertTitle>
@@ -95,12 +133,17 @@ export function MusicCatalogAlerts({
               </span>
               <Button 
                 size="sm" 
-                onClick={onBatchEnrichYouTube}
+                onClick={handleStartYouTubeJob}
+                disabled={youtubeJob.isLoading}
                 variant="outline"
                 className="w-full sm:w-auto border-red-500 text-red-600 hover:bg-red-50 dark:hover:bg-red-950"
               >
-                <Youtube className="h-4 w-4 mr-2" />
-                Enriquecer YouTube ({songsWithoutYouTube})
+                {youtubeJob.isLoading ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Youtube className="h-4 w-4 mr-2" />
+                )}
+                Iniciar Job YouTube ({songsWithoutYouTube})
               </Button>
             </div>
           </AlertDescription>
