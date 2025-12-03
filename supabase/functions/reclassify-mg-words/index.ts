@@ -169,15 +169,23 @@ Retorne um array JSON com a classificação de cada palavra.`;
 }
 
 function extractJsonFromText(text: string): any {
+  // Helper to fix unescaped quotes inside string values
+  const fixUnescapedQuotes = (str: string): string => {
+    // Match string values and escape internal quotes
+    return str.replace(/"([^"]*?)"/g, (match, content) => {
+      // Check if content has patterns like "word" which should be \"word\"
+      const fixed = content.replace(/(?<!\\)"/g, '\\"');
+      return `"${fixed}"`;
+    });
+  };
+
   // Helper to clean and fix common JSON issues
   const cleanJson = (str: string): string => {
     return str
       .replace(/,\s*]/g, ']')           // Remove trailing commas in arrays
       .replace(/,\s*}/g, '}')           // Remove trailing commas in objects
-      .replace(/\n/g, ' ')              // Remove newlines
-      .replace(/\t/g, ' ')              // Remove tabs
-      .replace(/[\x00-\x1F\x7F]/g, '')  // Remove control characters
-      .replace(/\\n/g, ' ')             // Replace escaped newlines
+      .replace(/[\x00-\x1F\x7F]/g, ' ') // Remove control characters but keep as space
+      .replace(/\s+/g, ' ')             // Collapse whitespace
       .trim();
   };
 
@@ -193,13 +201,19 @@ function extractJsonFromText(text: string): any {
     
     // If truncated, try to close it
     if (openBrackets > closeBrackets || openBraces > closeBraces) {
-      // Find last complete object
+      // Find last complete object (ends with })
       const lastCompleteObject = cleaned.lastIndexOf('}');
       if (lastCompleteObject > 0) {
         cleaned = cleaned.substring(0, lastCompleteObject + 1);
-        // Add missing brackets
-        for (let i = 0; i < openBraces - closeBraces; i++) cleaned += '}';
-        for (let i = 0; i < openBrackets - closeBrackets; i++) cleaned += ']';
+        // Recount after truncation
+        const newOpenBraces = (cleaned.match(/\{/g) || []).length;
+        const newCloseBraces = (cleaned.match(/\}/g) || []).length;
+        const newOpenBrackets = (cleaned.match(/\[/g) || []).length;
+        const newCloseBrackets = (cleaned.match(/\]/g) || []).length;
+        
+        // Add missing closing brackets
+        for (let i = 0; i < newOpenBraces - newCloseBraces; i++) cleaned += '}';
+        for (let i = 0; i < newOpenBrackets - newCloseBrackets; i++) cleaned += ']';
       }
     }
     
@@ -213,17 +227,26 @@ function extractJsonFromText(text: string): any {
     // Try extracting from markdown code block
     const jsonMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
     if (jsonMatch) {
+      const extracted = jsonMatch[1].trim();
+      
+      // Try clean parse
       try {
-        return JSON.parse(cleanJson(jsonMatch[1]));
-      } catch {
-        try {
-          return JSON.parse(fixTruncatedArray(jsonMatch[1]));
-        } catch {}
-      }
+        return JSON.parse(cleanJson(extracted));
+      } catch {}
+      
+      // Try with truncation fix
+      try {
+        return JSON.parse(fixTruncatedArray(extracted));
+      } catch {}
+      
+      // Try fixing unescaped quotes
+      try {
+        return JSON.parse(cleanJson(fixUnescapedQuotes(extracted)));
+      } catch {}
     }
     
-    // Try extracting array pattern
-    const arrayMatch = text.match(/\[[\s\S]*\]/);
+    // Try extracting array pattern (greedy)
+    const arrayMatch = text.match(/\[\s*\{[\s\S]*\}\s*\]/);
     if (arrayMatch) {
       try {
         return JSON.parse(cleanJson(arrayMatch[0]));
@@ -233,15 +256,44 @@ function extractJsonFromText(text: string): any {
         } catch {}
       }
     }
+
+    // Try extracting array (any content)
+    const arrayMatch2 = text.match(/\[[\s\S]*?\]/);
+    if (arrayMatch2) {
+      try {
+        return JSON.parse(cleanJson(arrayMatch2[0]));
+      } catch {}
+    }
     
-    // Last resort: try to find and parse individual objects
-    const objectMatches = text.match(/\{[^{}]*"palavra"[^{}]*\}/g);
+    // Last resort: try to find and parse individual objects with palavra field
+    const objectPattern = /\{\s*"palavra"\s*:\s*"[^"]+"\s*,[\s\S]*?"justificativa"\s*:\s*"[^"]*"\s*\}/g;
+    const objectMatches = text.match(objectPattern);
     if (objectMatches && objectMatches.length > 0) {
       try {
-        const parsed = objectMatches.map(obj => JSON.parse(cleanJson(obj)));
+        const parsed = objectMatches.map(obj => {
+          const cleaned = cleanJson(obj);
+          return JSON.parse(cleaned);
+        });
         console.log(`[refine-domain] Recovered ${parsed.length} objects from malformed JSON`);
         return parsed;
       } catch {}
+    }
+    
+    // Super last resort: try partial objects
+    const simpleObjects = text.match(/\{[^{}]*"palavra"[^{}]*\}/g);
+    if (simpleObjects && simpleObjects.length > 0) {
+      const recovered: any[] = [];
+      for (const obj of simpleObjects) {
+        try {
+          recovered.push(JSON.parse(cleanJson(obj)));
+        } catch {
+          // Skip malformed objects
+        }
+      }
+      if (recovered.length > 0) {
+        console.log(`[refine-domain] Partially recovered ${recovered.length} objects`);
+        return recovered;
+      }
     }
     
     console.error('[refine-domain] Failed to parse JSON. Raw text:', text.substring(0, 500));
