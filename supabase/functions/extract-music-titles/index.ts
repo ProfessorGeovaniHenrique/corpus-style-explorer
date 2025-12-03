@@ -187,22 +187,27 @@ serve(async (req) => {
       const skippedInBatch = batchSongs.length - newSongs.length;
       duplicatesSkipped += skippedInBatch;
 
-      // Inserir novas músicas em lote
+      // Inserir novas músicas em lote (com upsert para evitar race conditions)
       if (newSongs.length > 0) {
         const { data: inserted, error: insertError } = await supabase
           .from('songs')
-          .insert(newSongs)
+          .upsert(newSongs, {
+            onConflict: 'normalized_title,artist_id',
+            ignoreDuplicates: true
+          })
           .select('id');
 
         log.logDatabaseQuery('songs', 'insert', newSongs.length);
 
         if (insertError) {
-          log.error('Batch insert failed', insertError, { batchNumber });
-          throw insertError;
+          log.error('Batch upsert failed', new Error(insertError.message), { batchNumber, code: insertError.code });
+          throw new Error(`Batch ${batchNumber} falhou: ${insertError.message}`);
         }
 
-        songsCreated += inserted.length;
-        songIds.push(...inserted.map(s => s.id));
+        songsCreated += inserted?.length || 0;
+        if (inserted) {
+          songIds.push(...inserted.map(s => s.id));
+        }
       }
 
       log.info('Batch completed', { batchNumber, newSongs: newSongs.length, duplicates: skippedInBatch });
