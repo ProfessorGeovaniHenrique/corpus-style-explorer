@@ -10,7 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, CheckCircle2, Clock, Search, Filter, RefreshCw, TreePine, Edit, Sparkles, XCircle, GitMerge } from 'lucide-react';
+import { Loader2, CheckCircle2, Clock, Search, Filter, RefreshCw, TreePine, Edit, Sparkles, XCircle, GitMerge, Layers } from 'lucide-react';
+import { RefreshButton } from '@/components/devops/RefreshButton';
 import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { supabase } from '@/integrations/supabase/client';
@@ -388,6 +389,17 @@ export default function AdminSemanticTagsetValidation() {
   // ✅ FASE 3: Contador de tagsets sem nível definido
   const withoutLevelCount = tagsets.filter(t => !t.nivel_profundidade).length;
 
+  // Estatísticas por nível hierárquico
+  const n1Count = tagsets.filter(t => t.nivel_profundidade === 1).length;
+  const n2Count = tagsets.filter(t => t.nivel_profundidade === 2).length;
+  const n3Count = tagsets.filter(t => t.nivel_profundidade === 3).length;
+  const n4Count = tagsets.filter(t => t.nivel_profundidade === 4).length;
+
+  const handleRefresh = () => {
+    fetchTagsets();
+    queryClient.invalidateQueries({ queryKey: ['tagsets'] });
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <MVPHeader />
@@ -395,8 +407,41 @@ export default function AdminSemanticTagsetValidation() {
       <div className="container mx-auto py-8 px-4 max-w-7xl">
         <AdminBreadcrumb currentPage="Validação de Domínios Semânticos" />
         
-        {/* Header com Estatísticas */}
-        <div className="mt-6 grid grid-cols-1 md:grid-cols-4 gap-4">
+        {/* Header com título e botão de atualização */}
+        <div className="mt-6 flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold">Validação de Domínios Semânticos</h1>
+            <p className="text-muted-foreground text-sm mt-1">
+              Gerencie e valide a taxonomia semântica do projeto
+            </p>
+          </div>
+          <RefreshButton onRefresh={handleRefresh} isLoading={isLoading} />
+        </div>
+        
+        {/* Estatísticas por Nível Hierárquico */}
+        <div className="mt-4 flex flex-wrap gap-2">
+          <Badge variant="outline" className="text-xs px-3 py-1">
+            <Layers className="h-3 w-3 mr-1" />
+            N1: {n1Count}
+          </Badge>
+          <Badge variant="outline" className="text-xs px-3 py-1">
+            N2: {n2Count}
+          </Badge>
+          <Badge variant="outline" className="text-xs px-3 py-1">
+            N3: {n3Count}
+          </Badge>
+          <Badge variant="outline" className="text-xs px-3 py-1">
+            N4: {n4Count}
+          </Badge>
+          {withoutLevelCount > 0 && (
+            <Badge variant="destructive" className="text-xs px-3 py-1">
+              Sem nível: {withoutLevelCount}
+            </Badge>
+          )}
+        </div>
+        
+        {/* Cards com Estatísticas */}
+        <div className="mt-4 grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
