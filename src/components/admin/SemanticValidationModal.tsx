@@ -111,6 +111,7 @@ export function SemanticValidationModal({ entry, open, onOpenChange, onSuccess }
     submitValidation({
       palavra: entry.palavra,
       tagset_codigo_novo: tagsetToSave.codigo,
+      tagset_codigo_original: entry.tagset_codigo, // Passa o tagset atual para filtrar corretamente
       tagset_nome: tagsetToSave.nome,
       justificativa: confirmAsCorrect 
         ? 'Confirmado como correto via validação humana'
