@@ -225,6 +225,7 @@ Deno.serve(async (req) => {
 
     let job: EnrichmentJob;
     let startIndex = payload.continueFrom || 0;
+    let isNewJob = false;
 
     // Criar novo job ou continuar existente
     if (payload.jobId) {
@@ -269,8 +270,19 @@ Deno.serve(async (req) => {
         );
       }
 
+      // Adquirir lock APENAS para jobs existentes (continuação)
+      const lockAcquired = await acquireLock(supabase, job.id);
+      if (!lockAcquired) {
+        console.log(`[enrich-batch] Lock não adquirido para job ${job.id} (outro chunk em execução)`);
+        return new Response(
+          JSON.stringify({ success: false, error: 'Lock não adquirido (outro chunk em execução)' }),
+          { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
     } else {
       // Criar novo job
+      isNewJob = true;
       const jobType = payload.jobType || 'metadata';
       const scope = payload.scope || 'all';
 
@@ -299,7 +311,7 @@ Deno.serve(async (req) => {
         );
       }
 
-      // Criar job
+      // Criar job com last_chunk_at já definido (evita race condition)
       const { data: newJob, error: createError } = await supabase
         .from('enrichment_jobs')
         .insert({
@@ -313,6 +325,7 @@ Deno.serve(async (req) => {
           force_reenrich: payload.forceReenrich || false,
           status: 'processando',
           tempo_inicio: new Date().toISOString(),
+          last_chunk_at: new Date().toISOString(), // Lock inicial
           chunk_size: CHUNK_SIZE,
         })
         .select()
@@ -339,21 +352,13 @@ Deno.serve(async (req) => {
       console.log(`[enrich-batch] Novo job criado: ${job.id}, total de músicas: ${totalSongs}`);
     }
 
-    // Adquirir lock
-    const lockAcquired = await acquireLock(supabase, job.id);
-    if (!lockAcquired) {
-      console.log(`[enrich-batch] Lock não adquirido para job ${job.id}`);
-      return new Response(
-        JSON.stringify({ success: false, error: 'Lock não adquirido (outro chunk em execução)' }),
-        { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+    // Atualizar status para processando (apenas se não for novo job)
+    if (!isNewJob) {
+      await supabase
+        .from('enrichment_jobs')
+        .update({ status: 'processando' })
+        .eq('id', job.id);
     }
-
-    // Atualizar status para processando
-    await supabase
-      .from('enrichment_jobs')
-      .update({ status: 'processando' })
-      .eq('id', job.id);
 
     // Buscar músicas para este chunk
     const songs = await getSongsToEnrich(supabase, job, startIndex);
