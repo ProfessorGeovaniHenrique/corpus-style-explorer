@@ -11,7 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Folder, AlertTriangle } from 'lucide-react';
+import { Folder, AlertTriangle, Music } from 'lucide-react';
 
 interface MusicCatalogFiltersProps {
   statusFilter: string;
@@ -20,7 +20,8 @@ interface MusicCatalogFiltersProps {
   onCorpusFilterChange: (corpus: string) => void;
   showSuspiciousOnly: boolean;
   onShowSuspiciousChange: (show: boolean) => void;
-  corpora: Array<{ id: string; name: string; color: string | null }>;
+  corpora: Array<{ id: string; name: string; color: string | null; normalized_name?: string }>;
+  onOpenSertanejoImport?: () => void;
 }
 
 export function MusicCatalogFilters({
@@ -31,7 +32,12 @@ export function MusicCatalogFilters({
   showSuspiciousOnly,
   onShowSuspiciousChange,
   corpora,
+  onOpenSertanejoImport,
 }: MusicCatalogFiltersProps) {
+  // Check if Sertanejo corpus is selected
+  const selectedCorpus = corpora.find(c => c.id === selectedCorpusFilter);
+  const isSertanejoSelected = selectedCorpus?.normalized_name === 'sertanejo';
+
   return (
     <div className="space-y-4">
       {/* Status filter */}
@@ -90,6 +96,19 @@ export function MusicCatalogFilters({
             <SelectItem value="null">Sem classificação</SelectItem>
           </SelectContent>
         </Select>
+
+        {/* Sertanejo import shortcut button */}
+        {isSertanejoSelected && onOpenSertanejoImport && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onOpenSertanejoImport}
+            className="ml-2 border-orange-500/50 text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-950/20"
+          >
+            <Music className="w-4 h-4 mr-2" />
+            Importar do Letras.mus.br
+          </Button>
+        )}
       </div>
     </div>
   );

@@ -202,7 +202,7 @@ export function useMusicCatalogState(): MusicCatalogState {
     const loadCorpora = async () => {
       const { data } = await supabase
         .from('corpora')
-        .select('id, name, color')
+        .select('id, name, color, normalized_name')
         .order('name');
       setCorpora(data || []);
     };

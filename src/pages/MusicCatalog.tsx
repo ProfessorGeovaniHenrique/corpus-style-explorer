@@ -3,7 +3,7 @@
  * Sprint F2.1 - Reduzido de 1830 para ~350 linhas
  */
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { createLogger } from '@/lib/loggerFactory';
 import { supabase } from '@/integrations/supabase/client';
 import { enrichmentService } from '@/services/enrichmentService';
@@ -12,6 +12,7 @@ import { EnrichmentBatchModal } from '@/components/music/EnrichmentBatchModal';
 import { YouTubeEnrichmentModal } from '@/components/music/YouTubeEnrichmentModal';
 import { SertanejoPopulateCard } from '@/components/music/SertanejoPopulateCard';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 
 // Hooks refatorados
@@ -39,6 +40,7 @@ const log = createLogger('MusicCatalog');
 
 export default function MusicCatalog() {
   const { toast } = useToast();
+  const [showSertanejoModal, setShowSertanejoModal] = useState(false);
   
   // Hook centralizado de estados
   const state = useMusicCatalogState();
@@ -152,6 +154,7 @@ export default function MusicCatalog() {
               selectedCorpusFilter={state.selectedCorpusFilter}
               onCorpusFilterChange={state.setSelectedCorpusFilter}
               corpora={corpusOptions}
+              onOpenSertanejoImport={() => setShowSertanejoModal(true)}
             />
           </div>
         </div>
@@ -366,6 +369,18 @@ export default function MusicCatalog() {
           onBioEnriched={handlers.handleBioEnriched}
         />
       </div>
+
+      {/* Modal para importar Sertanejo */}
+      <Dialog open={showSertanejoModal} onOpenChange={setShowSertanejoModal}>
+        <DialogContent className="max-w-lg p-0 overflow-hidden">
+          <SertanejoPopulateCard 
+            onComplete={() => {
+              setShowSertanejoModal(false);
+              state.reload();
+            }} 
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
