@@ -1,14 +1,19 @@
 import { useState } from 'react';
-import { CheckCircle2, FileSpreadsheet, Music2, TrendingUp } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Copy, FileSpreadsheet, Music2, TrendingUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { CorpusSelector } from './CorpusSelector';
+import { DuplicatePreviewDialog } from './DuplicatePreviewDialog';
+import type { ParsedMusic } from '@/lib/excelParser';
 
 interface MusicAnalysisResultProps {
   fileName: string;
   totalSongs: number;
+  uniqueSongs: number;
+  duplicatesRemoved: number;
+  duplicateGroups: Map<string, ParsedMusic[]>;
   previewData: Array<{ musica?: string; artista?: string; [key: string]: any }>;
   onCancel: () => void;
   onImport: (corpusId: string | null) => void;
@@ -17,13 +22,18 @@ interface MusicAnalysisResultProps {
 export function MusicAnalysisResult({
   fileName,
   totalSongs,
+  uniqueSongs,
+  duplicatesRemoved,
+  duplicateGroups,
   previewData,
   onCancel,
   onImport
 }: MusicAnalysisResultProps) {
   const [selectedCorpusId, setSelectedCorpusId] = useState<string | null>(null);
+  const [showDuplicates, setShowDuplicates] = useState(false);
+  
   const uniqueArtists = new Set(previewData.map(row => row.artista).filter(Boolean)).size;
-  const diversity = totalSongs > 0 ? Math.round((uniqueArtists / totalSongs) * 100) : 0;
+  const diversity = uniqueSongs > 0 ? Math.round((uniqueArtists / uniqueSongs) * 100) : 0;
   const columns = Object.keys(previewData[0] || {});
 
   return (
@@ -37,13 +47,13 @@ export function MusicAnalysisResult({
           </div>
           <CardTitle className="text-3xl font-bold">Análise Concluída</CardTitle>
           <CardDescription className="text-lg">
-            {fileName} | Total de {totalSongs} músicas detectadas
+            {fileName} | Total de {totalSongs} linhas processadas
           </CardDescription>
         </CardHeader>
 
         <CardContent className="space-y-6">
           {/* Statistics Grid */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className={`grid gap-4 ${duplicatesRemoved > 0 ? 'grid-cols-2 md:grid-cols-5' : 'grid-cols-2 md:grid-cols-4'}`}>
             <div className="bg-muted/50 rounded-lg p-4 text-center space-y-2">
               <FileSpreadsheet className="h-5 w-5 mx-auto text-muted-foreground" />
               <div className="text-2xl font-bold">{totalSongs}</div>
@@ -52,9 +62,30 @@ export function MusicAnalysisResult({
 
             <div className="bg-muted/50 rounded-lg p-4 text-center space-y-2">
               <Music2 className="h-5 w-5 mx-auto text-muted-foreground" />
-              <div className="text-2xl font-bold">{totalSongs}</div>
+              <div className="text-2xl font-bold">{uniqueSongs}</div>
               <div className="text-xs text-muted-foreground">Títulos Únicos</div>
             </div>
+
+            {/* Card de Duplicatas - só aparece se houver duplicatas */}
+            {duplicatesRemoved > 0 && (
+              <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4 text-center space-y-2">
+                <Copy className="h-5 w-5 mx-auto text-amber-600 dark:text-amber-400" />
+                <div className="text-2xl font-bold text-amber-700 dark:text-amber-400">
+                  {duplicatesRemoved}
+                </div>
+                <div className="text-xs text-amber-600 dark:text-amber-500">
+                  Duplicatas Removidas
+                </div>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  className="mt-1 h-7 text-xs border-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/30"
+                  onClick={() => setShowDuplicates(true)}
+                >
+                  Ver Detalhes
+                </Button>
+              </div>
+            )}
 
             <div className="bg-muted/50 rounded-lg p-4 text-center space-y-2">
               <TrendingUp className="h-5 w-5 mx-auto text-muted-foreground" />
@@ -70,6 +101,17 @@ export function MusicAnalysisResult({
               <div className="text-xs text-muted-foreground">Colunas</div>
             </div>
           </div>
+
+          {/* Alerta de Duplicatas */}
+          {duplicatesRemoved > 0 && (
+            <div className="flex items-center gap-3 p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
+              <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0" />
+              <p className="text-sm text-amber-700 dark:text-amber-300">
+                <strong>{duplicatesRemoved} duplicatas</strong> foram identificadas e serão automaticamente removidas. 
+                A versão mais completa de cada música será mantida.
+              </p>
+            </div>
+          )}
 
           {/* Corpus Selector */}
           <CorpusSelector
@@ -114,10 +156,18 @@ export function MusicAnalysisResult({
             Cancelar
           </Button>
           <Button onClick={() => onImport(selectedCorpusId)} size="lg">
-            Importar para Catálogo ({totalSongs} músicas)
+            Importar para Catálogo ({uniqueSongs} músicas)
           </Button>
         </CardFooter>
       </Card>
+
+      {/* Modal de Duplicatas */}
+      <DuplicatePreviewDialog
+        open={showDuplicates}
+        onOpenChange={setShowDuplicates}
+        duplicateGroups={duplicateGroups}
+        totalRemoved={duplicatesRemoved}
+      />
     </div>
   );
 }

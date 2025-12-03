@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import { createLogger } from '@/lib/loggerFactory';
 
 const log = createLogger('MusicEnrichment');
@@ -13,6 +13,7 @@ import { MusicAnalysisResult } from '@/components/music/MusicAnalysisResult';
 import { MusicUploadDialog } from '@/components/music/MusicUploadDialog';
 import { MusicImportProgressModal } from '@/components/music/MusicImportProgressModal';
 import { ingestionService } from '@/services/ingestionService';
+import { deduplicateMusicData, DeduplicationResult } from '@/lib/deduplication';
 
 function MusicEnrichmentContent() {
   const { uploadFile, uploadState, progress, error, parsedData, fileName, resetProcessing } = useProcessing();
@@ -25,7 +26,26 @@ function MusicEnrichmentContent() {
   const [currentChunk, setCurrentChunk] = useState(0);
   const [totalChunks, setTotalChunks] = useState(0);
   const [songsProcessed, setSongsProcessed] = useState(0);
+  const [deduplicationResult, setDeduplicationResult] = useState<DeduplicationResult | null>(null);
   const navigate = useNavigate();
+
+  // Executar deduplicação quando o arquivo for processado
+  useEffect(() => {
+    if (uploadState === 'complete' && parsedData.length > 0) {
+      const result = deduplicateMusicData(parsedData);
+      setDeduplicationResult(result);
+      
+      if (result.duplicatesRemoved > 0) {
+        log.info('Duplicatas detectadas', { 
+          total: result.totalOriginal, 
+          unique: result.unique.length, 
+          removed: result.duplicatesRemoved 
+        });
+      }
+    } else {
+      setDeduplicationResult(null);
+    }
+  }, [uploadState, parsedData]);
 
   const handleFileSelect = useCallback(async (file: File) => {
     try {
@@ -40,13 +60,15 @@ function MusicEnrichmentContent() {
   const handleCancel = useCallback(() => {
     resetProcessing();
     setShowUploadDialog(false);
+    setDeduplicationResult(null);
     toast.info('Operação cancelada');
   }, [resetProcessing]);
 
   const handleImport = useCallback(async (corpusId: string | null) => {
     try {
-      // Filtrar apenas músicas com título e artista
-      const validSongs = parsedData.filter(song => song.titulo && song.artista);
+      // Usar dados deduplicados se disponíveis
+      const songsToImport = deduplicationResult?.unique || parsedData;
+      const validSongs = songsToImport.filter(song => song.titulo && song.artista);
       
       if (validSongs.length === 0) {
         toast.error('Nenhuma música válida encontrada (título e artista são obrigatórios)');
@@ -94,8 +116,12 @@ function MusicEnrichmentContent() {
       
       setShowImportProgress(false);
       
+      const dedupeInfo = deduplicationResult?.duplicatesRemoved 
+        ? ` (${deduplicationResult.duplicatesRemoved} duplicatas removidas)`
+        : '';
+      
       toast.success(
-        `${result.songsCreated} músicas importadas ${corpusId ? 'no corpus selecionado' : 'no catálogo geral'}! ${result.artistsCreated} artistas criados.`
+        `${result.songsCreated} músicas importadas${dedupeInfo}! ${result.artistsCreated} artistas criados.`
       );
       
       navigate('/music-catalog');
@@ -108,9 +134,11 @@ function MusicEnrichmentContent() {
       
       setShowImportProgress(false);
       toast.error('Erro ao importar dados');
-      log.error('Import error', error instanceof Error ? error : new Error(String(error)), { validSongsCount: parsedData.filter(s => s.titulo && s.artista).length });
+      log.error('Import error', error instanceof Error ? error : new Error(String(error)), { 
+        validSongsCount: (deduplicationResult?.unique || parsedData).filter(s => s.titulo && s.artista).length 
+      });
     }
-  }, [parsedData, navigate]);
+  }, [parsedData, deduplicationResult, navigate]);
 
   // Estado: Análise completa (arquivo processado)
   if (uploadState === 'complete' && parsedData.length > 0) {
@@ -119,7 +147,10 @@ function MusicEnrichmentContent() {
         <MusicAnalysisResult
           fileName={fileName || 'arquivo.xlsx'}
           totalSongs={parsedData.length}
-          previewData={parsedData}
+          uniqueSongs={deduplicationResult?.unique.length || parsedData.length}
+          duplicatesRemoved={deduplicationResult?.duplicatesRemoved || 0}
+          duplicateGroups={deduplicationResult?.duplicateGroups || new Map()}
+          previewData={deduplicationResult?.unique || parsedData}
           onCancel={handleCancel}
           onImport={handleImport}
         />
