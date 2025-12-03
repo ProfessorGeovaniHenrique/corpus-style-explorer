@@ -118,9 +118,6 @@ verify_jwt = true
 [functions.monitor-and-alert]
 verify_jwt = false
 
-[functions.recover-stalled-jobs]
-verify_jwt = false
-
 [functions.send-invite-email]
 verify_jwt = true
 
@@ -170,18 +167,6 @@ verify_jwt = false
 verify_jwt = true
 
 [functions.scan-code-quality]
-verify_jwt = false
-
-[functions.fetch-lyrics]
-verify_jwt = false
-
-[functions.enrich-missing-lyrics]
-verify_jwt = false
-
-[functions.scrape-sertanejo-artists]
-verify_jwt = false
-
-[functions.scrape-gaucho-artists]
 verify_jwt = false
 
 [functions.enrich-songs-batch]

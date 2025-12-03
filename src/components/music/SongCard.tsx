@@ -12,7 +12,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
-import { LyricsAttributionCard } from './LyricsAttributionCard';
+
 
 export interface Song {
   id: string;
@@ -457,17 +457,6 @@ export function SongCard({
             )}
           </div>
 
-          {/* Letra com Atribuição de Fonte */}
-          {song.lyrics && (
-            <div className="mt-2">
-              <LyricsAttributionCard
-                lyrics={song.lyrics}
-                lyricsSource={song.lyrics_source || null}
-                lyricsUrl={song.lyrics_url || null}
-                maxHeight={200}
-              />
-            </div>
-          )}
 
           {/* YouTube Player Embed */}
           {showVideoPlayer && videoId && (

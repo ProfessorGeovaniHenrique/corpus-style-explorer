@@ -1,6 +1,5 @@
 /**
  * Hook para gerenciar jobs de enriquecimento persistentes
- * Similar a useCorpusScrapingJob
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';

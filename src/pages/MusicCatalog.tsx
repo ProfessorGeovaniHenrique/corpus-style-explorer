@@ -10,13 +10,10 @@ import { enrichmentService } from '@/services/enrichmentService';
 import { ArtistDetailsSheet } from '@/components/music/ArtistDetailsSheet';
 import { EnrichmentBatchModal } from '@/components/music/EnrichmentBatchModal';
 import { YouTubeEnrichmentModal } from '@/components/music/YouTubeEnrichmentModal';
-import { SertanejoPopulateCard } from '@/components/music/SertanejoPopulateCard';
 import { TabEnrichmentJobs } from '@/components/music/TabEnrichmentJobs';
-import { TabScrapingJobs } from '@/components/music/TabScrapingJobs';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Sparkles, Briefcase, Download } from 'lucide-react';
+import { Sparkles, Briefcase } from 'lucide-react';
 
 // Hooks refatorados
 import { 
@@ -43,7 +40,6 @@ const log = createLogger('MusicCatalog');
 
 export default function MusicCatalog() {
   const { toast } = useToast();
-  const [showSertanejoModal, setShowSertanejoModal] = useState(false);
   
   // Hook centralizado de estados
   const state = useMusicCatalogState();
@@ -157,7 +153,6 @@ export default function MusicCatalog() {
               selectedCorpusFilter={state.selectedCorpusFilter}
               onCorpusFilterChange={state.setSelectedCorpusFilter}
               corpora={corpusOptions}
-              onOpenSertanejoImport={() => setShowSertanejoModal(true)}
             />
           </div>
         </div>
@@ -180,22 +175,11 @@ export default function MusicCatalog() {
         {/* Card de resumo de estatísticas por corpus */}
         <CatalogStatsOverview />
 
-        {/* Card para popular Corpus Sertanejo quando vazio */}
-        {state.selectedCorpusFilter !== 'all' && 
-         corpusOptions.find(c => c.id === state.selectedCorpusFilter)?.normalized_name === 'sertanejo' &&
-         filteredArtists.length === 0 && (
-          <SertanejoPopulateCard onComplete={() => state.reload()} />
-        )}
-
         <Tabs value={state.view} onValueChange={(v) => state.setView(v as any)} className="space-y-4">
           <TabsList>
             <TabsTrigger value="songs">Músicas</TabsTrigger>
             <TabsTrigger value="artists">
               Artistas {state.selectedLetter !== 'all' && `(${state.selectedLetter})`}
-            </TabsTrigger>
-            <TabsTrigger value="scraping-jobs" className="flex items-center gap-1">
-              <Download className="h-3 w-3" />
-              Scraping
             </TabsTrigger>
             <TabsTrigger value="enrichment-jobs" className="flex items-center gap-1">
               <Briefcase className="h-3 w-3" />
@@ -254,10 +238,6 @@ export default function MusicCatalog() {
               isAnnotatingArtist={state.isAnnotatingArtist}
               reload={state.reload}
             />
-          </TabsContent>
-
-          <TabsContent value="scraping-jobs">
-            <TabScrapingJobs />
           </TabsContent>
 
           <TabsContent value="enrichment-jobs">
@@ -382,18 +362,6 @@ export default function MusicCatalog() {
           onBioEnriched={handlers.handleBioEnriched}
         />
       </div>
-
-      {/* Modal para importar Sertanejo */}
-      <Dialog open={showSertanejoModal} onOpenChange={setShowSertanejoModal}>
-        <DialogContent className="max-w-lg p-0 overflow-hidden">
-          <SertanejoPopulateCard 
-            onComplete={() => {
-              setShowSertanejoModal(false);
-              state.reload();
-            }} 
-          />
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
