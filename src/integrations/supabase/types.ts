@@ -1292,6 +1292,112 @@ export type Database = {
         }
         Relationships: []
       }
+      enrichment_jobs: {
+        Row: {
+          artist_id: string | null
+          artist_name: string | null
+          chunk_size: number | null
+          chunks_processed: number | null
+          corpus_id: string | null
+          corpus_type: string | null
+          created_at: string | null
+          current_song_index: number | null
+          erro_mensagem: string | null
+          force_reenrich: boolean | null
+          id: string
+          is_cancelling: boolean | null
+          job_type: string
+          last_chunk_at: string | null
+          metadata: Json | null
+          scope: string
+          song_ids: string[] | null
+          songs_failed: number | null
+          songs_processed: number | null
+          songs_succeeded: number | null
+          status: string
+          tempo_fim: string | null
+          tempo_inicio: string | null
+          total_songs: number
+          updated_at: string | null
+        }
+        Insert: {
+          artist_id?: string | null
+          artist_name?: string | null
+          chunk_size?: number | null
+          chunks_processed?: number | null
+          corpus_id?: string | null
+          corpus_type?: string | null
+          created_at?: string | null
+          current_song_index?: number | null
+          erro_mensagem?: string | null
+          force_reenrich?: boolean | null
+          id?: string
+          is_cancelling?: boolean | null
+          job_type: string
+          last_chunk_at?: string | null
+          metadata?: Json | null
+          scope: string
+          song_ids?: string[] | null
+          songs_failed?: number | null
+          songs_processed?: number | null
+          songs_succeeded?: number | null
+          status?: string
+          tempo_fim?: string | null
+          tempo_inicio?: string | null
+          total_songs?: number
+          updated_at?: string | null
+        }
+        Update: {
+          artist_id?: string | null
+          artist_name?: string | null
+          chunk_size?: number | null
+          chunks_processed?: number | null
+          corpus_id?: string | null
+          corpus_type?: string | null
+          created_at?: string | null
+          current_song_index?: number | null
+          erro_mensagem?: string | null
+          force_reenrich?: boolean | null
+          id?: string
+          is_cancelling?: boolean | null
+          job_type?: string
+          last_chunk_at?: string | null
+          metadata?: Json | null
+          scope?: string
+          song_ids?: string[] | null
+          songs_failed?: number | null
+          songs_processed?: number | null
+          songs_succeeded?: number | null
+          status?: string
+          tempo_fim?: string | null
+          tempo_inicio?: string | null
+          total_songs?: number
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "enrichment_jobs_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "artist_stats_mv"
+            referencedColumns: ["artist_id"]
+          },
+          {
+            foreignKeyName: "enrichment_jobs_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "artists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "enrichment_jobs_corpus_id_fkey"
+            columns: ["corpus_id"]
+            isOneToOne: false
+            referencedRelation: "corpora"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       gemini_api_usage: {
         Row: {
           created_at: string | null
