@@ -4,12 +4,14 @@ import { Table, TableBody, TableHead, TableHeader, TableRow } from '@/components
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { ChevronLeft, ChevronRight, Database, AlertTriangle, CheckCircle, Award, Loader2, Sparkles, Zap } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Database, AlertTriangle, CheckCircle, Award, Loader2, Sparkles, Zap, CheckCheck } from 'lucide-react';
 import { useSemanticLexiconData, SemanticLexiconEntry } from '@/hooks/useSemanticLexiconData';
 import { SemanticLexiconFilters } from './SemanticLexiconFilters';
 import { SemanticWordRow } from './SemanticWordRow';
 import { SemanticValidationModal } from './SemanticValidationModal';
 import { useReclassifyMG } from '@/hooks/useReclassifyMG';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -42,6 +44,7 @@ export function SemanticLexiconPanel() {
   const [batchDialogOpen, setBatchDialogOpen] = useState(false);
   const [selectedModel, setSelectedModel] = useState<'gemini' | 'gpt5'>('gemini');
   const [selectedBatchType, setSelectedBatchType] = useState<'MG' | 'DS'>('MG');
+  const [isBulkValidating, setIsBulkValidating] = useState(false);
 
   const { reclassifyBatch, isProcessing, progress } = useReclassifyMG();
 
@@ -83,6 +86,34 @@ export function SemanticLexiconPanel() {
       model: selectedModel,
       onSuccess: refetch,
     });
+  };
+
+  // Validar todas as entradas da página atual (marcar como human_validated)
+  const handleBulkValidate = async () => {
+    if (entries.length === 0) return;
+    
+    setIsBulkValidating(true);
+    try {
+      const ids = entries.map(e => e.id);
+      
+      const { error } = await supabase
+        .from('semantic_disambiguation_cache')
+        .update({ 
+          fonte: 'human_validated',
+          confianca: 1.0
+        })
+        .in('id', ids);
+      
+      if (error) throw error;
+      
+      toast.success(`✅ ${entries.length} palavras validadas com sucesso`);
+      refetch();
+    } catch (error) {
+      console.error('Erro ao validar em lote:', error);
+      toast.error('Erro ao validar palavras em lote');
+    } finally {
+      setIsBulkValidating(false);
+    }
   };
 
   const progressPercent = progress.total > 0 
@@ -221,9 +252,25 @@ export function SemanticLexiconPanel() {
               Mostrando {entries.length} de {totalCount.toLocaleString()} entradas
             </p>
           </div>
-          <Badge variant="outline">
-            Página {page + 1} de {totalPages || 1}
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleBulkValidate}
+              disabled={isBulkValidating || entries.length === 0 || isLoading}
+              className="bg-green-500/10 hover:bg-green-500/20 text-green-600 border-green-500/30"
+            >
+              {isBulkValidating ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <CheckCheck className="h-4 w-4 mr-2" />
+              )}
+              Validar Página ({entries.length})
+            </Button>
+            <Badge variant="outline">
+              Página {page + 1} de {totalPages || 1}
+            </Badge>
+          </div>
         </CardHeader>
         <CardContent>
           {isLoading ? (

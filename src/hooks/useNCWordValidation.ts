@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 interface NCWordValidationData {
   palavra: string;
   tagset_codigo_novo: string;
+  tagset_codigo_original: string; // Tagset atual para filtrar corretamente
   tagset_nome: string;
   justificativa?: string;
   aplicar_a_todas: boolean;
@@ -45,14 +46,16 @@ export function useNCWordValidation() {
         });
 
       if (data.aplicar_a_todas) {
-        // Aplicar a todas as ocorrências da palavra com tagset NC
-        updateQuery = updateQuery.eq('palavra', data.palavra).eq('tagset_codigo', 'NC');
+        // Aplicar a todas as ocorrências da palavra com o mesmo tagset original
+        updateQuery = updateQuery
+          .eq('palavra', data.palavra)
+          .eq('tagset_codigo', data.tagset_codigo_original);
       } else {
         // Aplicar apenas à ocorrência específica (mesma palavra + mesmo contexto)
         updateQuery = updateQuery
           .eq('palavra', data.palavra)
           .eq('contexto_hash', data.contexto_hash || '')
-          .eq('tagset_codigo', 'NC');
+          .eq('tagset_codigo', data.tagset_codigo_original);
       }
 
       const { error: updateError, count } = await updateQuery;
@@ -97,6 +100,8 @@ export function useNCWordValidation() {
       // Invalidar queries para atualizar UI
       queryClient.invalidateQueries({ queryKey: ['semantic-pipeline-stats'] });
       queryClient.invalidateQueries({ queryKey: ['nc-words'] });
+      queryClient.invalidateQueries({ queryKey: ['semantic-lexicon-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['semantic-lexicon-entries'] });
     },
     onError: (error) => {
       console.error('Erro ao validar palavra NC:', error);

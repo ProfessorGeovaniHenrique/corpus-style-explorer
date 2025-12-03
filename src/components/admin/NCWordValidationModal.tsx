@@ -102,6 +102,7 @@ export function NCWordValidationModal({ word, open, onOpenChange, onSuccess }: N
     submitValidation({
       palavra: word.palavra,
       tagset_codigo_novo: selectedTagset.codigo,
+      tagset_codigo_original: 'NC', // Palavras NC sempre têm tagset original NC
       tagset_nome: selectedTagset.nome,
       justificativa: justificativa.trim() || undefined,
       aplicar_a_todas: aplicarATodas,
