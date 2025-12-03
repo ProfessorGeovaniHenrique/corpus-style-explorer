@@ -17,43 +17,133 @@ function normalizeForUrl(text: string): string {
     .trim();
 }
 
-// Extract lyrics from Letras.mus.br HTML
+// Extract lyrics from Letras.mus.br HTML (parser robusto com contagem de tags)
 function extractLyricsFromHtml(html: string): string | null {
-  // Try multiple selectors used by Letras.mus.br
+  const containerPatterns = [
+    /class="[^"]*lyric-original[^"]*"/i,
+    /class="[^"]*cnt-letra[^"]*"/i,
+    /class="[^"]*letra[^"]*"/i,
+  ];
+
+  for (const pattern of containerPatterns) {
+    const containerMatch = html.match(pattern);
+    if (!containerMatch || containerMatch.index === undefined) continue;
+
+    // Encontrar o início do <div que contém a classe
+    let divStart = containerMatch.index;
+    while (divStart > 0 && html.substring(divStart - 1, divStart + 4) !== '<div') {
+      divStart--;
+    }
+    divStart = Math.max(0, divStart - 1);
+
+    // Encontrar o fechamento do tag de abertura
+    const openTagEnd = html.indexOf('>', divStart);
+    if (openTagEnd === -1) continue;
+
+    // Usar contagem de tags para encontrar o </div> correto
+    let depth = 1;
+    let pos = openTagEnd + 1;
+    let endPos = -1;
+
+    while (pos < html.length && depth > 0) {
+      const nextOpen = html.indexOf('<div', pos);
+      const nextClose = html.indexOf('</div>', pos);
+
+      if (nextClose === -1) break;
+
+      if (nextOpen !== -1 && nextOpen < nextClose) {
+        depth++;
+        pos = nextOpen + 4;
+      } else {
+        depth--;
+        if (depth === 0) {
+          endPos = nextClose;
+          break;
+        }
+        pos = nextClose + 6;
+      }
+    }
+
+    if (endPos === -1) continue;
+
+    // Extrair conteúdo completo
+    const fullContent = html.substring(openTagEnd + 1, endPos);
+    
+    // Limpar HTML
+    let lyrics = fullContent
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<p[^>]*>/gi, '\n')
+      .replace(/<\/p>/gi, '\n')
+      .replace(/<[^>]+>/g, '')
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/&#\d+;/g, '')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+
+    if (lyrics.length > 50) {
+      console.log(`[fetch-lyrics] 📜 Letra extraída: ${lyrics.length} caracteres`);
+      return lyrics;
+    }
+  }
+  
+  console.log(`[fetch-lyrics] ⚠️ Nenhuma letra encontrada com parser robusto`);
+  return null;
+}
+
+// Extract composer from Letras.mus.br HTML
+function extractComposerFromHtml(html: string): string | null {
   const patterns = [
-    /<div[^>]*class="[^"]*lyric-original[^"]*"[^>]*>([\s\S]*?)<\/div>/i,
-    /<div[^>]*class="[^"]*cnt-letra[^"]*"[^>]*>([\s\S]*?)<\/div>/i,
-    /<div[^>]*id="[^"]*letra-cnt[^"]*"[^>]*>([\s\S]*?)<\/div>/i,
+    /Composi[çc][aã]o:\s*([^<\n]+)/i,
+    /<span[^>]*class="[^"]*composer[^"]*"[^>]*>([^<]+)<\/span>/i,
+    /class="[^"]*info[^"]*"[^>]*>.*?Composi[çc][aã]o:\s*([^<]+)/is,
   ];
 
   for (const pattern of patterns) {
     const match = html.match(pattern);
     if (match && match[1]) {
-      // Clean HTML tags and decode entities
-      let lyrics = match[1]
-        .replace(/<br\s*\/?>/gi, '\n')
-        .replace(/<p[^>]*>/gi, '\n')
-        .replace(/<\/p>/gi, '\n')
-        .replace(/<[^>]+>/g, '') // Remove remaining HTML tags
+      let composer = match[1]
         .replace(/&nbsp;/g, ' ')
         .replace(/&amp;/g, '&')
-        .replace(/&lt;/g, '<')
-        .replace(/&gt;/g, '>')
-        .replace(/&quot;/g, '"')
         .replace(/&#39;/g, "'")
-        .replace(/\n{3,}/g, '\n\n') // Max 2 newlines
+        .replace(/\s*\/\s*/g, ' / ')
+        .replace(/\s+/g, ' ')
         .trim();
 
-      if (lyrics.length > 50) {
-        return lyrics;
+      const cutoffs = [
+        'Essa informação está errada',
+        'Nos avise',
+        'Enviada por',
+        'Legendado por',
+        'Revisões por',
+        'Viu algum erro',
+      ];
+      
+      for (const cutoff of cutoffs) {
+        const idx = composer.indexOf(cutoff);
+        if (idx !== -1) {
+          composer = composer.substring(0, idx).trim();
+        }
+      }
+
+      composer = composer.replace(/\.$/, '').trim();
+
+      if (composer.length > 2 && composer.length < 300) {
+        console.log(`[fetch-lyrics] 📝 Compositor encontrado: "${composer}"`);
+        return composer;
       }
     }
   }
+
   return null;
 }
 
 // Try to fetch lyrics from Letras.mus.br
-async function fetchFromLetrasMuBr(artistName: string, songTitle: string): Promise<{ lyrics: string; sourceUrl: string } | null> {
+async function fetchFromLetrasMuBr(artistName: string, songTitle: string): Promise<{ lyrics: string; sourceUrl: string; composer: string | null } | null> {
   const normalizedArtist = normalizeForUrl(artistName);
   const normalizedTitle = normalizeForUrl(songTitle);
   const url = `https://www.letras.mus.br/${normalizedArtist}/${normalizedTitle}/`;
@@ -76,10 +166,11 @@ async function fetchFromLetrasMuBr(artistName: string, songTitle: string): Promi
 
     const html = await response.text();
     const lyrics = extractLyricsFromHtml(html);
+    const composer = extractComposerFromHtml(html);
 
     if (lyrics) {
-      console.log(`[fetch-lyrics] Found lyrics on Letras.mus.br (${lyrics.length} chars)`);
-      return { lyrics, sourceUrl: url };
+      console.log(`[fetch-lyrics] Found lyrics (${lyrics.length} chars), composer: ${composer || 'N/A'}`);
+      return { lyrics, sourceUrl: url, composer };
     }
 
     console.log(`[fetch-lyrics] Could not extract lyrics from Letras.mus.br HTML`);
@@ -194,6 +285,7 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({
           lyrics: letrasMuBrResult.lyrics,
+          composer: letrasMuBrResult.composer,
           source: 'letras.mus.br',
           sourceUrl: letrasMuBrResult.sourceUrl,
           found: true
@@ -208,6 +300,7 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({
           lyrics: webSearchResult.lyrics,
+          composer: null, // Web search doesn't extract composer
           source: 'web_search',
           sourceUrl: webSearchResult.sourceUrl,
           found: true
@@ -221,6 +314,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         lyrics: null,
+        composer: null,
         source: null,
         sourceUrl: null,
         found: false

@@ -143,34 +143,134 @@ function extractSongLinks(html: string, artistSlug: string): Array<{ title: stri
   return songs;
 }
 
-// ============ EXTRAÇÃO DE LETRAS ============
+// ============ EXTRAÇÃO DE LETRAS (PARSER ROBUSTO) ============
 function extractLyrics(html: string): string | null {
+  // Abordagem com contagem de tags para capturar conteúdo completo
+  const containerPatterns = [
+    /class="[^"]*lyric-original[^"]*"/i,
+    /class="[^"]*cnt-letra[^"]*"/i,
+    /class="[^"]*letra[^"]*"/i,
+  ];
+
+  for (const pattern of containerPatterns) {
+    const containerMatch = html.match(pattern);
+    if (!containerMatch || containerMatch.index === undefined) continue;
+
+    // Encontrar o início do <div que contém a classe
+    let divStart = containerMatch.index;
+    while (divStart > 0 && html.substring(divStart - 1, divStart + 4) !== '<div') {
+      divStart--;
+    }
+    divStart = Math.max(0, divStart - 1);
+
+    // Encontrar o fechamento do tag de abertura
+    const openTagEnd = html.indexOf('>', divStart);
+    if (openTagEnd === -1) continue;
+
+    // Usar contagem de tags para encontrar o </div> correto
+    let depth = 1;
+    let pos = openTagEnd + 1;
+    let endPos = -1;
+
+    while (pos < html.length && depth > 0) {
+      const nextOpen = html.indexOf('<div', pos);
+      const nextClose = html.indexOf('</div>', pos);
+
+      if (nextClose === -1) break;
+
+      if (nextOpen !== -1 && nextOpen < nextClose) {
+        depth++;
+        pos = nextOpen + 4;
+      } else {
+        depth--;
+        if (depth === 0) {
+          endPos = nextClose;
+          break;
+        }
+        pos = nextClose + 6;
+      }
+    }
+
+    if (endPos === -1) continue;
+
+    // Extrair conteúdo completo
+    const fullContent = html.substring(openTagEnd + 1, endPos);
+    
+    // Limpar HTML
+    let lyrics = fullContent
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<p[^>]*>/gi, '\n')
+      .replace(/<\/p>/gi, '\n')
+      .replace(/<[^>]+>/g, '')
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/&#\d+;/g, '') // Outras entidades numéricas
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+
+    if (lyrics.length > 50) {
+      console.log(`[scrape] 📜 Letra extraída: ${lyrics.length} caracteres`);
+      return lyrics;
+    }
+  }
+  
+  console.log(`[scrape] ⚠️ Nenhuma letra encontrada com parser robusto`);
+  return null;
+}
+
+// ============ EXTRAÇÃO DE COMPOSITOR ============
+function extractComposer(html: string): string | null {
   const patterns = [
-    /<div[^>]*class="[^"]*lyric-original[^"]*"[^>]*>([\s\S]*?)<\/div>/i,
-    /<div[^>]*class="[^"]*cnt-letra[^"]*"[^>]*>([\s\S]*?)<\/div>/i,
-    /<div[^>]*class="[^"]*letra[^"]*"[^>]*>([\s\S]*?)<\/div>/i,
+    // Padrão principal: "Composição: Nome / Nome"
+    /Composi[çc][aã]o:\s*([^<\n]+)/i,
+    // Em span com classe
+    /<span[^>]*class="[^"]*composer[^"]*"[^>]*>([^<]+)<\/span>/i,
+    // Em div com info
+    /class="[^"]*info[^"]*"[^>]*>.*?Composi[çc][aã]o:\s*([^<]+)/is,
   ];
 
   for (const pattern of patterns) {
     const match = html.match(pattern);
     if (match && match[1]) {
-      let lyrics = match[1]
-        .replace(/<br\s*\/?>/gi, '\n')
-        .replace(/<p[^>]*>/gi, '\n')
-        .replace(/<\/p>/gi, '\n')
-        .replace(/<[^>]+>/g, '')
+      let composer = match[1]
         .replace(/&nbsp;/g, ' ')
         .replace(/&amp;/g, '&')
-        .replace(/&lt;/g, '<')
-        .replace(/&gt;/g, '>')
-        .replace(/&quot;/g, '"')
         .replace(/&#39;/g, "'")
-        .replace(/\n{3,}/g, '\n\n')
+        .replace(/\s*\/\s*/g, ' / ')  // Normalizar separadores
+        .replace(/\s+/g, ' ')
         .trim();
 
-      if (lyrics.length > 50) return lyrics;
+      // Remover textos indesejados que vêm depois
+      const cutoffs = [
+        'Essa informação está errada',
+        'Nos avise',
+        'Enviada por',
+        'Legendado por',
+        'Revisões por',
+        'Viu algum erro',
+      ];
+      
+      for (const cutoff of cutoffs) {
+        const idx = composer.indexOf(cutoff);
+        if (idx !== -1) {
+          composer = composer.substring(0, idx).trim();
+        }
+      }
+
+      // Remover ponto final se houver
+      composer = composer.replace(/\.$/, '').trim();
+
+      if (composer.length > 2 && composer.length < 300) {
+        console.log(`[scrape] 📝 Compositor encontrado: "${composer}"`);
+        return composer;
+      }
     }
   }
+
   return null;
 }
 
@@ -431,16 +531,21 @@ serve(async (req) => {
 
           if (existingSong) continue;
 
-          // Buscar letra
+          // Buscar letra E compositor
           const songResponse = await fetchWithRetry(songLink.url);
           let lyrics: string | null = null;
+          let composer: string | null = null;
           
           if (songResponse) {
             const songHtml = await songResponse.text();
             lyrics = extractLyrics(songHtml);
+            composer = extractComposer(songHtml);
+            
+            // Log para debug
+            console.log(`[scrape] 🎵 ${songLink.title}: letra=${lyrics?.length || 0} chars, compositor=${composer || 'N/A'}`);
           }
 
-          // Criar música
+          // Criar música com compositor
           const { error: songError } = await supabase
             .from('songs')
             .insert({
@@ -449,9 +554,11 @@ serve(async (req) => {
               artist_id: artistId,
               corpus_id: corpusId,
               lyrics,
+              composer,
               lyrics_source: lyrics ? 'letras.mus.br' : null,
               lyrics_url: lyrics ? songLink.url : null,
-              status: 'pending'
+              status: lyrics ? 'enriched' : 'pending',
+              enrichment_source: composer ? 'letras.mus.br' : null
             });
 
           if (!songError) {
