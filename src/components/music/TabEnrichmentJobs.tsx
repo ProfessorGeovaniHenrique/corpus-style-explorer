@@ -1,9 +1,10 @@
 /**
  * Aba de monitoramento de jobs de enriquecimento
  * Centraliza controles de iniciar jobs + histórico
+ * Com monitoramento em tempo real (refresh 5s)
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -40,6 +41,7 @@ import { toast } from 'sonner';
 import { formatDistanceToNow, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { EnrichmentControlPanel } from './EnrichmentControlPanel';
+import { EnrichmentLiveCard } from './EnrichmentLiveCard';
 
 const JOB_TYPE_LABELS: Record<EnrichmentJobType, string> = {
   metadata: 'Metadados',
@@ -57,11 +59,28 @@ const STATUS_CONFIG: Record<EnrichmentStatus, { label: string; variant: 'default
   cancelado: { label: 'Cancelado', variant: 'secondary', icon: <X className="h-3 w-3" /> },
 };
 
+// Refresh interval mais rápido quando há job ativo
+const ACTIVE_REFRESH_INTERVAL = 5000;
+const IDLE_REFRESH_INTERVAL = 30000;
+
 export function TabEnrichmentJobs() {
   const { jobs, isLoading, refetch } = useEnrichmentJobsList();
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+
+  // Jobs ativos (processando ou pausado)
+  const activeJobs = jobs.filter(j => ['processando', 'pausado'].includes(j.status));
+  const hasActiveJobs = activeJobs.length > 0;
+
+  // Auto-refresh com intervalo dinâmico
+  useEffect(() => {
+    const interval = setInterval(
+      refetch, 
+      hasActiveJobs ? ACTIVE_REFRESH_INTERVAL : IDLE_REFRESH_INTERVAL
+    );
+    return () => clearInterval(interval);
+  }, [hasActiveJobs, refetch]);
 
   // Filtrar jobs
   const filteredJobs = jobs.filter(job => {
@@ -153,6 +172,17 @@ export function TabEnrichmentJobs() {
 
   return (
     <div className="space-y-6">
+      {/* Cards de jobs ativos com monitoramento em tempo real */}
+      {activeJobs.map((job) => (
+        <EnrichmentLiveCard
+          key={job.id}
+          job={job}
+          onPause={() => handlePause(job.id)}
+          onResume={() => handleResume(job)}
+          isActionLoading={actionLoading === job.id}
+        />
+      ))}
+
       {/* Painel de controle para iniciar novos jobs */}
       <EnrichmentControlPanel />
 
