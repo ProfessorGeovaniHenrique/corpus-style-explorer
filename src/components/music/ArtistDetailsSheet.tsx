@@ -22,11 +22,14 @@ import {
   RefreshCw,
   Search,
   Music,
+  Briefcase,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { SongCard, Song } from './SongCard';
 import { Card, CardContent } from '@/components/ui/card';
 import { LyricsEnrichmentModal } from './LyricsEnrichmentModal';
+import { EnrichmentJobCard } from './EnrichmentJobCard';
+import { useEnrichmentJob } from '@/hooks/useEnrichmentJob';
 
 interface Artist {
   id: string;
@@ -75,6 +78,22 @@ export function ArtistDetailsSheet({
   const [searchQuery, setSearchQuery] = useState('');
   const [showLyricsModal, setShowLyricsModal] = useState(false);
   const { toast } = useToast();
+
+  // Hook para job de enriquecimento do artista específico
+  const artistEnrichmentJob = useEnrichmentJob({ 
+    artistId: artistId || undefined, 
+    jobType: 'metadata' 
+  });
+
+  const handleStartArtistJob = async () => {
+    if (!artist) return;
+    await artistEnrichmentJob.startJob({
+      scope: 'artist',
+      jobType: 'metadata',
+      artistId: artist.id,
+      artistName: artist.name,
+    });
+  };
 
   // Filtrar músicas pela busca
   const filteredSongs = useMemo(() => {
@@ -287,6 +306,42 @@ export function ArtistDetailsSheet({
               )}
             </CardContent>
           </Card>
+
+          {/* Card de Job de Enriquecimento do Artista */}
+          {artistEnrichmentJob.activeJob ? (
+            <EnrichmentJobCard
+              artistId={artist.id}
+              artistName={artist.name}
+              jobType="metadata"
+              compact={true}
+            />
+          ) : (
+            <Card className="flex-shrink-0 border-dashed">
+              <CardContent className="pt-4 pb-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Briefcase className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground">
+                      Enriquecimento em lote para {artist.name}
+                    </span>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleStartArtistJob}
+                    disabled={artistEnrichmentJob.isLoading || songs.length === 0}
+                  >
+                    {artistEnrichmentJob.isLoading ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Sparkles className="h-4 w-4 mr-2" />
+                    )}
+                    Iniciar Job ({songs.length} músicas)
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Barra de Busca */}
           <div className="relative flex-shrink-0">
