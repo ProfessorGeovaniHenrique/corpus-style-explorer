@@ -317,13 +317,14 @@ async function checkCancellation(supabase: any, jobId: string): Promise<boolean>
 }
 
 async function acquireLock(supabase: any, jobId: string): Promise<boolean> {
-  const thirtySecondsAgo = new Date(Date.now() - 30000).toISOString();
+  // Reduzido de 30s para 5s para evitar race condition com delay de auto-invocação
+  const fiveSecondsAgo = new Date(Date.now() - 5000).toISOString();
   
   const { data, error } = await supabase
     .from('scraping_jobs')
     .update({ last_chunk_at: new Date().toISOString() })
     .eq('id', jobId)
-    .or(`last_chunk_at.is.null,last_chunk_at.lte.${thirtySecondsAgo}`)
+    .or(`last_chunk_at.is.null,last_chunk_at.lte.${fiveSecondsAgo}`)
     .select();
   
   return !error && data && data.length > 0;
@@ -594,6 +595,10 @@ serve(async (req) => {
     const hasMore = nextArtistIndex < job.total_artists && !await checkCancellation(supabase, job.id);
 
     if (hasMore) {
+      // Delay de 5s para evitar race condition de lock (lock timeout = 5s)
+      console.log(`[scrape] ⏳ Aguardando 5s antes de invocar próximo chunk...`);
+      await new Promise(r => setTimeout(r, 5000));
+      
       console.log(`[scrape] 🔄 Auto-invocando próximo chunk (índice ${nextArtistIndex})...`);
       
       // Auto-invocar próximo chunk (fire and forget com waitUntil se disponível)
