@@ -34,7 +34,7 @@ const dataToolsItems = [
   { title: "Validação de Domínios", url: "/admin/semantic-tagset-validation", icon: Tags },
   { title: "Configuração de Léxico", url: "/admin/lexicon-setup", icon: Database },
   { title: "Importação de Dicionários", url: "/admin/dictionary-import", icon: BookOpen },
-  { title: "Curadoria de Quiz", url: "/admin/quiz-curation", icon: FileQuestion },
+  { title: "Curadoria de Quiz", url: "/admin/quiz", icon: FileQuestion },
 ];
 
 const administrationItems = [

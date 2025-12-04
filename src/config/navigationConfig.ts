@@ -96,7 +96,7 @@ export const dataTools: NavItem[] = [
   },
   { 
     title: "Curadoria de Quiz", 
-    url: "/admin/quiz-curation", 
+    url: "/admin/quiz", 
     icon: FileQuestion 
   },
 ];
