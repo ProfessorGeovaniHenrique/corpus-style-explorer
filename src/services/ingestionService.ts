@@ -54,6 +54,14 @@ export interface ChunkProgress {
   currentResult?: ExtractionResult;
 }
 
+export interface UpdateChunkProgress {
+  currentChunk: number;
+  totalChunks: number;
+  songsProcessed: number;
+  songsUpdated: number;
+  songsNotFound: number;
+}
+
 export const ingestionService = {
   /**
    * Extract music titles from parsed data and create/update database records
@@ -329,5 +337,55 @@ export const ingestionService = {
     }
 
     return data as UpdateResult;
+  },
+
+  /**
+   * Update existing songs metadata in chunks with progress callback
+   */
+  async updateSongsMetadataChunked(
+    songs: ParsedMusic[],
+    options: {
+      corpusId?: string | null;
+      chunkSize?: number;
+      onProgress?: (progress: UpdateChunkProgress) => void;
+    } = {}
+  ): Promise<UpdateResult> {
+    const { corpusId, chunkSize = 500, onProgress } = options;
+
+    const totalChunks = Math.ceil(songs.length / chunkSize);
+    let totalUpdated = 0;
+    let totalNotFound = 0;
+    const allNotFoundList: string[] = [];
+
+    for (let i = 0; i < songs.length; i += chunkSize) {
+      const chunk = songs.slice(i, i + chunkSize);
+      const chunkNumber = Math.floor(i / chunkSize) + 1;
+
+      const result = await this.updateSongsMetadata(chunk, corpusId);
+
+      totalUpdated += result.songsUpdated;
+      totalNotFound += result.songsNotFound;
+
+      // Adicionar à lista de não encontrados (limitado a 100 total)
+      if (allNotFoundList.length < 100) {
+        allNotFoundList.push(...result.notFoundList.slice(0, 100 - allNotFoundList.length));
+      }
+
+      if (onProgress) {
+        onProgress({
+          currentChunk: chunkNumber,
+          totalChunks,
+          songsProcessed: Math.min(i + chunkSize, songs.length),
+          songsUpdated: totalUpdated,
+          songsNotFound: totalNotFound,
+        });
+      }
+    }
+
+    return {
+      songsUpdated: totalUpdated,
+      songsNotFound: totalNotFound,
+      notFoundList: allNotFoundList,
+    };
   },
 };

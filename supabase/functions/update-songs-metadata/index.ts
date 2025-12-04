@@ -67,63 +67,109 @@ serve(async (req) => {
 
     log.info('Update started', { songCount: songs.length, corpusId });
 
+    // PRÉ-CARREGAR TODOS OS ARTISTAS em uma única query
+    const { data: allArtists, error: artistsError } = await supabase
+      .from('artists')
+      .select('id, normalized_name');
+
+    if (artistsError) {
+      log.error('Failed to load artists', artistsError);
+      throw new Error('Failed to load artists');
+    }
+
+    // Criar mapa de artistas para lookup O(1)
+    const artistMap = new Map<string, string>();
+    for (const artist of allArtists || []) {
+      if (artist.normalized_name) {
+        artistMap.set(artist.normalized_name, artist.id);
+      }
+    }
+
+    log.info('Artists loaded', { totalArtists: artistMap.size });
+
     let songsUpdated = 0;
     let songsNotFound = 0;
     const notFoundList: string[] = [];
 
-    // Processar em batches para evitar timeouts
+    // Processar em batches de 100 para eficiência
     const BATCH_SIZE = 100;
     
     for (let i = 0; i < songs.length; i += BATCH_SIZE) {
       const batch = songs.slice(i, i + BATCH_SIZE) as SongUpdate[];
       
-      for (const song of batch) {
-        if (!song.titulo || !song.artista) continue;
+      // Preparar dados normalizados para o batch
+      const batchData = batch
+        .filter(song => song.titulo && song.artista)
+        .map(song => ({
+          original: song,
+          normalizedTitle: normalizeText(song.titulo),
+          normalizedArtist: normalizeText(song.artista),
+          artistId: artistMap.get(normalizeText(song.artista))
+        }));
 
-        const normalizedTitle = normalizeText(song.titulo);
-        const normalizedArtist = normalizeText(song.artista);
+      // Filtrar músicas cujos artistas existem
+      const validBatchData = batchData.filter(d => d.artistId);
+      const invalidArtists = batchData.filter(d => !d.artistId);
 
-        // Buscar artista pelo nome normalizado
-        const { data: artist } = await supabase
-          .from('artists')
-          .select('id')
-          .eq('normalized_name', normalizedArtist)
-          .maybeSingle();
-
-        if (!artist) {
-          songsNotFound++;
-          notFoundList.push(`${song.artista} - ${song.titulo} (artista não encontrado)`);
-          continue;
+      // Registrar artistas não encontrados
+      for (const invalid of invalidArtists) {
+        songsNotFound++;
+        if (notFoundList.length < 50) {
+          notFoundList.push(`${invalid.original.artista} - ${invalid.original.titulo} (artista não encontrado)`);
         }
+      }
 
-        // Buscar música pelo título normalizado e artist_id
-        const { data: existingSong } = await supabase
-          .from('songs')
-          .select('id')
-          .eq('normalized_title', normalizedTitle)
-          .eq('artist_id', artist.id)
-          .maybeSingle();
+      if (validBatchData.length === 0) continue;
 
-        if (!existingSong) {
+      // Buscar todas as músicas do batch em uma única query
+      const normalizedTitles = validBatchData.map(d => d.normalizedTitle);
+      const artistIds = [...new Set(validBatchData.map(d => d.artistId))];
+
+      const { data: existingSongs, error: songsError } = await supabase
+        .from('songs')
+        .select('id, normalized_title, artist_id')
+        .in('normalized_title', normalizedTitles)
+        .in('artist_id', artistIds);
+
+      if (songsError) {
+        log.error('Failed to fetch songs batch', songsError);
+        continue;
+      }
+
+      // Criar mapa de músicas existentes para lookup O(1)
+      const songMap = new Map<string, string>();
+      for (const song of existingSongs || []) {
+        const key = `${song.normalized_title}|${song.artist_id}`;
+        songMap.set(key, song.id);
+      }
+
+      // Processar atualizações
+      for (const data of validBatchData) {
+        const key = `${data.normalizedTitle}|${data.artistId}`;
+        const songId = songMap.get(key);
+
+        if (!songId) {
           songsNotFound++;
-          notFoundList.push(`${song.artista} - ${song.titulo}`);
+          if (notFoundList.length < 50) {
+            notFoundList.push(`${data.original.artista} - ${data.original.titulo}`);
+          }
           continue;
         }
 
         // Preparar dados de atualização
         const updateData: Record<string, unknown> = {};
         
-        if (song.compositor) {
-          updateData.composer = song.compositor;
+        if (data.original.compositor) {
+          updateData.composer = data.original.compositor;
         }
         
-        if (song.lyricsUrl) {
-          updateData.lyrics_url = song.lyricsUrl;
-          updateData.lyrics_source = extractDomain(song.lyricsUrl);
+        if (data.original.lyricsUrl) {
+          updateData.lyrics_url = data.original.lyricsUrl;
+          updateData.lyrics_source = extractDomain(data.original.lyricsUrl);
         }
         
-        if (song.letra) {
-          updateData.lyrics = song.letra;
+        if (data.original.letra) {
+          updateData.lyrics = data.original.letra;
         }
 
         // Só atualiza se houver dados
@@ -133,10 +179,10 @@ serve(async (req) => {
           const { error: updateError } = await supabase
             .from('songs')
             .update(updateData)
-            .eq('id', existingSong.id);
+            .eq('id', songId);
 
           if (updateError) {
-            log.error('Failed to update song', updateError, { songId: existingSong.id });
+            log.error('Failed to update song', updateError, { songId });
           } else {
             songsUpdated++;
           }
@@ -155,7 +201,7 @@ serve(async (req) => {
     const result: UpdateResult = {
       songsUpdated,
       songsNotFound,
-      notFoundList: notFoundList.slice(0, 50), // Limitar lista para não estourar payload
+      notFoundList: notFoundList.slice(0, 50),
     };
 
     return new Response(

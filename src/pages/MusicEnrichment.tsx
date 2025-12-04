@@ -1,4 +1,4 @@
-import { useCallback, useState, useEffect } from 'react';
+import { useCallback, useState, useEffect, useRef } from 'react';
 import { createLogger } from '@/lib/loggerFactory';
 
 const log = createLogger('MusicEnrichment');
@@ -12,7 +12,8 @@ import { EmptyStateMusicEnrichment } from '@/components/music/EmptyStateMusicEnr
 import { MusicAnalysisResult, type ImportMode } from '@/components/music/MusicAnalysisResult';
 import { MusicUploadDialog } from '@/components/music/MusicUploadDialog';
 import { MusicImportProgressModal } from '@/components/music/MusicImportProgressModal';
-import { ingestionService } from '@/services/ingestionService';
+import { UpdateProgressCard } from '@/components/music/UpdateProgressCard';
+import { ingestionService, type UpdateChunkProgress } from '@/services/ingestionService';
 import { deduplicateMusicData, DeduplicationResult } from '@/lib/deduplication';
 
 function MusicEnrichmentContent() {
@@ -27,6 +28,12 @@ function MusicEnrichmentContent() {
   const [totalChunks, setTotalChunks] = useState(0);
   const [songsProcessed, setSongsProcessed] = useState(0);
   const [deduplicationResult, setDeduplicationResult] = useState<DeduplicationResult | null>(null);
+  
+  // Estado específico para modo update
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [updateProgress, setUpdateProgress] = useState<UpdateChunkProgress | null>(null);
+  const updateStartTimeRef = useRef<number>(0);
+  
   const navigate = useNavigate();
 
   // Executar deduplicação quando o arquivo for processado
@@ -61,6 +68,8 @@ function MusicEnrichmentContent() {
     resetProcessing();
     setShowUploadDialog(false);
     setDeduplicationResult(null);
+    setIsUpdating(false);
+    setUpdateProgress(null);
     toast.info('Operação cancelada');
   }, [resetProcessing]);
 
@@ -75,16 +84,6 @@ function MusicEnrichmentContent() {
         return;
       }
       
-      // Resetar estados e mostrar modal de progresso
-      setImportTotal(validSongs.length);
-      setImportResult(null);
-      setImportError(null);
-      setIsImporting(true);
-      setCurrentChunk(0);
-      setTotalChunks(0);
-      setSongsProcessed(0);
-      setShowImportProgress(true);
-      
       const mappedSongs = validSongs.map(song => ({
         titulo: song.titulo,
         artista: song.artista!,
@@ -97,29 +96,54 @@ function MusicEnrichmentContent() {
       }));
 
       if (mode === 'update') {
-        // Modo atualização: atualizar músicas existentes
-        const updateResult = await ingestionService.updateSongsMetadata(mappedSongs, corpusId);
-        
-        setIsImporting(false);
-        setImportResult({ 
-          songsCreated: updateResult.songsUpdated, 
-          artistsCreated: 0 
+        // Modo atualização com processamento chunked
+        setImportTotal(validSongs.length);
+        setIsUpdating(true);
+        updateStartTimeRef.current = Date.now();
+        setUpdateProgress({
+          currentChunk: 0,
+          totalChunks: Math.ceil(validSongs.length / 500),
+          songsProcessed: 0,
+          songsUpdated: 0,
+          songsNotFound: 0
         });
         
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        setShowImportProgress(false);
+        const updateResult = await ingestionService.updateSongsMetadataChunked(
+          mappedSongs,
+          {
+            corpusId,
+            chunkSize: 500,
+            onProgress: (progress) => {
+              setUpdateProgress(progress);
+            }
+          }
+        );
+        
+        setIsUpdating(false);
         
         if (updateResult.songsNotFound > 0) {
           toast.warning(
-            `${updateResult.songsUpdated} músicas atualizadas. ${updateResult.songsNotFound} não encontradas.`
+            `${updateResult.songsUpdated} músicas atualizadas. ${updateResult.songsNotFound} não encontradas.`,
+            { duration: 5000 }
           );
         } else {
           toast.success(`${updateResult.songsUpdated} músicas atualizadas com sucesso!`);
         }
         
+        // Pequeno delay antes de navegar
+        await new Promise(resolve => setTimeout(resolve, 1500));
         navigate('/music-catalog');
       } else {
         // Modo importação: criar novas músicas
+        setImportTotal(validSongs.length);
+        setImportResult(null);
+        setImportError(null);
+        setIsImporting(true);
+        setCurrentChunk(0);
+        setTotalChunks(0);
+        setSongsProcessed(0);
+        setShowImportProgress(true);
+        
         const result = await ingestionService.extractTitlesChunked(
           mappedSongs,
           {
@@ -152,6 +176,7 @@ function MusicEnrichmentContent() {
       }
     } catch (error) {
       setIsImporting(false);
+      setIsUpdating(false);
       setImportError(error instanceof Error ? error.message : 'Erro desconhecido');
       
       await new Promise(resolve => setTimeout(resolve, 3000));
@@ -164,6 +189,25 @@ function MusicEnrichmentContent() {
       });
     }
   }, [parsedData, deduplicationResult, navigate]);
+
+  // Estado: Atualizando (modo update com progresso)
+  if (isUpdating && updateProgress) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-8">
+        <div className="max-w-lg w-full">
+          <UpdateProgressCard
+            currentChunk={updateProgress.currentChunk}
+            totalChunks={updateProgress.totalChunks}
+            songsProcessed={updateProgress.songsProcessed}
+            totalSongs={importTotal}
+            songsUpdated={updateProgress.songsUpdated}
+            songsNotFound={updateProgress.songsNotFound}
+            startTime={updateStartTimeRef.current}
+          />
+        </div>
+      </div>
+    );
+  }
 
   // Estado: Análise completa (arquivo processado)
   if (uploadState === 'complete' && parsedData.length > 0) {
