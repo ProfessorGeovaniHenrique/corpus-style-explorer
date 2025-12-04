@@ -2,7 +2,7 @@ import { useState, lazy, Suspense } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Activity, Database, AlertTriangle, TrendingUp, TestTube, BookOpen, Loader2 } from 'lucide-react';
+import { Activity, Database, AlertTriangle, TrendingUp, TestTube, BookOpen, Loader2, Award } from 'lucide-react';
 import { useSemanticPipelineStats } from '@/hooks/useSemanticPipelineStats';
 import { SemanticDomainChart } from '@/components/admin/SemanticDomainChart';
 import { AnnotationJobsTable } from '@/components/admin/AnnotationJobsTable';
@@ -11,6 +11,7 @@ import { NCWordCorrectionTool } from '@/components/admin/NCWordCorrectionTool';
 import { BatchSeedingControl } from '@/components/admin/BatchSeedingControl';
 import { DuplicateMonitoringCard } from '@/components/admin/DuplicateMonitoringCard';
 import { PipelineTestInterface } from '@/components/admin/PipelineTestInterface';
+import { CulturalInsigniaCurationPanel } from '@/components/admin/CulturalInsigniaCurationPanel';
 
 // Lazy load heavy component
 const SemanticLexiconPanel = lazy(() => import('@/components/admin/SemanticLexiconPanel').then(m => ({ default: m.SemanticLexiconPanel })));
@@ -71,7 +72,7 @@ export default function AdminSemanticPipeline() {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="dashboard">
             <Database className="w-4 h-4 mr-2" />
             Dashboard
@@ -79,6 +80,10 @@ export default function AdminSemanticPipeline() {
           <TabsTrigger value="lexicon">
             <BookOpen className="w-4 h-4 mr-2" />
             Léxico Anotado
+          </TabsTrigger>
+          <TabsTrigger value="insignias">
+            <Award className="w-4 h-4 mr-2" />
+            Insígnias Culturais
           </TabsTrigger>
           <TabsTrigger value="test">
             <TestTube className="w-4 h-4 mr-2" />
@@ -274,6 +279,10 @@ export default function AdminSemanticPipeline() {
           }>
             <SemanticLexiconPanel />
           </Suspense>
+        </TabsContent>
+
+        <TabsContent value="insignias" className="mt-6">
+          <CulturalInsigniaCurationPanel />
         </TabsContent>
 
         <TabsContent value="test" className="mt-6">

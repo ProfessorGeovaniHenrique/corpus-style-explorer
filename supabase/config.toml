@@ -177,3 +177,6 @@ verify_jwt = false
 
 [functions.reprocess-insignias]
 verify_jwt = false
+
+[functions.analyze-insignias]
+verify_jwt = false
