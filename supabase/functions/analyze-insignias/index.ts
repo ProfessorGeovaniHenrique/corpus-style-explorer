@@ -171,7 +171,7 @@ serve(async (req) => {
   }
 
   try {
-    const { mode, palavras, palavra, corpus_atual } = await req.json();
+    const { mode, palavras, palavra, corpus_atual, id, insignias } = await req.json();
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
     if (mode === 'single') {
@@ -270,8 +270,7 @@ serve(async (req) => {
     }
 
     if (mode === 'apply_suggestion') {
-      // Apply suggested insignias to a word
-      const { id, insignias } = await req.json();
+      // Apply suggested insignias to a word - id and insignias already extracted above
       
       if (!id) {
         return new Response(
