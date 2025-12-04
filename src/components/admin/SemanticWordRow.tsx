@@ -57,10 +57,10 @@ export function SemanticWordRow({ entry, onValidate, onRefresh }: Props) {
   const { reclassifySingle, isProcessing } = useReclassifyMG();
 
   const confidence = entry.confianca !== null ? Math.round(entry.confianca * 100) : null;
-  const needsReview = confidence !== null && confidence < 80 && 
-    entry.fonte !== 'manual' && entry.fonte !== 'human_validated';
-  const showMGRefine = isMGN1Only(entry);
-  const showDSRefine = isDSN1Only(entry) && !showMGRefine; // Only show if not already showing MG refine
+  const isValidated = entry.fonte === 'manual' || entry.fonte === 'human_validated';
+  const needsReview = confidence !== null && confidence < 80 && !isValidated;
+  const showMGRefine = isMGN1Only(entry) && !isValidated;
+  const showDSRefine = isDSN1Only(entry) && !showMGRefine && !isValidated;
 
   const handleRefine = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -76,9 +76,10 @@ export function SemanticWordRow({ entry, onValidate, onRefresh }: Props) {
         className={cn(
           'cursor-pointer transition-colors hover:bg-muted/50',
           getConfidenceColor(entry.confianca),
-          needsReview && 'border-l-2 border-l-amber-500',
-          showMGRefine && 'border-l-2 border-l-blue-500',
-          showDSRefine && 'border-l-2 border-l-purple-500'
+          isValidated && 'border-l-2 border-l-green-500 bg-green-500/5',
+          !isValidated && needsReview && 'border-l-2 border-l-amber-500',
+          !isValidated && showMGRefine && 'border-l-2 border-l-blue-500',
+          !isValidated && showDSRefine && 'border-l-2 border-l-purple-500'
         )}
         onClick={() => setIsExpanded(!isExpanded)}
       >
@@ -93,10 +94,18 @@ export function SemanticWordRow({ entry, onValidate, onRefresh }: Props) {
 
         {/* Palavra */}
         <TableCell className="font-mono font-medium">
-          {entry.palavra}
-          {entry.lema && entry.lema !== entry.palavra && (
-            <span className="text-xs text-muted-foreground ml-1">({entry.lema})</span>
-          )}
+          <div className="flex items-center gap-2">
+            {isValidated && (
+              <Badge className="bg-green-500/20 text-green-600 border-green-500/30 text-xs">
+                <Check className="h-3 w-3 mr-1" />
+                Validado
+              </Badge>
+            )}
+            <span>{entry.palavra}</span>
+            {entry.lema && entry.lema !== entry.palavra && (
+              <span className="text-xs text-muted-foreground">({entry.lema})</span>
+            )}
+          </div>
         </TableCell>
 
         {/* Tagset */}
@@ -211,24 +220,31 @@ export function SemanticWordRow({ entry, onValidate, onRefresh }: Props) {
                 )}
               </Button>
             )}
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 text-xs"
-              onClick={() => onValidate(entry)}
-            >
-              {needsReview ? (
-                <>
-                  <Edit className="h-3 w-3 mr-1" />
-                  Revisar
-                </>
-              ) : (
-                <>
-                  <Check className="h-3 w-3 mr-1" />
-                  Validar
-                </>
-              )}
-            </Button>
+            {isValidated ? (
+              <span className="text-xs text-green-600 flex items-center px-2">
+                <Check className="h-3 w-3 mr-1" />
+                Validado
+              </span>
+            ) : (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 text-xs"
+                onClick={() => onValidate(entry)}
+              >
+                {needsReview ? (
+                  <>
+                    <Edit className="h-3 w-3 mr-1" />
+                    Revisar
+                  </>
+                ) : (
+                  <>
+                    <Check className="h-3 w-3 mr-1" />
+                    Validar
+                  </>
+                )}
+              </Button>
+            )}
           </div>
         </TableCell>
       </TableRow>
