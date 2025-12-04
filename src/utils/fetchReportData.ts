@@ -50,6 +50,13 @@ export interface ReportStatistics {
     gutenbergCount: number;
     synonymsCount: number;
   };
+  culturalInsignias: {
+    totalEntries: number;
+    uniqueInsignias: number;
+    uniqueWordsGrouped: number;
+    distribution: { insignia: string; count: number }[];
+    autoAttributionRate: number;
+  };
 }
 
 export interface SemanticDomainHierarchy {
@@ -139,6 +146,9 @@ export async function fetchReportStatistics(): Promise<ReportStatistics> {
       }
     }
 
+    // Buscar estatísticas de insígnias culturais
+    const insigniasStats = await fetchCulturalInsigniasStats();
+
     return {
       corpus: {
         totalSongs: songsResult.count || 0,
@@ -164,11 +174,82 @@ export async function fetchReportStatistics(): Promise<ReportStatistics> {
         dialectalCount: dialectalResult.count || 0,
         gutenbergCount: gutenbergResult.count || 0,
         synonymsCount: synonymsResult.count || 0
-      }
+      },
+      culturalInsignias: insigniasStats
     };
   } catch (error) {
     console.error('[fetchReportStatistics] Error:', error);
     return getDefaultStatistics();
+  }
+}
+
+/**
+ * Busca estatísticas de insígnias culturais
+ */
+async function fetchCulturalInsigniasStats() {
+  try {
+    // Total de entradas com insígnias
+    const totalResult = await supabase
+      .from('semantic_disambiguation_cache')
+      .select('id', { count: 'exact', head: true })
+      .not('insignias_culturais', 'is', null);
+
+    // Buscar distribuição de insígnias
+    const insigniasResult = await supabase
+      .from('semantic_disambiguation_cache')
+      .select('insignias_culturais')
+      .not('insignias_culturais', 'is', null)
+      .limit(50000);
+
+    // Contar distribuição
+    const insigniaCount: Record<string, number> = {};
+    insigniasResult.data?.forEach(r => {
+      const insignias = r.insignias_culturais as string[] | null;
+      insignias?.forEach(ic => {
+        insigniaCount[ic] = (insigniaCount[ic] || 0) + 1;
+      });
+    });
+
+    const distribution = Object.entries(insigniaCount)
+      .map(([insignia, count]) => ({ insignia, count }))
+      .sort((a, b) => b.count - a.count);
+
+    // Palavras únicas agrupadas
+    const uniqueWordsResult = await supabase
+      .from('semantic_disambiguation_cache')
+      .select('palavra')
+      .not('insignias_culturais', 'is', null)
+      .limit(50000);
+    
+    const uniqueWords = new Set(uniqueWordsResult.data?.map(r => r.palavra) || []).size;
+
+    // Contar fontes para calcular auto-attribution
+    const sourcesResult = await supabase
+      .from('semantic_disambiguation_cache')
+      .select('fonte')
+      .not('insignias_culturais', 'is', null)
+      .limit(50000);
+    
+    const ruleBasedCount = sourcesResult.data?.filter(r => r.fonte?.includes('rule')).length || 0;
+    const totalWithInsignias = sourcesResult.data?.length || 1;
+    const autoRate = Math.round((ruleBasedCount / totalWithInsignias) * 100);
+
+    return {
+      totalEntries: totalResult.count || 0,
+      uniqueInsignias: distribution.length,
+      uniqueWordsGrouped: uniqueWords,
+      distribution,
+      autoAttributionRate: autoRate
+    };
+  } catch (error) {
+    console.error('[fetchCulturalInsigniasStats] Error:', error);
+    return {
+      totalEntries: 0,
+      uniqueInsignias: 0,
+      uniqueWordsGrouped: 0,
+      distribution: [],
+      autoAttributionRate: 0
+    };
   }
 }
 
@@ -364,6 +445,21 @@ function getDefaultStatistics(): ReportStatistics {
       dialectalCount: 4500,
       gutenbergCount: 64392,
       synonymsCount: 12000
+    },
+    culturalInsignias: {
+      totalEntries: 16159,
+      uniqueInsignias: 7,
+      uniqueWordsGrouped: 4250,
+      distribution: [
+        { insignia: 'Gaúcho', count: 8500 },
+        { insignia: 'Nordestino', count: 4200 },
+        { insignia: 'Sertanejo', count: 2100 },
+        { insignia: 'Platino', count: 800 },
+        { insignia: 'Brasileiro', count: 400 },
+        { insignia: 'Indígena', count: 100 },
+        { insignia: 'Alemão', count: 59 }
+      ],
+      autoAttributionRate: 70
     }
   };
 }

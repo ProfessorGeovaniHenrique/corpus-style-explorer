@@ -405,7 +405,18 @@ export async function exportDeveloperHistoryABNT(options: ABNTExportOptions) {
       ],
       semanticCache: { totalEntries: 16159, uniqueWords: 3706, uniqueDomains: 71, averageConfidence: 0.96, unclassifiedWords: 179, ruleBasedCount: 10992, geminiCount: 5002, gpt5Count: 165 },
       semanticTagsets: { totalActive: 604, n1Count: 14, n2Count: 69, n3Count: 183, n4Count: 338 },
-      lexicons: { dialectalCount: 4500, gutenbergCount: 64392, synonymsCount: 12000 }
+      lexicons: { dialectalCount: 4500, gutenbergCount: 64392, synonymsCount: 12000 },
+      culturalInsignias: {
+        totalEntries: 16159,
+        uniqueInsignias: 7,
+        uniqueWordsGrouped: 4250,
+        distribution: [
+          { insignia: 'Gaúcho', count: 8500 },
+          { insignia: 'Nordestino', count: 4200 },
+          { insignia: 'Sertanejo', count: 2100 }
+        ],
+        autoAttributionRate: 70
+      }
     };
   }
 

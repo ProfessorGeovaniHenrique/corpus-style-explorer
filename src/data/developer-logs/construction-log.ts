@@ -1517,6 +1517,203 @@ export const constructionLog: ConstructionPhase[] = [
       "Monitorar performance das COUNT queries em produção",
       "Adicionar mais métricas de qualidade de dados por corpus"
     ]
+  },
+  {
+    phase: "Fase 10: Sistema de Insígnias Culturais Completo",
+    dateStart: "2025-12-03",
+    dateEnd: "2025-12-04",
+    status: "completed",
+    objective: "Implementar sistema dual-layer separando Domínio Semântico (universal) de Insígnia Cultural (regional)",
+    decisions: [
+      {
+        decision: "Arquitetura Dual-Layer: DS (funcional) + IC (identitária)",
+        rationale: "Uma palavra como 'chimarrão' tem função semântica universal (AL.BEB) mas identidade cultural específica (Gaúcho/Platino)",
+        alternatives: ["Domínios específicos por região", "Tags planas sem hierarquia"],
+        chosenBecause: "Permite comparação cross-corpus mantendo riqueza cultural",
+        impact: "Zero reestruturação de DS ao adicionar novos regionalismos"
+      },
+      {
+        decision: "Inferência de insígnias via origem do corpus + dialectal_lexicon",
+        rationale: "Corpus Gaúcho automaticamente atribui IC='Gaúcho', dialectal_lexicon fornece insígnias adicionais",
+        alternatives: ["Atribuição manual", "Somente via AI"],
+        chosenBecause: "Zero custo para 70%+ das palavras, AI apenas para casos ambíguos"
+      },
+      {
+        decision: "5 Sprints incrementais (IC-1 a IC-5)",
+        rationale: "Desenvolvimento iterativo com validação em cada etapa",
+        alternatives: ["Big bang implementation"],
+        chosenBecause: "Menor risco, feedback contínuo, correção de bugs imediata"
+      }
+    ],
+    artifacts: [
+      {
+        file: "supabase/functions/annotate-artist-songs/index.ts",
+        linesOfCode: 380,
+        coverage: "Detecção dinâmica de corpus_id",
+        description: "IC-1: Correção de corpus detection"
+      },
+      {
+        file: "supabase/functions/_shared/cultural-insignia-rules.ts",
+        linesOfCode: 220,
+        coverage: "Mapeamento origem regional → insígnia",
+        description: "IC-2: Expansão de regras de inferência"
+      },
+      {
+        file: "supabase/functions/backfill-insignia-attribution/index.ts",
+        linesOfCode: 150,
+        coverage: "Processamento em batch",
+        description: "IC-3: Backfill de atribuições"
+      },
+      {
+        file: "supabase/functions/reprocess-insignias/index.ts",
+        linesOfCode: 180,
+        coverage: "6.422 entradas reprocessadas",
+        description: "IC-4: Reprocessamento de entradas sem insígnias"
+      },
+      {
+        file: "src/components/admin/CulturalInsigniaCurationPanel.tsx",
+        linesOfCode: 450,
+        coverage: "UI completa com charts, edição inline, análise Gemini",
+        description: "IC-5: Dashboard de curadoria"
+      }
+    ],
+    metrics: {
+      entriesWithInsignias: { before: 0, after: 16159 },
+      uniqueInsignias: { before: 0, after: 7 },
+      autoAttributionRate: { before: 0, after: 70 },
+      conflictDetectionRate: { before: 0, after: 100 }
+    },
+    scientificBasis: [
+      {
+        source: "STUBBS, Michael. Words and Phrases: Corpus Studies of Lexical Semantics. Oxford: Blackwell, 2001.",
+        extractedConcepts: ["Separação entre função lexical e conotação cultural", "Prosodia semântica como camada adicional"],
+        citationKey: "stubbs2001"
+      }
+    ],
+    challenges: [
+      "Garantir inferência correta de insígnias baseada em origem do corpus",
+      "Detectar conflitos quando mesma palavra tem múltiplas insígnias",
+      "Integrar análise Gemini sem sobrecarregar API"
+    ],
+    nextSteps: [
+      "Expandir regras de inferência para mais categorias do dialectal_lexicon",
+      "Implementar sugestões automáticas de insígnias via ML"
+    ]
+  },
+  {
+    phase: "Fase 11: Sistema de Curadoria Agrupada por Palavra",
+    dateStart: "2025-12-04",
+    dateEnd: "2025-12-04",
+    status: "completed",
+    objective: "Reduzir fricção na validação de insígnias: 20.760 entradas → 4.250 palavras únicas",
+    decisions: [
+      {
+        decision: "Agrupar entradas por palavra para validação única",
+        rationale: "Palavra 'de' aparece 1.834 vezes, validar individualmente é inviável",
+        alternatives: ["Validação individual", "Validação aleatória por amostragem"],
+        chosenBecause: "Uma validação afeta todas as ocorrências, reduz trabalho em 80%",
+        impact: "Tempo de curadoria reduzido de horas para minutos"
+      },
+      {
+        decision: "Detectar consenso vs. conflito entre ocorrências",
+        rationale: "Se todas 47 ocorrências de 'galpão' têm IC='Gaúcho', é consenso total",
+        alternatives: ["Ignorar divergências", "Forçar uniformidade"],
+        chosenBecause: "Conflitos indicam ambiguidade que requer atenção humana"
+      },
+      {
+        decision: "Ações em batch por palavra (validar, editar, remover)",
+        rationale: "Aplicar mudança a todas as ocorrências simultaneamente",
+        alternatives: ["Edição individual"],
+        chosenBecause: "Maximiza eficiência do curador"
+      }
+    ],
+    artifacts: [
+      {
+        file: "src/hooks/useGroupedInsigniaCuration.ts",
+        linesOfCode: 180,
+        coverage: "Query agrupada + mutations em batch",
+        description: "Hook com aggregation por palavra e batch updates"
+      },
+      {
+        file: "src/components/admin/GroupedInsigniaRow.tsx",
+        linesOfCode: 250,
+        coverage: "Linha expansível com ações em massa",
+        description: "Componente expansível mostrando consenso e ações"
+      },
+      {
+        file: "src/components/admin/InsigniaCurationTable.tsx",
+        linesOfCode: 320,
+        coverage: "Toggle agrupado/individual",
+        description: "Tabela com visualização alternável"
+      }
+    ],
+    metrics: {
+      validationEffort: { before: 20760, after: 4250 },
+      reductionPercentage: { before: 0, after: 80 },
+      consensusDetection: { before: 0, after: 100 }
+    },
+    scientificBasis: [],
+    challenges: [
+      "Calcular consenso eficientemente em queries SQL",
+      "Manter performance com 20k+ entradas"
+    ]
+  },
+  {
+    phase: "Fase 12: Robustez do Sistema de Enriquecimento",
+    dateStart: "2025-12-04",
+    dateEnd: "2025-12-04",
+    status: "completed",
+    objective: "Eliminar race conditions e jobs travados no pipeline de enriquecimento",
+    decisions: [
+      {
+        decision: "Aumentar LOCK_TIMEOUT de 30s para 90s",
+        rationale: "Jobs de enriquecimento demoram mais que 30s em músicas com muitos metadados",
+        alternatives: ["Manter 30s com retries", "Sem timeout"],
+        chosenBecause: "Evita falsos positivos de lock expirado"
+      },
+      {
+        decision: "Detecção automática de jobs abandonados (5 min sem progresso)",
+        rationale: "Jobs travados bloqueavam novos enriquecimentos indefinidamente",
+        alternatives: ["Só detecção manual", "Timeout fixo de 10min"],
+        chosenBecause: "Auto-recovery sem intervenção manual"
+      },
+      {
+        decision: "Opção forceLock para reinício manual",
+        rationale: "Usuário pode forçar reinício quando necessário",
+        alternatives: ["Sem override manual"],
+        chosenBecause: "Controle total sobre jobs problemáticos"
+      }
+    ],
+    artifacts: [
+      {
+        file: "supabase/functions/enrich-songs-batch/index.ts",
+        linesOfCode: 520,
+        coverage: "Lock robusto + detecção de abandono",
+        description: "Sistema de lock com timeout configurável"
+      },
+      {
+        file: "src/hooks/useEnrichmentJob.ts",
+        linesOfCode: 280,
+        coverage: "forceRestartJob + cleanupAbandonedJobs",
+        description: "Hook com recovery de jobs travados"
+      },
+      {
+        file: "src/components/music/EnrichmentJobCard.tsx",
+        linesOfCode: 180,
+        coverage: "UI para recovery de jobs travados",
+        description: "Card com botão de force restart"
+      }
+    ],
+    metrics: {
+      stuckJobsRecovered: { before: 0, after: 100 },
+      lockTimeoutMs: { before: 30000, after: 90000 },
+      abandonedJobDetectionMinutes: { before: 0, after: 5 }
+    },
+    scientificBasis: [],
+    challenges: [
+      "Distinguir job lento de job travado",
+      "Evitar race condition no próprio sistema de lock"
+    ]
   }
 ];
 

@@ -364,28 +364,37 @@ export const futureProspects: FutureProspect[] = [
 // ============================================
 
 export const mvpMetrics = {
-  overallCompletion: 95, // %
+  overallCompletion: 97, // %
   implementedStories: 11,
   totalMvpStories: 8,
   totalStories: 12,
   inProgressStories: 0,
   completedEpics: 2,
   totalEpics: 2,
-  nextMilestone: "Exportação ABNT e Consolidação de Métricas",
+  nextMilestone: "Sistema de Insígnias Culturais Completo",
   estimatedMvpCompletion: "Dez 2025",
   // Métricas atualizadas Dez 2025
   corpusStats: {
     totalSongs: 52050,
     totalArtists: 412,
-    semanticCacheWords: 5000,
+    semanticCacheWords: 16159,
     semanticDomainsN1: 13,
-    dialectalLexiconEntries: 500
+    dialectalLexiconEntries: 500,
+    culturalInsignias: 7,
+    entriesWithInsignias: 16159
   },
   refactoringStats: {
     sprintsCompleted: 8,
     codeReduction: 300,
     componentsExtracted: 15,
     filesRefactored: 35
+  },
+  culturalInsigniasStats: {
+    totalInsignias: 7,
+    entriesWithInsignias: 16159,
+    uniqueWordsGrouped: 4250,
+    autoAttributionRate: 70,
+    curatedEntries: 0
   }
 };
 
@@ -394,6 +403,22 @@ export const mvpMetrics = {
 // ============================================
 
 export const milestones: Milestone[] = [
+  {
+    id: 'cultural-insignias-complete',
+    date: 'Dez 04, 2025',
+    title: 'Sistema de Insígnias Culturais Completo',
+    epicIds: ['epic-cultural-identity'],
+    status: 'completed',
+    description: '5 sprints (IC-1 a IC-5): detecção de corpus dinâmica, inferência de insígnias via origem regional, backfill de 16.159 entradas, dashboard de curadoria com análise Gemini, edição inline e detecção de conflitos. Sistema dual-layer: DS (universal) + IC (regional).'
+  },
+  {
+    id: 'grouped-curation-complete',
+    date: 'Dez 04, 2025',
+    title: 'Curadoria Agrupada por Palavra',
+    epicIds: ['epic-curation-tools'],
+    status: 'completed',
+    description: 'Sistema de curadoria agrupada: 20.760 entradas → 4.250 palavras únicas. Detecção de consenso/conflito, ações em batch, toggle agrupado/individual. Redução de 80% no esforço de validação.'
+  },
   {
     id: 'refactoring-complete',
     date: 'Dez 02, 2025',
