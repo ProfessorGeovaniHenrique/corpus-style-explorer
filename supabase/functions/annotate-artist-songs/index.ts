@@ -117,13 +117,28 @@ serve(async (req) => {
 
     logger.info('Artista identificado', { artistId: artist.id, artistName: artist.name });
 
-    // Buscar músicas com letra
+    // Buscar músicas com letra E corpus_id para detecção dinâmica de corpus
     const { data: songs, error: songsError } = await supabaseClient
       .from('songs')
-      .select('id, title, lyrics')
+      .select('id, title, lyrics, corpus_id')
       .eq('artist_id', artist.id)
       .not('lyrics', 'is', null)
       .neq('lyrics', '');
+
+    // SPRINT IC-1: Criar mapa de corpus_id → normalized_name
+    const corpusIds = [...new Set(songs?.filter(s => s.corpus_id).map(s => s.corpus_id) || [])];
+    let corpusMap = new Map<string, string>();
+    
+    if (corpusIds.length > 0) {
+      const { data: corpora } = await supabaseClient
+        .from('corpora')
+        .select('id, normalized_name')
+        .in('id', corpusIds);
+      
+      corpora?.forEach(c => corpusMap.set(c.id, c.normalized_name));
+    }
+    
+    logger.info('Corpus map loaded', { corpusIds: corpusIds.length, mappings: corpusMap.size });
 
     if (songsError || !songs || songs.length === 0) {
       return new Response(
@@ -262,12 +277,28 @@ async function processChunk(
       .eq('id', job.artist_id)
       .single();
 
+    // SPRINT IC-1: Buscar músicas com corpus_id para detecção dinâmica
     const { data: songs } = await supabase
       .from('songs')
-      .select('id, title, lyrics')
+      .select('id, title, lyrics, corpus_id')
       .eq('artist_id', job.artist_id)
       .not('lyrics', 'is', null)
       .neq('lyrics', '');
+
+    // SPRINT IC-1: Criar mapa de corpus_id → normalized_name
+    const corpusIds = [...new Set(songs?.filter((s: any) => s.corpus_id).map((s: any) => s.corpus_id) || [])];
+    let corpusMap = new Map<string, string>();
+    
+    if (corpusIds.length > 0) {
+      const { data: corpora } = await supabase
+        .from('corpora')
+        .select('id, normalized_name')
+        .in('id', corpusIds);
+      
+      corpora?.forEach((c: any) => corpusMap.set(c.id, c.normalized_name));
+    }
+    
+    logger.info('Corpus map loaded for chunk', { corpusIds: corpusIds.length, mappings: corpusMap.size });
 
     if (!songs || songs.length === 0) {
       throw new Error('Nenhuma música encontrada');
@@ -287,6 +318,7 @@ async function processChunk(
     let currentWordIndex = continueFrom.wordIndex;
 
     // FASE 4: Coletar palavras do chunk para batch processing
+    // SPRINT IC-1: Adicionado corpusType para detecção dinâmica de corpus
     const chunkWords: Array<{
       palavra: string;
       lema: string;
@@ -297,9 +329,10 @@ async function processChunk(
       songId: string;
       songIndex: number;
       wordIndex: number;
-      isMWE: boolean; // NOVO: indica se é multi-word expression
+      isMWE: boolean;
       posSource?: string;
       posConfidence?: number;
+      corpusType: string; // SPRINT IC-1: Corpus dinâmico
     }> = [];
 
     // Coletar até CHUNK_SIZE palavras usando tokenizador com MWEs
@@ -316,6 +349,9 @@ async function processChunk(
         const contextoEsquerdo = tokensWithMWE.slice(Math.max(0, w - 5), w).map(t => t.token).join(' ');
         const contextoDireito = tokensWithMWE.slice(w + 1, Math.min(tokensWithMWE.length, w + 6)).map(t => t.token).join(' ');
 
+        // SPRINT IC-1: Determinar corpusType dinamicamente a partir da música
+        const songCorpusType = song.corpus_id ? (corpusMap.get(song.corpus_id) || 'gaucho') : 'gaucho';
+        
         chunkWords.push({
           palavra: tokenData.token,
           lema: tokenData.token, // Será enriquecido via POS pipeline
@@ -327,6 +363,7 @@ async function processChunk(
           songIndex: s,
           wordIndex: w,
           isMWE: tokenData.isMWE,
+          corpusType: songCorpusType, // SPRINT IC-1: Corpus dinâmico
         });
       }
     }
@@ -385,7 +422,7 @@ async function processChunk(
             wordData.songId,
             [],
             false,
-            'gaucho'
+            wordData.corpusType // SPRINT IC-1: Corpus dinâmico
           );
           cachedInChunk++; // Contabilizar como "cached" (zero cost)
           processedInChunk++;
@@ -413,7 +450,7 @@ async function processChunk(
           wordData.songId,
           [],
           false,
-          'gaucho'
+          wordData.corpusType // SPRINT IC-1: Corpus dinâmico
         );
         cachedInChunk++; // Contabilizar como "cached" (zero cost)
         processedInChunk++;
@@ -436,7 +473,7 @@ async function processChunk(
           wordData.songId,
           [],
           false,
-          'gaucho'
+          wordData.corpusType // SPRINT IC-1: Corpus dinâmico
         );
         await supabase.rpc('increment_semantic_cache_hit', { cache_id: wordCache.id });
         cachedInChunk++;
@@ -460,7 +497,7 @@ async function processChunk(
           wordData.songId,
           [],
           false,
-          'gaucho'
+          wordData.corpusType // SPRINT IC-1: Corpus dinâmico
         );
         await supabase.rpc('increment_semantic_cache_hit', { cache_id: contextCache.id });
         cachedInChunk++;
@@ -483,7 +520,7 @@ async function processChunk(
           wordData.songId,
           lexiconRule.tagsets_alternativos || [],
           lexiconRule.is_polysemous || false,
-          'gaucho'
+          wordData.corpusType // SPRINT IC-1: Corpus dinâmico
         );
         newInChunk++;
         processedInChunk++;
@@ -505,7 +542,7 @@ async function processChunk(
           wordData.songId,
           [],
           false,
-          'gaucho'
+          wordData.corpusType // SPRINT IC-1: Corpus dinâmico
         );
         newInChunk++;
         processedInChunk++;
@@ -528,7 +565,7 @@ async function processChunk(
           wordData.songId,
           [],
           false,
-          'gaucho'
+          wordData.corpusType // SPRINT IC-1: Corpus dinâmico
         );
         newInChunk++;
         processedInChunk++;
@@ -596,7 +633,7 @@ async function processChunk(
                     wordData.songId,
                     individualResult.tagsets_alternativos || [],
                     individualResult.is_polysemous || false,
-                    'gaucho'
+                    wordData.corpusType // SPRINT IC-1: Corpus dinâmico
                   );
                   newInChunk++;
                 }
@@ -633,7 +670,7 @@ async function processChunk(
                   wordData.songId,
                   result.tagsets_alternativos || [],
                   result.is_polysemous || false,
-                  'gaucho'
+                  wordData.corpusType // SPRINT IC-1: Corpus dinâmico
                 );
                 newInChunk++;
               }
