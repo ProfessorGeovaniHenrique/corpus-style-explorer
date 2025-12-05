@@ -76,7 +76,8 @@ export async function annotatePOSForCorpus(
     annotatedSongs.push({
       musicaId: `${musica.metadata.artista}-${musica.metadata.musica}`,
       metadata: musica.metadata,
-      tokens
+      tokens,
+      letra: musica.letra // Preserva letra para detecção de sentenças por verso
     });
     
     // Report progress after processing

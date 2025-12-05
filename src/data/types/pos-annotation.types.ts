@@ -38,6 +38,7 @@ export interface POSAnnotatedSong {
     ano?: string;
   };
   tokens: POSToken[];
+  letra?: string; // Preserva letra original para análise sintática (sentenças por verso)
 }
 
 export interface CorpusComPOS {
