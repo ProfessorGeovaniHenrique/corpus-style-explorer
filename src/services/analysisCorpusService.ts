@@ -72,7 +72,7 @@ async function loadPlatformCorpus(
   
   if (corporaError || !corporaData) {
     log.error('Corpus not found', { corpusType });
-    throw new Error(`Corpus "${corpusType}" não encontrado`);
+    throw new Error(`Corpus "${corpusType}" não encontrado no banco de dados`);
   }
   
   const corpusId = corporaData.id;

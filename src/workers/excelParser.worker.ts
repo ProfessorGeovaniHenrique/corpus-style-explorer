@@ -38,6 +38,7 @@ const extractionStats = {
 };
 
 function normalizeText(text: string): string {
+  if (!text) return '';
   return text
     .toLowerCase()
     .normalize('NFD')
@@ -231,7 +232,7 @@ function sanitizeLyrics(rawLyrics: string): string {
 }
 
 function detectColumns(headers: string[]): Record<string, number> {
-  const normalized = headers.map(h => normalizeText(h));
+  const normalized = headers.map(h => normalizeText(h || ''));
   
   const titlePatterns = [
     'titulo',
@@ -262,12 +263,12 @@ function detectColumns(headers: string[]): Record<string, number> {
 
   const findColumn = (patterns: string[]) => {
     let exactMatchIndex = normalized.findIndex(h => 
-      patterns.some(p => h === p)
+      h && patterns.some(p => h === p)
     );
     if (exactMatchIndex !== -1) return exactMatchIndex;
     
     return normalized.findIndex(h => 
-      patterns.some(p => h.includes(p))
+      h && patterns.some(p => h.includes(p))
     );
   };
 
