@@ -102,7 +102,7 @@ function MusicEnrichmentContent() {
         updateStartTimeRef.current = Date.now();
         setUpdateProgress({
           currentChunk: 0,
-          totalChunks: Math.ceil(validSongs.length / 500),
+          totalChunks: Math.ceil(validSongs.length / 100),
           songsProcessed: 0,
           songsUpdated: 0,
           songsNotFound: 0
@@ -112,7 +112,7 @@ function MusicEnrichmentContent() {
           mappedSongs,
           {
             corpusId,
-            chunkSize: 500,
+            chunkSize: 100,
             onProgress: (progress) => {
               setUpdateProgress(progress);
             }
