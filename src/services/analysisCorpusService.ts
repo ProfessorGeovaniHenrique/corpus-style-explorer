@@ -69,12 +69,13 @@ async function loadPlatformCorpus(
     .select('id')
     .eq('normalized_name', corpusType)
     .single();
-  
+
   if (corporaError || !corporaData) {
-    log.error('Corpus not found', { corpusType });
-    throw new Error(`Corpus "${corpusType}" não encontrado no banco de dados`);
+    const errorMsg = `Corpus "${corpusType}" não encontrado no banco de dados`;
+    log.error('Corpus not found', undefined, { corpusType });
+    throw new Error(errorMsg);
   }
-  
+
   const corpusId = corporaData.id;
   
   // Query base para músicas com letras
