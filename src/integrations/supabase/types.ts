@@ -2467,6 +2467,66 @@ export type Database = {
         }
         Relationships: []
       }
+      semantic_refinement_jobs: {
+        Row: {
+          created_at: string | null
+          current_offset: number
+          domain_filter: string | null
+          erro_mensagem: string | null
+          errors: number
+          id: string
+          is_cancelling: boolean | null
+          last_chunk_at: string | null
+          metadata: Json | null
+          model: string
+          processed: number
+          refined: number
+          status: string
+          tempo_fim: string | null
+          tempo_inicio: string | null
+          total_words: number
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          current_offset?: number
+          domain_filter?: string | null
+          erro_mensagem?: string | null
+          errors?: number
+          id?: string
+          is_cancelling?: boolean | null
+          last_chunk_at?: string | null
+          metadata?: Json | null
+          model?: string
+          processed?: number
+          refined?: number
+          status?: string
+          tempo_fim?: string | null
+          tempo_inicio?: string | null
+          total_words?: number
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          current_offset?: number
+          domain_filter?: string | null
+          erro_mensagem?: string | null
+          errors?: number
+          id?: string
+          is_cancelling?: boolean | null
+          last_chunk_at?: string | null
+          metadata?: Json | null
+          model?: string
+          processed?: number
+          refined?: number
+          status?: string
+          tempo_fim?: string | null
+          tempo_inicio?: string | null
+          total_words?: number
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       semantic_reprocess_jobs: {
         Row: {
           artist_id: string | null

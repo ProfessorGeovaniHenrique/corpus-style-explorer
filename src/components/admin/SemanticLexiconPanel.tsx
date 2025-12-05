@@ -9,6 +9,7 @@ import { useSemanticLexiconData, SemanticLexiconEntry } from '@/hooks/useSemanti
 import { SemanticLexiconFilters } from './SemanticLexiconFilters';
 import { SemanticWordRow } from './SemanticWordRow';
 import { SemanticValidationModal } from './SemanticValidationModal';
+import { SemanticRefinementJobCard } from './SemanticRefinementJobCard';
 import { useReclassifyMG } from '@/hooks/useReclassifyMG';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -125,6 +126,12 @@ export function SemanticLexiconPanel() {
 
   return (
     <div className="space-y-6">
+      {/* Refinement Job Card */}
+      <SemanticRefinementJobCard 
+        mgCount={stats?.mgOnlyN1 || 0}
+        dsCount={dsN1Entries.length}
+      />
+
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <Card>
