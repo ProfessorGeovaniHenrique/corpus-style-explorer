@@ -2,6 +2,9 @@
  * Edge Function: refine-domain-batch
  * Job recursivo para refinamento semântico automático de palavras N1
  * Auto-invoca próximo chunk até completar ou ser cancelado
+ * 
+ * IMPORTANTE: Extrai contexto KWIC da letra das músicas para classificação
+ * precisa de palavras polissêmicas (ex: "de", "que", "se")
  */
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
@@ -19,6 +22,7 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const CHUNK_SIZE = 50; // Words per invocation
 const BATCH_SIZE = 15; // Words per AI call
 const BATCH_DELAY_MS = 1500; // Delay between AI calls
+const KWIC_WINDOW_SIZE = 40; // Characters of context on each side
 
 interface RefinementJob {
   id: string;
@@ -31,6 +35,16 @@ interface RefinementJob {
   errors: number;
   current_offset: number;
   is_cancelling: boolean;
+}
+
+interface WordToProcess {
+  id: string;
+  palavra: string;
+  lema: string | null;
+  pos: string | null;
+  tagset_codigo: string;
+  song_id: string | null;
+  kwic?: string;
 }
 
 serve(async (req) => {
@@ -251,13 +265,51 @@ async function resumeJob(supabase: any, jobId: string) {
   );
 }
 
+/**
+ * Extrai contexto KWIC (Key Word In Context) de uma letra de música
+ */
+function extractKWIC(lyrics: string, palavra: string, windowSize: number = KWIC_WINDOW_SIZE): string {
+  if (!lyrics || !palavra) return '';
+  
+  const normalizedLyrics = lyrics.toLowerCase();
+  const normalizedWord = palavra.toLowerCase();
+  
+  // Encontrar a primeira ocorrência da palavra
+  const idx = normalizedLyrics.indexOf(normalizedWord);
+  if (idx === -1) {
+    // Tentar buscar com espaços ao redor (palavra isolada)
+    const wordPattern = new RegExp(`\\b${normalizedWord}\\b`, 'i');
+    const match = lyrics.match(wordPattern);
+    if (!match || match.index === undefined) return '';
+    return extractContextAt(lyrics, match.index, palavra.length, windowSize);
+  }
+  
+  return extractContextAt(lyrics, idx, palavra.length, windowSize);
+}
+
+function extractContextAt(text: string, idx: number, wordLength: number, windowSize: number): string {
+  const start = Math.max(0, idx - windowSize);
+  const end = Math.min(text.length, idx + wordLength + windowSize);
+  
+  let context = text.substring(start, end)
+    .replace(/\n/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  
+  // Adicionar reticências se truncado
+  if (start > 0) context = '...' + context;
+  if (end < text.length) context = context + '...';
+  
+  return context;
+}
+
 async function processChunk(supabase: any, job: RefinementJob) {
   console.log(`[refine-domain-batch] Processing chunk for job ${job.id}, offset ${job.current_offset}`);
 
-  // Fetch words to process
+  // Fetch words to process - INCLUINDO song_id para extração de KWIC
   let query = supabase
     .from('semantic_disambiguation_cache')
-    .select('id, palavra, lema, pos, tagset_codigo, contexto_hash')
+    .select('id, palavra, lema, pos, tagset_codigo, song_id')
     .is('tagset_n2', null)
     .neq('tagset_codigo', 'NC')
     .order('palavra')
@@ -283,13 +335,44 @@ async function processChunk(supabase: any, job: RefinementJob) {
 
   console.log(`[refine-domain-batch] Fetched ${words.length} words`);
 
+  // NOVO: Buscar letras das músicas para extração de KWIC
+  const songIds = [...new Set(words.map((w: WordToProcess) => w.song_id).filter(Boolean))] as string[];
+  
+  let songsMap = new Map<string, string>();
+  
+  if (songIds.length > 0) {
+    const { data: songs, error: songsError } = await supabase
+      .from('songs')
+      .select('id, lyrics')
+      .in('id', songIds);
+    
+    if (songsError) {
+      console.warn('[refine-domain-batch] Error fetching songs:', songsError.message);
+    } else if (songs) {
+      songsMap = new Map(songs.map((s: { id: string; lyrics: string }) => [s.id, s.lyrics || '']));
+      console.log(`[refine-domain-batch] Fetched ${songs.length} songs for KWIC extraction`);
+    }
+  }
+
+  // NOVO: Extrair KWIC para cada palavra
+  const wordsWithContext: WordToProcess[] = words.map((w: WordToProcess) => {
+    const lyrics = w.song_id ? songsMap.get(w.song_id) : null;
+    const kwic = lyrics ? extractKWIC(lyrics, w.palavra) : '';
+    return { ...w, kwic };
+  });
+
+  // Log contexto extraído
+  const withContext = wordsWithContext.filter(w => w.kwic).length;
+  const withoutContext = wordsWithContext.filter(w => !w.kwic).length;
+  console.log(`[refine-domain-batch] KWIC: ${withContext} com contexto, ${withoutContext} sem contexto`);
+
   // Process in batches
   let processedCount = 0;
   let refinedCount = 0;
   let errorCount = 0;
 
-  for (let i = 0; i < words.length; i += BATCH_SIZE) {
-    const batch = words.slice(i, i + BATCH_SIZE);
+  for (let i = 0; i < wordsWithContext.length; i += BATCH_SIZE) {
+    const batch = wordsWithContext.slice(i, i + BATCH_SIZE);
     
     try {
       const result = await processBatchWithAI(supabase, batch, job.model);
@@ -302,7 +385,7 @@ async function processChunk(supabase: any, job: RefinementJob) {
     }
 
     // Delay between batches
-    if (i + BATCH_SIZE < words.length) {
+    if (i + BATCH_SIZE < wordsWithContext.length) {
       await new Promise(resolve => setTimeout(resolve, BATCH_DELAY_MS));
     }
   }
@@ -310,7 +393,7 @@ async function processChunk(supabase: any, job: RefinementJob) {
   return { processedCount, refinedCount, errorCount, completed: false };
 }
 
-async function processBatchWithAI(supabase: any, words: any[], model: string) {
+async function processBatchWithAI(supabase: any, words: WordToProcess[], model: string) {
   // Get unique domains
   const domains = [...new Set(words.map(w => w.tagset_codigo?.split('.')[0]).filter(Boolean))];
   
@@ -337,26 +420,35 @@ async function processBatchWithAI(supabase: any, words: any[], model: string) {
 
   const hierarchyText = hierarchyLines.join('\n');
 
-  // Build prompt
-  const wordList = words.map(w => 
-    `- "${w.palavra}" (POS: ${w.pos || '?'}, atual: ${w.tagset_codigo})`
-  ).join('\n');
+  // NOVO: Build prompt COM CONTEXTO KWIC
+  const wordList = words.map(w => {
+    const contextLine = w.kwic 
+      ? `\n    Contexto: "${w.kwic}"`
+      : '\n    [Sem contexto disponível]';
+    return `- "${w.palavra}" (POS: ${w.pos || '?'}, atual: ${w.tagset_codigo})${contextLine}`;
+  }).join('\n');
 
   const systemPrompt = `Você é um especialista em classificação semântica do português brasileiro.
 Classifique as palavras no subnível mais específico possível (N4 > N3 > N2 > N1).
 
-HIERARQUIA:
+HIERARQUIA DISPONÍVEL:
 ${hierarchyText}
 
-REGRAS:
-1. Prefira sempre o nível mais específico (N4 se disponível)
-2. Retorne APENAS códigos que existem na hierarquia
-3. Confiança entre 0.70 e 1.00
+REGRAS CRÍTICAS:
+1. Prefira SEMPRE o nível mais específico (N4 se disponível)
+2. Retorne APENAS códigos que existem na hierarquia acima
+3. O CONTEXTO é ESSENCIAL para palavras polissêmicas:
+   - "de manhã" → contexto temporal
+   - "de casa" → contexto locativo
+   - "de medo" → contexto causal
+   - "que" como pronome relativo vs conjunção
+4. Confiança entre 0.70 e 1.00
+5. Se não houver contexto, use a classificação mais genérica aplicável
 
 Responda APENAS com JSON válido:
 [{"palavra": "x", "tagset_codigo": "XX.YY.ZZ", "confianca": 0.85}]`;
 
-  const userPrompt = `Classifique:\n${wordList}`;
+  const userPrompt = `Classifique cada palavra considerando seu CONTEXTO de uso:\n\n${wordList}`;
 
   // Call AI
   const modelId = model === 'gpt5' ? 'openai/gpt-5-mini' : 'google/gemini-2.5-flash';
