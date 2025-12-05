@@ -45,6 +45,11 @@ export const mainPages: NavItem[] = [
     icon: Microscope 
   },
   { 
+    title: "Ferramentas de Análise", 
+    url: "/analysis-tools", 
+    icon: Gauge 
+  },
+  { 
     title: "Modo Avançado", 
     url: "/advanced-mode", 
     icon: Sparkles 
