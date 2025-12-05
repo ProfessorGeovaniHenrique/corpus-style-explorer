@@ -1,6 +1,6 @@
 import { LucideIcon } from "lucide-react";
 
-export type CorpusType = 'gaucho' | 'nordestino';
+export type CorpusType = 'gaucho' | 'nordestino' | 'sertanejo';
 
 export const CORPUS_CONFIG = {
   gaucho: {

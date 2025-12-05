@@ -2,11 +2,11 @@
  * 🎯 CORPUS SELECTOR
  * 
  * Seletor unificado para escolha de corpus (plataforma ou usuário)
- * com opções de balanceamento
+ * com opções de balanceamento e carregamento dinâmico de artistas
  */
 
 import React from 'react';
-import { Database, Upload, Scale, Info } from 'lucide-react';
+import { Database, Upload, Scale, Info, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -15,6 +15,8 @@ import { Switch } from '@/components/ui/switch';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useAnalysisTools, CorpusSelection } from '@/contexts/AnalysisToolsContext';
 import { CorpusUploader } from './CorpusUploader';
+import { useCorpusArtists } from '@/hooks/useCorpusArtists';
+import { AnalysisCorpusType } from '@/services/analysisCorpusService';
 
 interface CorpusSelectorProps {
   label: string;
@@ -36,6 +38,10 @@ export function CorpusSelector({
   const { userCorpora, balancing, setBalancing } = useAnalysisTools();
   
   const corpusType = value?.type || 'platform';
+  const platformCorpus = value?.platformCorpus as AnalysisCorpusType | undefined;
+  
+  // Carrega artistas dinamicamente quando um corpus é selecionado
+  const { artists, isLoading: artistsLoading } = useCorpusArtists(platformCorpus);
   
   const handleTypeChange = (type: 'platform' | 'user') => {
     if (type === 'platform') {
@@ -99,7 +105,7 @@ export function CorpusSelector({
                 value={value?.platformCorpus || ''}
                 onValueChange={(v) => onChange({ 
                   type: 'platform', 
-                  platformCorpus: v as any,
+                  platformCorpus: v as AnalysisCorpusType,
                   platformArtist: undefined 
                 })}
               >
@@ -114,22 +120,34 @@ export function CorpusSelector({
               </Select>
             </div>
             
-            {value?.platformCorpus && (
+            {platformCorpus && (
               <div>
-                <Label className="text-xs text-muted-foreground">Filtro por Artista (opcional)</Label>
+                <Label className="text-xs text-muted-foreground">
+                  Filtro por Artista (opcional)
+                  {artistsLoading && (
+                    <Loader2 className="h-3 w-3 ml-1 inline animate-spin" />
+                  )}
+                </Label>
                 <Select
                   value={value?.platformArtist || 'all'}
                   onValueChange={(v) => onChange({ 
                     ...value, 
                     platformArtist: v === 'all' ? undefined : v 
                   })}
+                  disabled={artistsLoading}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Todos os artistas" />
+                    <SelectValue placeholder={artistsLoading ? "Carregando..." : "Todos os artistas"} />
                   </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Corpus Completo</SelectItem>
-                    {/* Artistas serão carregados dinamicamente */}
+                  <SelectContent className="max-h-60">
+                    <SelectItem value="all">
+                      Corpus Completo ({artists.reduce((sum, a) => sum + a.songCount, 0)} músicas)
+                    </SelectItem>
+                    {artists.map((artist) => (
+                      <SelectItem key={artist.id} value={artist.name}>
+                        {artist.name} ({artist.songCount} músicas)
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
