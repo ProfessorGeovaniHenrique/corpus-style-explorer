@@ -527,9 +527,17 @@ Responda APENAS com JSON válido:
   return { refined, errors };
 }
 
-async function scheduleNextChunk(jobId: string) {
-  // Small delay before next chunk
-  await new Promise(resolve => setTimeout(resolve, 500));
+/**
+ * Auto-invoca próximo chunk com retry robusto e exponential backoff
+ * Se todas as tentativas falharem, marca job como 'pausado' para retomada manual
+ */
+async function scheduleNextChunk(jobId: string, retryCount: number = 0): Promise<void> {
+  const MAX_RETRIES = 3;
+  const BASE_DELAY_MS = 2000;
+  
+  // Delay inicial ou exponential backoff
+  const delay = retryCount === 0 ? 500 : BASE_DELAY_MS * Math.pow(2, retryCount - 1);
+  await new Promise(resolve => setTimeout(resolve, delay));
   
   try {
     const response = await fetch(`${SUPABASE_URL}/functions/v1/refine-domain-batch`, {
@@ -542,9 +550,30 @@ async function scheduleNextChunk(jobId: string) {
     });
 
     if (!response.ok) {
-      console.error('[refine-domain-batch] Auto-invoke failed:', response.status);
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
+    
+    console.log(`[refine-domain-batch] Auto-invoke success for job ${jobId}`);
   } catch (error) {
-    console.error('[refine-domain-batch] Auto-invoke error:', error);
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    console.error(`[refine-domain-batch] Auto-invoke attempt ${retryCount + 1}/${MAX_RETRIES} failed:`, errorMsg);
+    
+    if (retryCount < MAX_RETRIES - 1) {
+      // Retry with exponential backoff
+      console.log(`[refine-domain-batch] Retrying in ${BASE_DELAY_MS * Math.pow(2, retryCount)}ms...`);
+      return scheduleNextChunk(jobId, retryCount + 1);
+    } else {
+      // All retries failed - pause job for manual recovery
+      console.error(`[refine-domain-batch] All ${MAX_RETRIES} retries failed, pausing job ${jobId}`);
+      
+      const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+      await supabase
+        .from('semantic_refinement_jobs')
+        .update({ 
+          status: 'pausado',
+          erro_mensagem: `Auto-invocação falhou após ${MAX_RETRIES} tentativas: ${errorMsg}`,
+        })
+        .eq('id', jobId);
+    }
   }
 }
