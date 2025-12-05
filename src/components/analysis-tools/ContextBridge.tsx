@@ -102,6 +102,12 @@ export function useCorpusSyncEffect() {
   const prevStudyCorpusRef = useRef<string | null>(null);
   const prevStylisticRef = useRef<string | null>(null);
   const lastLoadedKeyRef = useRef<string | null>(null);
+  
+  // Refs para PASSO 4 e 5: evitar loop infinito em setKeywordsState
+  const prevKeywordsRefRef = useRef<string | null>(null);
+  const prevKeywordsStudyRef = useRef<string | null>(null);
+  const setKeywordsStateRef = useRef(setKeywordsState);
+  setKeywordsStateRef.current = setKeywordsState;
 
   // PASSO 1: Sincroniza studyCorpus → SubcorpusContext.selection
   useEffect(() => {
@@ -198,26 +204,40 @@ export function useCorpusSyncEffect() {
   }, [studyCorpus, referenceCorpus, setStylisticSelection]);
 
   // PASSO 4: Sincroniza referenceCorpus → ToolsContext.keywordsState
+  // CORREÇÃO R-1.1: Usa ref para verificar igualdade e evitar loop infinito
   useEffect(() => {
     if (referenceCorpus && referenceCorpus.type === 'platform') {
-      setKeywordsState({
+      const newKeywords = {
         refCorpusBase: referenceCorpus.platformCorpus || 'nordestino',
         refMode: (referenceCorpus.platformArtist ? 'artist' : 'complete') as 'artist' | 'complete',
         refArtist: referenceCorpus.platformArtist || null
-      });
+      };
+      
+      const newValue = JSON.stringify(newKeywords);
+      if (prevKeywordsRefRef.current !== newValue) {
+        prevKeywordsRefRef.current = newValue;
+        setKeywordsStateRef.current(newKeywords);
+      }
     }
-  }, [referenceCorpus, setKeywordsState]);
+  }, [referenceCorpus]); // REMOVIDO setKeywordsState - não é estável
 
   // PASSO 5: Sincroniza studyCorpus → ToolsContext.keywordsState
+  // CORREÇÃO R-1.1: Usa ref para verificar igualdade e evitar loop infinito
   useEffect(() => {
     if (studyCorpus && studyCorpus.type === 'platform') {
-      setKeywordsState({
+      const newKeywords = {
         estudoCorpusBase: studyCorpus.platformCorpus || 'gaucho',
         estudoMode: (studyCorpus.platformArtist ? 'artist' : 'complete') as 'artist' | 'complete',
         estudoArtist: studyCorpus.platformArtist || null
-      });
+      };
+      
+      const newValue = JSON.stringify(newKeywords);
+      if (prevKeywordsStudyRef.current !== newValue) {
+        prevKeywordsStudyRef.current = newValue;
+        setKeywordsStateRef.current(newKeywords);
+      }
     }
-  }, [studyCorpus, setKeywordsState]);
+  }, [studyCorpus]); // REMOVIDO setKeywordsState - não é estável
 
   return { isLoadingCorpus };
 }
