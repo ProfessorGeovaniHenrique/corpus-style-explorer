@@ -81,15 +81,7 @@ export function ForegroundingDetectorTool() {
     'parallelism': 'Paralelismo'
   };
 
-  if (!loadedCorpus) {
-    return (
-      <Alert>
-        <AlertDescription>
-          Selecione um corpus no seletor acima para iniciar a detecção de foregrounding.
-        </AlertDescription>
-      </Alert>
-    );
-  }
+  // Removido early return para sempre exibir TheoryBriefCard e botão
 
   return (
     <div className="space-y-4">
@@ -299,7 +291,9 @@ export function ForegroundingDetectorTool() {
           ) : (
             !isAnalyzing && (
               <div className="text-center text-muted-foreground py-8">
-                Clique em "Detectar Foregrounding" para identificar padrões proeminentes
+                {!loadedCorpus 
+                  ? "Selecione um corpus no seletor acima para iniciar a análise"
+                  : "Clique em \"Detectar Foregrounding\" para identificar padrões proeminentes"}
               </div>
             )
           )}

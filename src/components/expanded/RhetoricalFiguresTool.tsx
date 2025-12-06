@@ -67,15 +67,7 @@ export function RhetoricalFiguresTool() {
     parallelism: "Paralelismo"
   };
 
-  if (!loadedCorpus) {
-    return (
-      <Alert>
-        <AlertDescription>
-          Selecione um corpus no seletor acima para iniciar a análise de figuras retóricas.
-        </AlertDescription>
-      </Alert>
-    );
-  }
+  // Removido early return para sempre exibir TheoryBriefCard e botão
 
   return (
     <div className="space-y-4">
@@ -89,7 +81,7 @@ export function RhetoricalFiguresTool() {
         <CardContent className="space-y-4">
           <TheoryBriefCard framework={rhetoricalTheory} onOpenDetail={() => setShowTheoryModal(true)} />
           <div className="flex gap-2">
-            <Button onClick={handleAnalyze} disabled={isAnalyzing}>
+            <Button onClick={handleAnalyze} disabled={isAnalyzing || !loadedCorpus}>
               <Play className="w-4 h-4 mr-2" />
               {isAnalyzing ? "Analisando..." : "Analisar Figuras"}
             </Button>
@@ -188,7 +180,9 @@ export function RhetoricalFiguresTool() {
           ) : (
             !isAnalyzing && (
               <div className="text-center text-muted-foreground py-8">
-                Clique em "Analisar Figuras" para detectar figuras retóricas
+                {!loadedCorpus 
+                  ? "Selecione um corpus no seletor acima para iniciar a análise"
+                  : "Clique em \"Analisar Figuras\" para detectar figuras retóricas"}
               </div>
             )
           )}
