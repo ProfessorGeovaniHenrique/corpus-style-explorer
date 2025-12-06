@@ -77,15 +77,7 @@ export function MindStyleAnalyzerTool() {
     'balanced': 'Equilibrado'
   };
 
-  if (!loadedCorpus) {
-    return (
-      <Alert>
-        <AlertDescription>
-          Selecione um corpus no seletor acima para iniciar a análise de mind style.
-        </AlertDescription>
-      </Alert>
-    );
-  }
+  // Removido early return para sempre exibir TheoryBriefCard e botão
 
   return (
     <div className="space-y-4">
@@ -280,7 +272,9 @@ export function MindStyleAnalyzerTool() {
           ) : (
             !isAnalyzing && (
               <div className="text-center text-muted-foreground py-8">
-                Clique em "Analisar Mind Style" para iniciar análise cognitiva
+                {!loadedCorpus 
+                  ? "Selecione um corpus no seletor acima para iniciar a análise"
+                  : "Clique em \"Analisar Mind Style\" para iniciar análise cognitiva"}
               </div>
             )
           )}

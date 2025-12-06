@@ -82,15 +82,7 @@ export function SpeechThoughtPresentationTool() {
     NRTA: 'Atos Mentais Narrados'
   };
 
-  if (!loadedCorpus) {
-    return (
-      <Alert>
-        <AlertDescription>
-          Selecione um corpus no seletor acima para iniciar a análise de fala e pensamento.
-        </AlertDescription>
-      </Alert>
-    );
-  }
+  // Removido early return para sempre exibir TheoryBriefCard e botão
 
   return (
     <div className="space-y-4">
@@ -275,7 +267,9 @@ export function SpeechThoughtPresentationTool() {
           ) : (
             !isAnalyzing && (
               <div className="text-center text-muted-foreground py-8">
-                Clique em "Analisar Corpus" para detectar apresentação de fala e pensamento
+                {!loadedCorpus 
+                  ? "Selecione um corpus no seletor acima para iniciar a análise"
+                  : "Clique em \"Analisar Corpus\" para detectar apresentação de fala e pensamento"}
               </div>
             )
           )}
