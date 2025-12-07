@@ -49,6 +49,13 @@ export {
 } from './changelog-corrections-nov2024';
 
 export {
+  correctionsDec2024,
+  summaryMetricsDec2024,
+  nextStepsDec2024,
+  type CorrectionDec2024
+} from './changelog-corrections-dec2024';
+
+export {
   productVision,
   personas,
   mvpEpics,

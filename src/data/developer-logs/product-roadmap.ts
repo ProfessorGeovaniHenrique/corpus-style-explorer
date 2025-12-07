@@ -109,10 +109,10 @@ export const mvpEpics: Epic[] = [
     id: "epic-1",
     number: 1,
     name: "Análise Semântica Essencial",
-    status: "in-progress",
+    status: "completed",
     phase: "MVP",
     priority: "critical",
-    completionPercentage: 85,
+    completionPercentage: 100,
     stories: [
       {
         id: "story-4",
@@ -121,9 +121,9 @@ export const mvpEpics: Epic[] = [
       },
       {
         id: "story-5",
-        title: "Upload de Corpus - Criação de projetos e upload de arquivos próprios",
-        implemented: false,
-        notes: "Planejado para próxima iteração"
+        title: "Upload de Corpus - Criação de projetos e upload de arquivos TXT próprios",
+        implemented: true,
+        notes: "Sprints UC-1 a UC-6: suporte poesia/prosa, ContextBridge, throttling POS"
       },
       {
         id: "story-6",
@@ -195,10 +195,10 @@ export const postMvpEpics: Epic[] = [
     id: "epic-4",
     number: 4,
     name: "Modo Avançado de Linguística de Corpus",
-    status: "in-progress",
+    status: "completed",
     phase: "Pós-MVP",
     priority: "medium",
-    completionPercentage: 60,
+    completionPercentage: 95,
     stories: [
       {
         id: "story-9",
@@ -207,9 +207,21 @@ export const postMvpEpics: Epic[] = [
       },
       {
         id: "story-10",
-        title: "Ferramentas de Análise - Word List, Keywords, N-grams, Dispersão",
+        title: "Ferramentas de Análise - Word List, Keywords, N-grams, Dispersão, KeywordsCloud D3",
         implemented: true,
-        notes: "Implementadas mas podem ser refinadas"
+        notes: "P3-1 a P3-3: 16 ferramentas integradas em 3 abas (Básico, Estilo, Cultural)"
+      },
+      {
+        id: "story-11",
+        title: "Framework Teórico Leech & Short - TheoryBriefCard, TheoryDetailModal, BlauNunesConsultant",
+        implemented: true,
+        notes: "T-1: 7 domínios teóricos com fundamentação, checklist e discussão com IA"
+      },
+      {
+        id: "story-12",
+        title: "StatisticsCards Científicos - TTR, Hapax Legomena, Lexical Density, Avg Word Length",
+        implemented: true,
+        notes: "Métricas de linguística de corpus com tooltips pedagógicos"
       }
     ]
   },
@@ -364,16 +376,16 @@ export const futureProspects: FutureProspect[] = [
 // ============================================
 
 export const mvpMetrics = {
-  overallCompletion: 97, // %
-  implementedStories: 11,
+  overallCompletion: 98, // %
+  implementedStories: 14,
   totalMvpStories: 8,
-  totalStories: 12,
+  totalStories: 14,
   inProgressStories: 0,
   completedEpics: 2,
   totalEpics: 2,
-  nextMilestone: "Sistema de Insígnias Culturais Completo",
+  nextMilestone: "V2.0 - Módulo de Aprendizagem Guiada",
   estimatedMvpCompletion: "Dez 2025",
-  // Métricas atualizadas Dez 2025
+  // Métricas atualizadas Dez 07, 2025
   corpusStats: {
     totalSongs: 52050,
     totalArtists: 412,
@@ -384,10 +396,10 @@ export const mvpMetrics = {
     entriesWithInsignias: 16159
   },
   refactoringStats: {
-    sprintsCompleted: 8,
-    codeReduction: 300,
-    componentsExtracted: 15,
-    filesRefactored: 35
+    sprintsCompleted: 14, // UC-1 a UC-6, P3-1 a P3-3, T-1, R-1 a R-1.5
+    codeReduction: 350,
+    componentsExtracted: 22,
+    filesRefactored: 45
   },
   culturalInsigniasStats: {
     totalInsignias: 7,
@@ -395,6 +407,13 @@ export const mvpMetrics = {
     uniqueWordsGrouped: 4250,
     autoAttributionRate: 70,
     curatedEntries: 0
+  },
+  analysisToolsStats: {
+    basicTools: 6,
+    styleTools: 7,
+    culturalTools: 3,
+    theoreticalDomains: 7,
+    userCorpusSupport: true
   }
 };
 
@@ -403,6 +422,46 @@ export const mvpMetrics = {
 // ============================================
 
 export const milestones: Milestone[] = [
+  {
+    id: 'pos-rate-limiting-uc6',
+    date: 'Dez 07, 2025',
+    title: 'Sprint UC-6: Mitigação Rate Limiting POS',
+    epicIds: ['epic-1'],
+    status: 'completed',
+    description: 'Throttling 1.5s entre chunks no frontend, processamento sequencial 200ms no backend, retry com backoff exponencial (max 8s) para erros 429. Zero rate limit errors.'
+  },
+  {
+    id: 'user-corpus-complete',
+    date: 'Dez 07, 2025',
+    title: 'User Corpus Upload Completo (UC-1 a UC-6)',
+    epicIds: ['epic-1'],
+    status: 'completed',
+    description: 'Upload de corpus TXT, seleção poesia/prosa, ContextBridge converter, throttling POS (1.5s chunks, 200ms Gemini), retry 429 com backoff.'
+  },
+  {
+    id: 'analysis-tools-p3',
+    date: 'Dez 07, 2025',
+    title: 'Ferramentas de Análise P3-1 a P3-3',
+    epicIds: ['epic-4'],
+    status: 'completed',
+    description: 'BasicToolsTab (6 ferramentas), StyleAnalysisTab (7 ferramentas), CulturalAnalysisTab. StatisticsCards com TTR, Hapax, Lexical Density. KeywordsCloud D3 interativo.'
+  },
+  {
+    id: 'corpus-loading-r1',
+    date: 'Dez 06, 2025',
+    title: 'Refatoração Corpus Loading R-1 a R-1.5',
+    epicIds: ['epic-refactoring'],
+    status: 'completed',
+    description: 'Fix infinite loops ContextBridge (refs), migração para Sistema B (chunked), detecção de sentenças por quebra de linha para poesia, timeout compression 120s.'
+  },
+  {
+    id: 'theoretical-framework',
+    date: 'Dez 06, 2025',
+    title: 'Framework Teórico Leech & Short (T-1)',
+    epicIds: ['epic-4'],
+    status: 'completed',
+    description: '7 domínios teóricos, TheoryBriefCard, TheoryDetailModal com 4 abas (fundamentação, checklist, interpretação, referências), BlauNunesConsultant para discussão com IA.'
+  },
   {
     id: 'cultural-insignias-complete',
     date: 'Dez 04, 2025',

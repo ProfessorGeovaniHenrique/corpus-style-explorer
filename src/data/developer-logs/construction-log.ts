@@ -1714,6 +1714,376 @@ export const constructionLog: ConstructionPhase[] = [
       "Distinguir job lento de job travado",
       "Evitar race condition no próprio sistema de lock"
     ]
+  },
+  {
+    phase: "Fase 13: Sistema de Upload de Corpus do Usuário",
+    dateStart: "2025-12-05",
+    dateEnd: "2025-12-07",
+    status: "completed",
+    objective: "Permitir upload de corpus personalizado via TXT com suporte a poesia/prosa (Sprints UC-1 a UC-6)",
+    decisions: [
+      {
+        decision: "Implementar seleção de tipo de texto (poesia/prosa)",
+        rationale: "Detecção de sentenças em poesia usa quebra de linha, prosa usa pontuação",
+        alternatives: ["Detecção automática", "Apenas prosa"],
+        chosenBecause: "Maior precisão na segmentação de versos vs. frases"
+      },
+      {
+        decision: "ContextBridge para conversão de corpus do usuário",
+        rationale: "Converter TXT simples para estrutura CorpusCompleto mantendo compatibilidade",
+        alternatives: ["Refatorar todo o sistema de contexto", "Criar pipeline separado"],
+        chosenBecause: "Menor risco e reaproveitamento de toda a infraestrutura existente"
+      },
+      {
+        decision: "Throttling de 1.5s entre chunks de anotação POS",
+        rationale: "Evitar rate limit 429 do Gemini durante processamento intensivo",
+        alternatives: ["Retry infinito", "Limitar chunks por sessão"],
+        chosenBecause: "Equilíbrio entre velocidade e confiabilidade"
+      }
+    ],
+    artifacts: [
+      {
+        file: "src/components/corpus/UserCorpusUploader.tsx",
+        linesOfCode: 320,
+        coverage: "Upload de TXT com seleção de tipo",
+        description: "Componente de upload com preview e validação"
+      },
+      {
+        file: "src/contexts/AnalysisToolsContext.tsx",
+        linesOfCode: 180,
+        coverage: "loadedCorpus + textType",
+        description: "Estado do corpus do usuário"
+      },
+      {
+        file: "src/services/posAnnotationService.ts",
+        linesOfCode: 280,
+        coverage: "Chunking 300 palavras + delay 1.5s + retry backoff",
+        description: "UC-6: Throttling e backoff para rate limiting"
+      },
+      {
+        file: "supabase/functions/_shared/gemini-pos-annotator.ts",
+        linesOfCode: 320,
+        coverage: "Processamento sequencial 200ms + retry 429",
+        description: "UC-6: Mitigação de rate limit no backend"
+      }
+    ],
+    metrics: {
+      rateLimitErrors: { before: 50, after: 0 },
+      chunkDelayMs: { before: 0, after: 1500 },
+      geminiCallDelayMs: { before: 0, after: 200 },
+      retryBackoffMaxMs: { before: 0, after: 8000 }
+    },
+    scientificBasis: [
+      {
+        source: "LEECH, Geoffrey; SHORT, Mick. Style in Fiction. 2. ed. Harlow: Pearson, 2007.",
+        extractedConcepts: ["Segmentação de verso vs. sentença", "Análise estilística de poesia"],
+        citationKey: "leechshort2007"
+      }
+    ],
+    challenges: [
+      "Detectar sentenças em textos sem pontuação (poesia)",
+      "Evitar rate limit 429 do Gemini sem sacrificar velocidade"
+    ]
+  },
+  {
+    phase: "Fase 14: Integração de Ferramentas de Análise P3-1 a P3-3",
+    dateStart: "2025-12-05",
+    dateEnd: "2025-12-07",
+    status: "completed",
+    objective: "Consolidar 16 ferramentas de análise em dashboard unificado com seletores CE/CR",
+    decisions: [
+      {
+        decision: "AnalysisToolsBridge para sincronização de contextos",
+        rationale: "Evitar refatoração arriscada de contextos legados",
+        alternatives: ["Refatorar SubcorpusContext", "Criar novo sistema do zero"],
+        chosenBecause: "Menor risco, reusa componentes existentes"
+      },
+      {
+        decision: "Separar em 3 abas: Básico, Estilo, Cultural",
+        rationale: "Organização lógica por área de análise",
+        alternatives: ["Aba única", "Dashboard por ferramenta"],
+        chosenBecause: "Melhor navegabilidade e foco contextual"
+      },
+      {
+        decision: "StatisticsCards com 6 métricas científicas",
+        rationale: "TTR, Hapax Legomena, Lexical Density são padrão em linguística de corpus",
+        alternatives: ["Apenas frequências", "Métricas customizadas"],
+        chosenBecause: "Rigor científico + tooltips pedagógicos"
+      }
+    ],
+    artifacts: [
+      {
+        file: "src/components/analysis/BasicToolsTab.tsx",
+        linesOfCode: 380,
+        coverage: "6 ferramentas: Wordlist, Keywords, KWIC, Dispersão, N-grams, KeywordsCloud",
+        description: "Aba de ferramentas básicas consolidadas"
+      },
+      {
+        file: "src/components/analysis/StyleAnalysisTab.tsx",
+        linesOfCode: 280,
+        coverage: "7 ferramentas estilísticas: Léxico, Sintático, Retórica, Coesão, Fala/Pensamento, Mind Style, Foregrounding",
+        description: "Aba de análise estilística Leech & Short"
+      },
+      {
+        file: "src/components/analysis/CulturalAnalysisTab.tsx",
+        linesOfCode: 220,
+        coverage: "3 ferramentas: Temporal, Dialetal, Insígnias Culturais",
+        description: "Aba de análise cultural regional"
+      },
+      {
+        file: "src/components/analysis/StatisticsCards.tsx",
+        linesOfCode: 180,
+        coverage: "TTR, Hapax, Lexical Density, Avg Word Length",
+        description: "Cards de métricas científicas com tooltips"
+      },
+      {
+        file: "src/components/analysis/KeywordsCloud.tsx",
+        linesOfCode: 420,
+        coverage: "D3 interativo: tamanho por LL, cor por efeito, click → KWIC",
+        description: "Nuvem de palavras-chave com Log-Likelihood"
+      },
+      {
+        file: "src/components/analysis/ContextBridge.tsx",
+        linesOfCode: 150,
+        coverage: "Sincronização AnalysisToolsContext ↔ SubcorpusContext",
+        description: "Ponte para compatibilidade com ferramentas legadas"
+      }
+    ],
+    metrics: {
+      toolsIntegrated: { before: 0, after: 16 },
+      contextsUnified: { before: 0, after: 3 },
+      scientificMetrics: { before: 0, after: 6 }
+    },
+    scientificBasis: [
+      {
+        source: "BIBER, Douglas; CONRAD, Susan; REPPEN, Randi. Corpus Linguistics. Cambridge: CUP, 1998.",
+        extractedConcepts: ["TTR (Type-Token Ratio)", "Hapax Legomena", "Lexical Density"],
+        citationKey: "biber1998"
+      },
+      {
+        source: "MCINTYRE, Dan; WALKER, Brian. Corpus Stylistics. Edinburgh: EUP, 2019.",
+        extractedConcepts: ["Análise estilística computacional", "Keywords como marcadores de estilo"],
+        citationKey: "mcintyrewalker2019"
+      }
+    ],
+    challenges: [
+      "Evitar infinite loops no ContextBridge",
+      "Manter estado sincronizado entre 3 contextos"
+    ]
+  },
+  {
+    phase: "Fase 15: Framework Teórico Leech & Short",
+    dateStart: "2025-12-06",
+    dateEnd: "2025-12-06",
+    status: "completed",
+    objective: "Adicionar camada teórica baseada em Leech & Short (2007) às ferramentas estilísticas (Sprint T-1)",
+    decisions: [
+      {
+        decision: "Estruturar teoria em 7 domínios temáticos",
+        rationale: "Corresponde às 7 ferramentas de análise estilística",
+        alternatives: ["Teoria genérica única", "Conteúdo inline em cada ferramenta"],
+        chosenBecause: "Teoria específica e contextual para cada tipo de análise"
+      },
+      {
+        decision: "4 componentes UI: TheoryBriefCard, TheoryDetailModal, AnalysisSuggestionsCard, BlauNunesConsultant",
+        rationale: "Separar níveis de profundidade: resumo, detalhes, ação, discussão",
+        alternatives: ["Página de teoria separada", "Tooltip apenas"],
+        chosenBecause: "Camadas progressivas de aprofundamento"
+      },
+      {
+        decision: "BlauNunesConsultant como assistente de IA contextual",
+        rationale: "Permitir discussão dos resultados com contexto da análise",
+        alternatives: ["Chat genérico", "FAQ estático"],
+        chosenBecause: "Diálogo pedagógico adaptativo"
+      }
+    ],
+    artifacts: [
+      {
+        file: "src/data/theoretical-framework/stylistic-theory.ts",
+        linesOfCode: 120,
+        coverage: "TheoreticalFramework interface + exports",
+        description: "Estrutura de dados teóricos"
+      },
+      {
+        file: "src/data/theoretical-framework/syntactic-profile.ts",
+        linesOfCode: 180,
+        coverage: "Teoria do Perfil Sintático",
+        description: "Fundamentação, checklist, interpretação"
+      },
+      {
+        file: "src/data/theoretical-framework/rhetorical-figures.ts",
+        linesOfCode: 200,
+        coverage: "Teoria das Figuras Retóricas",
+        description: "Classificação e exemplos"
+      },
+      {
+        file: "src/components/theory/TheoryBriefCard.tsx",
+        linesOfCode: 80,
+        coverage: "Card compacto com 'Saiba mais'",
+        description: "Resumo de 50 palavras"
+      },
+      {
+        file: "src/components/theory/TheoryDetailModal.tsx",
+        linesOfCode: 220,
+        coverage: "Modal com 4 abas: Fundamentação, Checklist, Interpretação, Referências",
+        description: "Detalhamento teórico completo"
+      },
+      {
+        file: "src/components/theory/BlauNunesConsultant.tsx",
+        linesOfCode: 280,
+        coverage: "Chat com IA contextualizado",
+        description: "Discussão dos resultados com Blau Nunes virtual"
+      },
+      {
+        file: "src/hooks/useBlauNunesDiscussion.ts",
+        linesOfCode: 120,
+        coverage: "Hook para prompts contextuais",
+        description: "Construção de contexto para IA"
+      }
+    ],
+    metrics: {
+      theoreticalDomains: { before: 0, after: 7 },
+      componentsCreated: { before: 0, after: 4 },
+      toolsWithTheory: { before: 0, after: 6 }
+    },
+    scientificBasis: [
+      {
+        source: "LEECH, Geoffrey; SHORT, Mick. Style in Fiction. 2. ed. Harlow: Pearson, 2007.",
+        chapters: ["Cap. 2: Style and Choice", "Cap. 5: The Language of Thought", "Cap. 9: Cohesion"],
+        extractedConcepts: ["Foregrounding", "Mind Style", "Speech Presentation Scale"],
+        citationKey: "leechshort2007"
+      },
+      {
+        source: "SEMINO, Elena; SHORT, Mick. Corpus Stylistics. London: Routledge, 2004.",
+        extractedConcepts: ["Análise quantitativa de estilo", "Speech/Thought/Writing Presentation"],
+        citationKey: "seminoshort2004"
+      }
+    ],
+    challenges: [
+      "Traduzir conceitos de Leech & Short para português",
+      "Criar prompts que gerem discussões pedagógicas"
+    ]
+  },
+  {
+    phase: "Fase 16: Refatoração do Sistema de Carregamento de Corpus R-1",
+    dateStart: "2025-12-06",
+    dateEnd: "2025-12-07",
+    status: "completed",
+    objective: "Eliminar infinite loops e race conditions no ContextBridge (Sprints R-1.1 a R-1.5)",
+    decisions: [
+      {
+        decision: "Usar refs para prevenir re-renders infinitos",
+        rationale: "setKeywordsState dentro de useEffect causava loop infinito",
+        alternatives: ["Debounce", "Memoização profunda"],
+        chosenBecause: "Refs não disparam re-renders, evitam ciclo"
+      },
+      {
+        decision: "Migrar de Sistema A (LZString global) para Sistema B (chunked per-page)",
+        rationale: "Sistema A causava timeouts de 30s+ em corpora grandes",
+        alternatives: ["Aumentar timeout", "IndexedDB"],
+        chosenBecause: "Sistema B já funciona, menor risco"
+      },
+      {
+        decision: "Detecção de sentenças por quebra de linha para poesia",
+        rationale: "Corpus gauchesco não tem pontuação, versos são unidades",
+        alternatives: ["Forçar pontuação", "Ignorar sentenças"],
+        chosenBecause: "Respeita estrutura original do texto poético"
+      }
+    ],
+    artifacts: [
+      {
+        file: "src/components/analysis/ContextBridge.tsx",
+        linesOfCode: 200,
+        coverage: "prevKeywordsRefRef, setKeywordsStateRef, isReady check",
+        description: "R-1.1: Fix de infinite loop com refs"
+      },
+      {
+        file: "src/contexts/SubcorpusContext.tsx",
+        linesOfCode: 150,
+        coverage: "isReady flag baseado em availableCorpora",
+        description: "R-1.2: Prevenção de race condition"
+      },
+      {
+        file: "src/hooks/useToolCache.ts",
+        linesOfCode: 80,
+        coverage: "Validação de dados vazios antes de salvar",
+        description: "R-1.3: Cache validation"
+      },
+      {
+        file: "src/services/posAnnotationService.ts",
+        linesOfCode: 60,
+        coverage: "POSAnnotationResponse.annotations vs .tokens",
+        description: "R-1.4: Fix de campo de resposta"
+      },
+      {
+        file: "src/lib/calculateSyntacticProfile.ts",
+        linesOfCode: 100,
+        coverage: "Detecção de sentenças por \\n para poesia",
+        description: "R-1.5: Sentence detection for lyrics"
+      }
+    ],
+    metrics: {
+      infiniteLoopsFixed: { before: 5, after: 0 },
+      compressionTimeoutMs: { before: 30000, after: 120000 },
+      phantomSuccessesFixed: { before: 3, after: 0 }
+    },
+    scientificBasis: [],
+    challenges: [
+      "Identificar causa raiz de loops em sistema com 3 contextos",
+      "Garantir detecção correta de versos vs. sentenças"
+    ]
+  },
+  {
+    phase: "Fase 17: Mitigação de Rate Limiting para Anotação POS (Sprint UC-6)",
+    dateStart: "2025-12-07",
+    dateEnd: "2025-12-07",
+    status: "completed",
+    objective: "Eliminar erros 429 Rate Limited no pipeline de anotação POS via throttling e backoff",
+    decisions: [
+      {
+        decision: "Delay de 1.5s entre chunks no frontend",
+        rationale: "Evita burst de requisições ao processar corpus grande",
+        alternatives: ["Sem delay", "Delay maior"],
+        chosenBecause: "Equilíbrio entre velocidade e confiabilidade"
+      },
+      {
+        decision: "Processamento sequencial com delay 200ms no backend",
+        rationale: "Cada token que requer Gemini aguarda antes do próximo",
+        alternatives: ["Promise.all paralelo", "Batch de tokens"],
+        chosenBecause: "Evita burst de chamadas à API"
+      },
+      {
+        decision: "Retry com backoff exponencial (max 8s) para 429",
+        rationale: "Rate limit pode ser temporário, retry resolve",
+        alternatives: ["Falhar imediatamente", "Retry fixo"],
+        chosenBecause: "Maximiza chance de sucesso sem sobrecarregar"
+      }
+    ],
+    artifacts: [
+      {
+        file: "src/services/posAnnotationService.ts",
+        linesOfCode: 320,
+        coverage: "CHUNK_DELAY_MS=1500, MAX_RETRIES=3, backoff exponencial",
+        description: "Throttling no frontend"
+      },
+      {
+        file: "supabase/functions/_shared/gemini-pos-annotator.ts",
+        linesOfCode: 380,
+        coverage: "GEMINI_CALL_DELAY_MS=200, processamento sequencial, retry 429",
+        description: "Throttling no backend"
+      }
+    ],
+    metrics: {
+      rateLimitErrors: { before: 50, after: 0 },
+      chunkDelayMs: { before: 0, after: 1500 },
+      geminiCallDelayMs: { before: 0, after: 200 },
+      maxRetryBackoffMs: { before: 0, after: 8000 }
+    },
+    scientificBasis: [],
+    challenges: [
+      "Balancear velocidade de processamento com limites da API",
+      "Implementar fallback gracioso quando retries falham"
+    ]
   }
 ];
 
