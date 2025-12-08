@@ -25,13 +25,15 @@ interface KWICPopoverProps {
   corpus: CorpusCompleto | null;
   children: React.ReactNode;
   onOpenKWICTool?: (word: string) => void;
+  isLoadingCorpus?: boolean;
 }
 
 export function KWICPopover({ 
   word, 
   corpus, 
   children, 
-  onOpenKWICTool 
+  onOpenKWICTool,
+  isLoadingCorpus = false
 }: KWICPopoverProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -114,7 +116,12 @@ export function KWICPopover({
         </div>
         
         <ScrollArea className="max-h-[300px]">
-          {isLoading ? (
+          {isLoadingCorpus ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+              <span className="ml-2 text-sm text-muted-foreground">Carregando corpus...</span>
+            </div>
+          ) : isLoading ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
               <span className="ml-2 text-sm text-muted-foreground">Buscando...</span>

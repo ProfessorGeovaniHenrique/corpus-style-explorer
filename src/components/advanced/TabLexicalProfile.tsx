@@ -69,6 +69,7 @@ export function TabLexicalProfile() {
   const [referenceDominios, setReferenceDominios] = useState<DominioSemantico[]>([]);
   const [showTheoryModal, setShowTheoryModal] = useState(false);
   const [ignorarMG, setIgnorarMG] = useState(true);
+  const [activeSubTab, setActiveSubTab] = useState("overview");
   
   // ========== SPRINT LF-5 FASE 3: HOOK DE DADOS UNIFICADO ==========
   const lexicalData = useLexicalDomainsData(studyProfile, studyDominios, ignorarMG);
@@ -733,8 +734,32 @@ export function TabLexicalProfile() {
             </Card>
           </div>
 
+          {/* ========== SPRINT LF-10: QUICK STATS NO HEADER ========== */}
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+              <span className="flex items-center gap-1.5">
+                <BookOpen className="w-4 h-4" />
+                <strong className="text-foreground">{studyProfile.totalTokens.toLocaleString()}</strong> palavras
+              </span>
+              <span className="text-muted-foreground/40">•</span>
+              <span className="flex items-center gap-1.5">
+                <Layers className="w-4 h-4" />
+                <strong className="text-foreground">{studyProfile.uniqueTokens.toLocaleString()}</strong> tipos
+              </span>
+              {studyDominios.length > 0 && (
+                <>
+                  <span className="text-muted-foreground/40">•</span>
+                  <span className="flex items-center gap-1.5">
+                    <BarChart3 className="w-4 h-4" />
+                    <strong className="text-foreground">{studyDominios.length}</strong> domínios
+                  </span>
+                </>
+              )}
+            </div>
+          </div>
+
           {/* ========== SPRINT LF-5 FASE 3: 5 SUB-ABAS ========== */}
-          <Tabs defaultValue="overview" className="w-full">
+          <Tabs defaultValue="overview" className="w-full" onValueChange={(v) => setActiveSubTab(v)}>
             <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="overview" className="gap-1.5">
                 <BarChart3 className="w-4 h-4" />
@@ -763,17 +788,34 @@ export function TabLexicalProfile() {
               <Card>
                 <CardHeader>
                   <CardTitle>Top 10 Campos Semânticos</CardTitle>
-                  <CardDescription>Distribuição dos domínios temáticos mais frequentes</CardDescription>
+                  <CardDescription>Clique em uma barra para ver detalhes do domínio</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={400}>
-                    <BarChart data={studyProfile.topSemanticFields.map(f => ({ name: f.field, value: f.count, percentage: f.percentage }))}>
+                    <BarChart 
+                      data={studyProfile.topSemanticFields.map(f => ({ name: f.field, value: f.count, percentage: f.percentage }))}
+                      style={{ cursor: 'pointer' }}
+                    >
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} />
                       <YAxis />
-                      <Tooltip />
+                      <Tooltip 
+                        formatter={(value: number, name: string) => [value, name === 'value' ? 'Ocorrências' : name]}
+                        labelFormatter={(label) => `Domínio: ${label}`}
+                      />
                       <Legend />
-                      <Bar dataKey="value" fill="hsl(var(--primary))" name="Ocorrências" />
+                      <Bar 
+                        dataKey="value" 
+                        fill="hsl(var(--primary))" 
+                        name="Ocorrências"
+                        cursor="pointer"
+                        onClick={(data) => {
+                          if (data?.name) {
+                            setActiveSubTab("domains");
+                            toast.info(`Navegando para domínio: ${data.name}`);
+                          }
+                        }}
+                      />
                     </BarChart>
                   </ResponsiveContainer>
                 </CardContent>
