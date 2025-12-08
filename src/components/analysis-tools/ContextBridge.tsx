@@ -1,21 +1,84 @@
 /**
- * 🌉 CONTEXT BRIDGE (Sprint R-1: Simplificado)
+ * 🌉 CONTEXT BRIDGE (Sprint AUD-C2: Refatorado com useReducer)
  * 
  * Sincroniza AnalysisToolsContext com os contextos legados (SubcorpusContext, ToolsContext)
  * Permite que as ferramentas existentes funcionem na nova página sem refatoração
  * 
- * ARQUITETURA UNIFICADA:
+ * ARQUITETURA:
+ * - useReducer para gerenciamento de estado previsível
+ * - Logger estruturado em vez de console.log
  * - Usa APENAS SubcorpusContext (Sistema B) para carregamento de corpus
- * - Evita CorpusContext (Sistema A) que causa timeouts de compressão
  */
 
-import React, { useEffect, useState, useRef, ReactNode } from 'react';
+import React, { useEffect, useReducer, useRef, ReactNode, useCallback } from 'react';
 import { useAnalysisTools, CorpusSelection } from '@/contexts/AnalysisToolsContext';
 import { useSubcorpus } from '@/contexts/SubcorpusContext';
 import { useTools } from '@/contexts/ToolsContext';
 import { CorpusType } from '@/data/types/corpus-tools.types';
 import { toast } from 'sonner';
 import { userCorpusToCorpusCompleto } from '@/utils/userCorpusConverter';
+import { createLogger } from '@/lib/loggerFactory';
+
+const logger = createLogger('ContextBridge');
+
+// ============================================================================
+// TYPES & STATE
+// ============================================================================
+
+interface BridgeState {
+  /** Chave do último corpus de estudo sincronizado */
+  lastStudyKey: string | null;
+  /** Chave do último stylistic sincronizado */
+  lastStylisticKey: string | null;
+  /** Chave do último corpus carregado */
+  lastLoadedKey: string | null;
+  /** Chave do último keywords ref sincronizado */
+  lastKeywordsRefKey: string | null;
+  /** Chave do último keywords study sincronizado */
+  lastKeywordsStudyKey: string | null;
+  /** Se está carregando corpus */
+  isLoadingCorpus: boolean;
+}
+
+type BridgeAction =
+  | { type: 'SET_STUDY_KEY'; payload: string }
+  | { type: 'SET_STYLISTIC_KEY'; payload: string }
+  | { type: 'SET_LOADED_KEY'; payload: string }
+  | { type: 'SET_KEYWORDS_REF_KEY'; payload: string }
+  | { type: 'SET_KEYWORDS_STUDY_KEY'; payload: string }
+  | { type: 'SET_LOADING'; payload: boolean };
+
+const initialState: BridgeState = {
+  lastStudyKey: null,
+  lastStylisticKey: null,
+  lastLoadedKey: null,
+  lastKeywordsRefKey: null,
+  lastKeywordsStudyKey: null,
+  isLoadingCorpus: false
+};
+
+function bridgeReducer(state: BridgeState, action: BridgeAction): BridgeState {
+  switch (action.type) {
+    case 'SET_STUDY_KEY':
+      return { ...state, lastStudyKey: action.payload };
+    case 'SET_STYLISTIC_KEY':
+      return { ...state, lastStylisticKey: action.payload };
+    case 'SET_LOADED_KEY':
+      return { ...state, lastLoadedKey: action.payload };
+    case 'SET_KEYWORDS_REF_KEY':
+      return { ...state, lastKeywordsRefKey: action.payload };
+    case 'SET_KEYWORDS_STUDY_KEY':
+      return { ...state, lastKeywordsStudyKey: action.payload };
+    case 'SET_LOADING':
+      return { ...state, isLoadingCorpus: action.payload };
+    default:
+      return state;
+  }
+}
+
+// ============================================================================
+// HELPERS
+// ============================================================================
 
 interface ContextBridgeProps {
   children: ReactNode;
@@ -81,38 +144,28 @@ function corpusSelectionToStylistic(
   };
 }
 
+// ============================================================================
+// MAIN HOOK
+// ============================================================================
+
 /**
- * Hook para sincronização unidirecional de contextos
- * 
- * FLUXO SIMPLIFICADO (Sprint R-1):
- * 1. studyCorpus muda → setSelection()
- * 2. selection muda no SubcorpusContext → getFilteredCorpus()
- * 3. loadedCorpus disponível para ferramentas
+ * Hook para sincronização unidirecional de contextos usando useReducer
  */
 export function useCorpusSyncEffect() {
   const { studyCorpus, referenceCorpus } = useAnalysisTools();
   const { selection, setSelection, setStylisticSelection, getFilteredCorpus, loadedCorpus, isReady, setLoadedCorpusDirectly } = useSubcorpus();
   const { setKeywordsState } = useTools();
-  const [isLoadingCorpus, setIsLoadingCorpus] = useState(false);
   
-  // Ref para evitar loop infinito - getFilteredCorpus muda de referência
+  const [state, dispatch] = useReducer(bridgeReducer, initialState);
+  
+  // Refs estáveis para funções que mudam de referência
   const getFilteredCorpusRef = useRef(getFilteredCorpus);
-  getFilteredCorpusRef.current = getFilteredCorpus;
-
-  // Refs para verificar igualdade e evitar re-renders desnecessários
-  const prevStudyCorpusRef = useRef<string | null>(null);
-  const prevStylisticRef = useRef<string | null>(null);
-  const lastLoadedKeyRef = useRef<string | null>(null);
-  
-  // Refs para PASSO 4 e 5: evitar loop infinito em setKeywordsState
-  const prevKeywordsRefRef = useRef<string | null>(null);
-  const prevKeywordsStudyRef = useRef<string | null>(null);
-  const setKeywordsStateRef = useRef(setKeywordsState);
-  setKeywordsStateRef.current = setKeywordsState;
-  
-  // Ref para setLoadedCorpusDirectly
   const setLoadedCorpusDirectlyRef = useRef(setLoadedCorpusDirectly);
-  setLoadedCorpusDirectlyRef.current = setLoadedCorpusDirectly;
+  const setKeywordsStateRef = useRef(setKeywordsState);
+  
+  useEffect(() => { getFilteredCorpusRef.current = getFilteredCorpus; }, [getFilteredCorpus]);
+  useEffect(() => { setLoadedCorpusDirectlyRef.current = setLoadedCorpusDirectly; }, [setLoadedCorpusDirectly]);
+  useEffect(() => { setKeywordsStateRef.current = setKeywordsState; }, [setKeywordsState]);
 
   // PASSO 1: Sincroniza studyCorpus → SubcorpusContext.selection (apenas para corpus de plataforma)
   useEffect(() => {
@@ -121,120 +174,108 @@ export function useCorpusSyncEffect() {
     const legacy = corpusSelectionToLegacy(studyCorpus);
     const studyKey = JSON.stringify(legacy);
     
-    // Só atualiza se valores diferentes
-    if (prevStudyCorpusRef.current === studyKey) return;
-    prevStudyCorpusRef.current = studyKey;
+    if (state.lastStudyKey === studyKey) return;
     
-    console.log('[ContextBridge] Sincronizando selection:', legacy);
+    logger.debug('Sincronizando selection', { legacy });
+    dispatch({ type: 'SET_STUDY_KEY', payload: studyKey });
     setSelection({
       corpusBase: legacy.corpusBase,
       mode: legacy.mode,
       artistaA: legacy.artistaA,
       artistaB: legacy.artistaB
     });
-  }, [studyCorpus, setSelection]);
+  }, [studyCorpus, setSelection, state.lastStudyKey]);
 
-  // PASSO 1.5 (UC-3): Converte e injeta corpus do usuário diretamente
+  // PASSO 1.5: Converte e injeta corpus do usuário diretamente
   useEffect(() => {
     if (!studyCorpus || studyCorpus.type !== 'user' || !studyCorpus.userCorpus) {
       return;
     }
     
-    // Gerar chave única para este corpus do usuário
     const userCorpusKey = `user:${studyCorpus.userCorpus.id}:${studyCorpus.userCorpus.textType}`;
     
-    // Evita reprocessamento se já carregou este corpus
-    if (lastLoadedKeyRef.current === userCorpusKey) {
-      console.log('[ContextBridge] Corpus do usuário já carregado:', userCorpusKey);
+    if (state.lastLoadedKey === userCorpusKey) {
+      logger.debug('Corpus do usuário já carregado', { key: userCorpusKey });
       return;
     }
     
-    console.log('[ContextBridge] Convertendo corpus do usuário:', {
+    logger.info('Convertendo corpus do usuário', {
       id: studyCorpus.userCorpus.id,
       name: studyCorpus.userCorpus.name,
       textType: studyCorpus.userCorpus.textType
     });
     
     try {
-      // Converte UserCorpusFile → CorpusCompletoEnriquecido
       const converted = userCorpusToCorpusCompleto(studyCorpus.userCorpus);
-      
-      // Injeta diretamente no SubcorpusContext
       setLoadedCorpusDirectlyRef.current(converted);
-      lastLoadedKeyRef.current = userCorpusKey;
+      dispatch({ type: 'SET_LOADED_KEY', payload: userCorpusKey });
       
-      console.log('[ContextBridge] Corpus do usuário injetado:', {
+      logger.success('Corpus do usuário injetado', {
         totalMusicas: converted.totalMusicas,
         totalPalavras: converted.totalPalavras
       });
       
       toast.success(`Corpus "${studyCorpus.userCorpus.name}" carregado com sucesso`);
     } catch (error) {
-      console.error('[ContextBridge] Erro ao converter corpus do usuário:', error);
+      logger.error('Erro ao converter corpus do usuário', error);
       toast.error('Erro ao processar corpus do usuário');
     }
-  }, [studyCorpus]);
+  }, [studyCorpus, state.lastLoadedKey]);
 
   // PASSO 2: Carrega corpus quando selection muda E é válido (apenas para plataforma)
-  // CORREÇÃO LF-3: studyCorpus nas dependências para forçar reload quando seleção muda
   useEffect(() => {
-    // Corpus do usuário é tratado no PASSO 1.5
     if (studyCorpus?.type === 'user') {
-      console.log('[ContextBridge] Corpus do usuário tratado no PASSO 1.5');
+      logger.debug('Corpus do usuário tratado no PASSO 1.5');
       return;
     }
     
-    // Aguarda availableCorpora estar pronto antes de tentar carregar
     if (!isReady) {
-      console.log('[ContextBridge] Aguardando availableCorpora...');
+      logger.debug('Aguardando availableCorpora...');
       return;
     }
     
-    // Só carrega se há seleção válida de plataforma
     if (!studyCorpus || studyCorpus.type !== 'platform') {
-      console.log('[ContextBridge] Nenhuma seleção de plataforma válida');
+      logger.debug('Nenhuma seleção de plataforma válida');
       return;
     }
     
-    // Gerar chave única para esta seleção
     const loadKey = JSON.stringify({
       corpusBase: selection.corpusBase,
       mode: selection.mode,
       artistaA: selection.artistaA
     });
     
-    // Evita recarregamento se já carregou esta seleção
-    if (lastLoadedKeyRef.current === loadKey && loadedCorpus && loadedCorpus.musicas.length > 0) {
-      console.log('[ContextBridge] Corpus já carregado para:', loadKey);
+    if (state.lastLoadedKey === loadKey && loadedCorpus && loadedCorpus.musicas.length > 0) {
+      logger.debug('Corpus já carregado', { key: loadKey });
       return;
     }
     
     let cancelled = false;
     
     const loadCorpus = async () => {
-      setIsLoadingCorpus(true);
-      console.log('[ContextBridge] Carregando corpus:', loadKey);
+      dispatch({ type: 'SET_LOADING', payload: true });
+      logger.info('Carregando corpus', { key: loadKey });
       
       try {
         const result = await getFilteredCorpusRef.current();
         if (!cancelled) {
-          lastLoadedKeyRef.current = loadKey;
-          console.log('[ContextBridge] Corpus carregado:', result?.totalMusicas || 0, 'músicas');
+          dispatch({ type: 'SET_LOADED_KEY', payload: loadKey });
+          logger.success('Corpus carregado', { totalMusicas: result?.totalMusicas || 0 });
         }
       } catch (error) {
-        console.error('[ContextBridge] Erro ao carregar corpus:', error);
+        logger.error('Erro ao carregar corpus', error);
         if (!cancelled) {
           toast.error('Erro ao carregar corpus. Tente novamente.');
         }
       } finally {
-        if (!cancelled) setIsLoadingCorpus(false);
+        if (!cancelled) dispatch({ type: 'SET_LOADING', payload: false });
       }
     };
     
     loadCorpus();
     
     return () => { cancelled = true; };
-  }, [isReady, studyCorpus, selection.corpusBase, selection.mode, selection.artistaA, loadedCorpus]);
+  }, [isReady, studyCorpus, selection.corpusBase, selection.mode, selection.artistaA, loadedCorpus, state.lastLoadedKey]);
 
   // PASSO 3: Sincroniza studyCorpus + referenceCorpus → stylisticSelection
   useEffect(() => {
@@ -242,15 +283,14 @@ export function useCorpusSyncEffect() {
     if (stylistic) {
       const newValue = JSON.stringify(stylistic);
       
-      if (prevStylisticRef.current !== newValue) {
-        prevStylisticRef.current = newValue;
+      if (state.lastStylisticKey !== newValue) {
+        dispatch({ type: 'SET_STYLISTIC_KEY', payload: newValue });
         setStylisticSelection(stylistic);
       }
     }
-  }, [studyCorpus, referenceCorpus, setStylisticSelection]);
+  }, [studyCorpus, referenceCorpus, setStylisticSelection, state.lastStylisticKey]);
 
   // PASSO 4: Sincroniza referenceCorpus → ToolsContext.keywordsState
-  // CORREÇÃO R-1.1: Usa ref para verificar igualdade e evitar loop infinito
   useEffect(() => {
     if (referenceCorpus && referenceCorpus.type === 'platform') {
       const newKeywords = {
@@ -260,15 +300,14 @@ export function useCorpusSyncEffect() {
       };
       
       const newValue = JSON.stringify(newKeywords);
-      if (prevKeywordsRefRef.current !== newValue) {
-        prevKeywordsRefRef.current = newValue;
+      if (state.lastKeywordsRefKey !== newValue) {
+        dispatch({ type: 'SET_KEYWORDS_REF_KEY', payload: newValue });
         setKeywordsStateRef.current(newKeywords);
       }
     }
-  }, [referenceCorpus]); // REMOVIDO setKeywordsState - não é estável
+  }, [referenceCorpus, state.lastKeywordsRefKey]);
 
   // PASSO 5: Sincroniza studyCorpus → ToolsContext.keywordsState
-  // CORREÇÃO R-1.1: Usa ref para verificar igualdade e evitar loop infinito
   useEffect(() => {
     if (studyCorpus && studyCorpus.type === 'platform') {
       const newKeywords = {
@@ -278,14 +317,14 @@ export function useCorpusSyncEffect() {
       };
       
       const newValue = JSON.stringify(newKeywords);
-      if (prevKeywordsStudyRef.current !== newValue) {
-        prevKeywordsStudyRef.current = newValue;
+      if (state.lastKeywordsStudyKey !== newValue) {
+        dispatch({ type: 'SET_KEYWORDS_STUDY_KEY', payload: newValue });
         setKeywordsStateRef.current(newKeywords);
       }
     }
-  }, [studyCorpus]); // REMOVIDO setKeywordsState - não é estável
+  }, [studyCorpus, state.lastKeywordsStudyKey]);
 
-  return { isLoadingCorpus };
+  return { isLoadingCorpus: state.isLoadingCorpus };
 }
 
 /**
