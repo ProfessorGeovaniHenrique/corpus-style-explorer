@@ -108,31 +108,9 @@ export function TabLexicalProfile() {
       }
     }
     
-    // Sincronização para corpus de USUÁRIO
-    if (studyCorpus && studyCorpus.type === 'user' && studyCorpus.userCorpus) {
-      const newSelection = {
-        study: {
-          corpusType: 'user' as CorpusType,
-          mode: 'complete' as const,
-          artist: undefined,
-          estimatedSize: studyCorpus.userCorpus.wordCount || 0,
-          userCorpusId: studyCorpus.userCorpus.id,
-          userCorpusName: studyCorpus.userCorpus.name
-        },
-        reference: referenceCorpus && referenceCorpus.type === 'platform' ? {
-          corpusType: (referenceCorpus.platformCorpus || 'nordestino') as CorpusType,
-          mode: 'complete' as const,
-          targetSize: 0,
-          sizeRatio: 1
-        } : null,
-        isComparative: !!referenceCorpus
-      };
-      
-      if (JSON.stringify(newSelection) !== JSON.stringify(stylisticSelection)) {
-        log.info('Syncing user corpus → SubcorpusContext', { userCorpusName: studyCorpus.userCorpus.name });
-        setStylisticSelection(newSelection);
-      }
-    }
+    // SPRINT LF-6: NÃO sincronizar corpus de usuário com stylisticSelection
+    // Corpus de usuário é tratado diretamente via loadedCorpus, não via stylisticSelection
+    // Isso evita que 'user' seja propagado para serviços de plataforma
   }, [studyCorpus, referenceCorpus, isSubcorpusReady]);
 
   // Sincronizar existingJob com job do hook
@@ -267,13 +245,18 @@ export function TabLexicalProfile() {
         return; // UI será atualizada automaticamente quando job concluir
       }
       
-      // Buscar domínios semânticos do cache
-      const studyDominiosData = await getSemanticDomainsFromAnnotatedCorpus(
-        stylisticSelection.study.corpusType,
-        studyArtistFilter
-      );
-      
-      setStudyDominios(studyDominiosData);
+      // Buscar domínios semânticos do cache - APENAS para corpus de plataforma
+      // Guard clause para evitar query com corpusType='user'
+      let studyDominiosData: DominioSemantico[] = [];
+      if (stylisticSelection.study.corpusType !== 'user') {
+        studyDominiosData = await getSemanticDomainsFromAnnotatedCorpus(
+          stylisticSelection.study.corpusType as 'gaucho' | 'nordestino',
+          studyArtistFilter
+        );
+        setStudyDominios(studyDominiosData);
+      } else {
+        setStudyDominios([]);
+      }
 
       // Usar corpus carregado via SubcorpusContext (Sistema B - mais confiável)
       let studyCorpusData = loadedCorpus;
@@ -290,23 +273,30 @@ export function TabLexicalProfile() {
       if (studyCorpusData && studyDominiosData.length > 0) {
         const profile = calculateLexicalProfile(studyCorpusData, studyDominiosData);
         setStudyProfile(profile);
-      } else if (studyDominiosData.length === 0) {
+      } else if (studyDominiosData.length === 0 && stylisticSelection.study.corpusType !== 'user') {
         toast.error('Nenhum domínio semântico encontrado. Execute a anotação primeiro.');
         setIsAnalyzing(false);
         return;
-      } else {
+      } else if (!studyCorpusData) {
         toast.error('Corpus não carregado. Aguarde o carregamento.');
         setIsAnalyzing(false);
         return;
+      } else {
+        // Para corpus de usuário sem domínios, calcular perfil léxico básico
+        const profile = calculateLexicalProfile(studyCorpusData, []);
+        setStudyProfile(profile);
       }
 
       // Analyze reference corpus if comparative mode
       if (stylisticSelection.isComparative && stylisticSelection.reference) {
-        const refDominiosData = await getSemanticDomainsFromAnnotatedCorpus(
-          stylisticSelection.reference.corpusType,
-          undefined
-        );
-
+        // Guard clause: só buscar domínios se for corpus de plataforma
+        let refDominiosData: DominioSemantico[] = [];
+        if (stylisticSelection.reference.corpusType !== 'user') {
+          refDominiosData = await getSemanticDomainsFromAnnotatedCorpus(
+            stylisticSelection.reference.corpusType as 'gaucho' | 'nordestino',
+            undefined
+          );
+        }
         setReferenceDominios(refDominiosData);
 
         // Para o corpus de referência, carregar via getFilteredCorpus

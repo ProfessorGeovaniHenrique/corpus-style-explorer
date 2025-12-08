@@ -74,9 +74,15 @@ interface CorpusOptions {
  * Busca análise de corpus REAL do banco de dados
  */
 export async function getCorpusAnalysisResults(
-  corpusType: 'gaucho' | 'nordestino',
+  corpusType: 'gaucho' | 'nordestino' | 'user',
   options: CorpusOptions = {}
 ): Promise<CorpusAnalysisResult> {
+  // Guard clause: corpus de usuário não pode ser buscado via este serviço
+  if (corpusType === 'user') {
+    log.warn('User corpus não suporta busca via corpusDataService - retornando vazio');
+    return createEmptyResult();
+  }
+  
   try {
     log.info('Fetching real corpus data', { corpusType, options });
 
@@ -370,7 +376,12 @@ function createEmptyResult(): CorpusAnalysisResult {
 /**
  * Busca estatísticas rápidas de um corpus
  */
-export async function getCorpusStats(corpusType: 'gaucho' | 'nordestino') {
+export async function getCorpusStats(corpusType: 'gaucho' | 'nordestino' | 'user') {
+  // Guard clause: corpus de usuário não tem stats no banco
+  if (corpusType === 'user') {
+    return { corpusId: 'user', corpusName: 'Corpus do Usuário', totalSongs: 0 };
+  }
+  
   try {
     const { data: corpus } = await supabase
       .from('corpora')

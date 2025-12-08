@@ -137,10 +137,16 @@ export async function fetchSemanticDomainsFromCache(songId: string): Promise<Dom
  * Se cache vazio, dispara processamento on-demand
  */
 export async function getSemanticDomainsFromAnnotatedCorpus(
-  corpusType: 'gaucho' | 'nordestino',
+  corpusType: 'gaucho' | 'nordestino' | 'user',
   artistFilter?: string,
   onProgress?: (progress: { processedWords: number; totalWords: number; message: string }) => void
 ): Promise<DominioSemantico[]> {
+  // Guard clause: corpus de usuário não tem dados no banco
+  if (corpusType === 'user') {
+    log.warn('User corpus não suporta busca de domínios semânticos do banco - retornando vazio');
+    return [];
+  }
+  
   try {
     log.info('Fetching semantic domains from annotated corpus', { corpusType, artistFilter });
 

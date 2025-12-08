@@ -30,6 +30,7 @@ function createEmptyStats(): CorpusUsageStats {
       gaucho: { count: 0, lastUsed: 0, sessionCount: 0, avgAccessTime: 0 },
       nordestino: { count: 0, lastUsed: 0, sessionCount: 0, avgAccessTime: 0 },
       sertanejo: { count: 0, lastUsed: 0, sessionCount: 0, avgAccessTime: 0 },
+      user: { count: 0, lastUsed: 0, sessionCount: 0, avgAccessTime: 0 },
     },
     sessionStart: Date.now(),
     version: 2,

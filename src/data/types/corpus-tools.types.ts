@@ -1,6 +1,10 @@
 import { LucideIcon } from "lucide-react";
 
-export type CorpusType = 'gaucho' | 'nordestino' | 'sertanejo';
+// Tipos de corpus de plataforma (banco de dados)
+export type PlatformCorpusType = 'gaucho' | 'nordestino' | 'sertanejo';
+
+// Tipo unificado que inclui corpus de usuário
+export type CorpusType = PlatformCorpusType | 'user';
 
 export const CORPUS_CONFIG = {
   gaucho: {
