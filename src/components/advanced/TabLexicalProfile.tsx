@@ -69,6 +69,7 @@ export function TabLexicalProfile() {
   // ========== SINCRONIZAÇÃO DE CONTEXTOS ==========
   // Auto-sincronizar AnalysisToolsContext → SubcorpusContext
   useEffect(() => {
+    // Sincronização para corpus de PLATAFORMA
     if (studyCorpus && studyCorpus.type === 'platform' && isSubcorpusReady) {
       const newSelection = {
         study: {
@@ -88,7 +89,33 @@ export function TabLexicalProfile() {
       
       // Só atualiza se realmente mudou para evitar loops
       if (JSON.stringify(newSelection) !== JSON.stringify(stylisticSelection)) {
-        log.info('Syncing AnalysisToolsContext → SubcorpusContext', { studyCorpus, referenceCorpus });
+        log.info('Syncing platform corpus → SubcorpusContext', { studyCorpus, referenceCorpus });
+        setStylisticSelection(newSelection);
+      }
+    }
+    
+    // Sincronização para corpus de USUÁRIO
+    if (studyCorpus && studyCorpus.type === 'user' && studyCorpus.userCorpus) {
+      const newSelection = {
+        study: {
+          corpusType: 'user' as CorpusType,
+          mode: 'complete' as const,
+          artist: undefined,
+          estimatedSize: studyCorpus.userCorpus.wordCount || 0,
+          userCorpusId: studyCorpus.userCorpus.id,
+          userCorpusName: studyCorpus.userCorpus.name
+        },
+        reference: referenceCorpus && referenceCorpus.type === 'platform' ? {
+          corpusType: (referenceCorpus.platformCorpus || 'nordestino') as CorpusType,
+          mode: 'complete' as const,
+          targetSize: 0,
+          sizeRatio: 1
+        } : null,
+        isComparative: !!referenceCorpus
+      };
+      
+      if (JSON.stringify(newSelection) !== JSON.stringify(stylisticSelection)) {
+        log.info('Syncing user corpus → SubcorpusContext', { userCorpusName: studyCorpus.userCorpus.name });
         setStylisticSelection(newSelection);
       }
     }
@@ -127,6 +154,34 @@ export function TabLexicalProfile() {
 
   // ========== ANÁLISE ==========
   const handleAnalyze = useCallback(async () => {
+    // ========== SPRINT LF-4: SUPORTE A CORPUS DO USUÁRIO ==========
+    // Verificar corpus do usuário primeiro (prioridade sobre plataforma)
+    if (studyCorpus?.type === 'user' && loadedCorpus && loadedCorpus.musicas.length > 0) {
+      setIsAnalyzing(true);
+      
+      try {
+        // Para corpus do usuário, calcular perfil léxico diretamente sem anotação semântica
+        const emptyDominios: DominioSemantico[] = [];
+        const profile = calculateLexicalProfile(loadedCorpus, emptyDominios);
+        setStudyProfile(profile);
+        
+        log.info('User corpus analysis completed', { 
+          totalTokens: profile.totalTokens, 
+          uniqueTokens: profile.uniqueTokens,
+          ttr: profile.ttr 
+        });
+        
+        toast.success('Análise léxica do corpus do usuário concluída!');
+      } catch (error) {
+        log.error('Error analyzing user corpus', error as Error);
+        toast.error('Erro ao analisar corpus do usuário.');
+      } finally {
+        setIsAnalyzing(false);
+      }
+      return;
+    }
+    
+    // ========== ANÁLISE DE CORPUS DE PLATAFORMA ==========
     if (!stylisticSelection) {
       toast.error('Selecione um corpus antes de analisar.');
       return;
@@ -273,8 +328,12 @@ export function TabLexicalProfile() {
     );
   }
 
+  // Verifica se há corpus válido (plataforma via stylisticSelection OU usuário via loadedCorpus)
+  const hasUserCorpus = studyCorpus?.type === 'user' && loadedCorpus && loadedCorpus.musicas.length > 0;
+  const hasValidCorpus = stylisticSelection || hasUserCorpus;
+
   // Feedback visual quando nenhum corpus está selecionado
-  if (!stylisticSelection) {
+  if (!hasValidCorpus) {
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-3">
@@ -353,6 +412,12 @@ export function TabLexicalProfile() {
               {stylisticSelection?.study?.artist && (
                 <Badge variant="secondary" className="ml-2">
                   {stylisticSelection.study.artist}
+                </Badge>
+              )}
+              {/* Badge para corpus do usuário */}
+              {studyCorpus?.type === 'user' && studyCorpus.userCorpus && (
+                <Badge variant="outline" className="ml-2">
+                  📄 {studyCorpus.userCorpus.name}
                 </Badge>
               )}
             </p>
