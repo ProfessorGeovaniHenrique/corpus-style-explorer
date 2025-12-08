@@ -100,6 +100,28 @@ export function LexicalStatisticsTable({ keywords, onWordClick }: LexicalStatist
       : <ArrowDown className="w-3 h-3 ml-1" />;
   };
 
+  // SPRINT LF-7.2: Placeholder para lista vazia
+  if (keywords.length === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Estatísticas Detalhadas</CardTitle>
+          <CardDescription>Análise de frequência por palavra</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="min-h-[200px] flex items-center justify-center border-2 border-dashed border-muted-foreground/20 rounded-lg">
+            <div className="text-center p-8">
+              <Search className="w-10 h-10 mx-auto mb-3 text-muted-foreground/40" />
+              <p className="text-muted-foreground text-sm">
+                Nenhuma palavra disponível. Execute a análise do corpus primeiro.
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -107,7 +129,7 @@ export function LexicalStatisticsTable({ keywords, onWordClick }: LexicalStatist
           <div>
             <CardTitle>Estatísticas Detalhadas</CardTitle>
             <CardDescription>
-              {filteredAndSorted.length.toLocaleString()} palavras • Página {currentPage} de {totalPages}
+              {filteredAndSorted.length.toLocaleString()} palavras • Página {currentPage} de {Math.max(1, totalPages)}
             </CardDescription>
           </div>
           <div className="flex items-center gap-3">
@@ -120,7 +142,7 @@ export function LexicalStatisticsTable({ keywords, onWordClick }: LexicalStatist
                 className="pl-9 w-64"
               />
             </div>
-            <Button variant="outline" size="sm" onClick={handleExportCSV} className="gap-2">
+            <Button variant="outline" size="sm" onClick={handleExportCSV} className="gap-2" disabled={filteredAndSorted.length === 0}>
               <Download className="w-4 h-4" />
               CSV
             </Button>

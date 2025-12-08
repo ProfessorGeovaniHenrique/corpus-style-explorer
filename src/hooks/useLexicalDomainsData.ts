@@ -78,14 +78,22 @@ export function useLexicalDomainsData(
     }
 
     // Processar keywords a partir de wordFrequencies
+    // SPRINT LF-7.1: Incluir TODAS as palavras, não filtrar por domínio ausente
+    // Isso permite que corpus de usuário (sem domínios semânticos) exiba palavras
     const keywords: LexicalKeyword[] = studyProfile.wordFrequencies
-      .filter(wf => !ignorarMG || (wf.domain && !wf.domain.startsWith('MG')))
+      .filter(wf => {
+        // Se ignorarMG está ativo, filtrar domínios que começam com MG
+        if (ignorarMG && wf.domain && wf.domain.startsWith('MG')) {
+          return false;
+        }
+        return true; // Incluir todas as palavras (com ou sem domínio)
+      })
       .map(wf => ({
         word: wf.word,
-        domain: wf.domain || 'Não classificado',
+        domain: wf.domain || 'Sem classificação',
         frequency: wf.freq,
         frequencyPercent: (wf.freq / studyProfile.totalTokens) * 100,
-        ll: undefined, // LL não disponível diretamente no LexicalProfile
+        ll: undefined,
         mi: undefined,
         effect: 'neutral' as const,
         prosody: 'neutral' as const,

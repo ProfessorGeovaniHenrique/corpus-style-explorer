@@ -39,10 +39,12 @@ export function calculateLexicalProfile(
   const hapaxCount = hapaxWords.length;
   const hapaxPercentage = (hapaxCount / uniqueTokens) * 100;
 
-  // Calculate lexical density (requires POS data)
+  // Calculate lexical density (requires POS data or heuristic estimation)
   let lexicalDensity = 0;
   let nounVerbRatio = 0;
+  
   if (posStats) {
+    // Cálculo preciso via POS tagging
     const contentWords = 
       (posStats.distribuicaoPOS['NOUN'] || 0) +
       (posStats.distribuicaoPOS['VERB'] || 0) +
@@ -53,6 +55,41 @@ export function calculateLexicalProfile(
     const nouns = posStats.distribuicaoPOS['NOUN'] || 0;
     const verbs = posStats.distribuicaoPOS['VERB'] || 0;
     nounVerbRatio = verbs > 0 ? nouns / verbs : nouns;
+  } else {
+    // SPRINT LF-7.3: Estimativa heurística quando POS não está disponível
+    // Baseado em estudos de linguística de corpus para português
+    // Palavras funcionais comuns são filtradas para estimar densidade lexical
+    const functionalWords = new Set([
+      'o', 'a', 'os', 'as', 'um', 'uma', 'uns', 'umas', 'de', 'da', 'do', 'das', 'dos',
+      'em', 'na', 'no', 'nas', 'nos', 'por', 'para', 'com', 'sem', 'sob', 'sobre',
+      'e', 'ou', 'mas', 'porém', 'que', 'se', 'como', 'quando', 'onde', 'porque',
+      'eu', 'tu', 'ele', 'ela', 'nós', 'vós', 'eles', 'elas', 'me', 'te', 'se', 'lhe',
+      'meu', 'minha', 'teu', 'tua', 'seu', 'sua', 'nosso', 'nossa', 'este', 'esta',
+      'esse', 'essa', 'aquele', 'aquela', 'isto', 'isso', 'aquilo', 'não', 'sim',
+      'já', 'ainda', 'sempre', 'nunca', 'muito', 'pouco', 'mais', 'menos', 'bem', 'mal',
+      'ser', 'estar', 'ter', 'haver', 'ir', 'vir', 'fazer', 'poder', 'dever', 'querer',
+      'é', 'são', 'foi', 'era', 'está', 'tem', 'tinha', 'há', 'vai', 'vem', 'faz',
+      'prá', 'pra', 'pro', 'pros', 'pela', 'pelo', 'pelas', 'pelos', 'ao', 'aos', 'à', 'às'
+    ]);
+    
+    const contentWordCount = allWords.filter(w => !functionalWords.has(w.toLowerCase())).length;
+    lexicalDensity = contentWordCount / totalTokens;
+    
+    // Estimativa de razão substantivo/verbo via terminações comuns
+    // Terminações típicas de substantivos: -ção, -dade, -mente, -eiro, -ista, -ismo
+    // Terminações típicas de verbos: -ar, -er, -ir, -ou, -eu, -iu
+    const nounPatterns = /(?:ção|dade|mente|eiro|eira|ista|ismo|eza|ura|agem|ência|ância)$/i;
+    const verbPatterns = /(?:ar|er|ir|ou|eu|iu|ando|endo|indo|ado|ido)$/i;
+    
+    let estimatedNouns = 0;
+    let estimatedVerbs = 0;
+    
+    uniqueWords.forEach(word => {
+      if (nounPatterns.test(word)) estimatedNouns++;
+      if (verbPatterns.test(word)) estimatedVerbs++;
+    });
+    
+    nounVerbRatio = estimatedVerbs > 0 ? estimatedNouns / estimatedVerbs : estimatedNouns > 0 ? 1.5 : 1.0;
   }
 
   // Calculate semantic field distribution

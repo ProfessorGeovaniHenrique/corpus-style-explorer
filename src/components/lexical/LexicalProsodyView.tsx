@@ -24,10 +24,19 @@ const PROSODY_COLORS = {
 };
 
 export function LexicalProsodyView({ prosodyDistribution, onWordClick }: LexicalProsodyViewProps) {
-  if (!prosodyDistribution) {
+  // SPRINT LF-7.2: Placeholder melhorado para dados indisponíveis
+  if (!prosodyDistribution || 
+      (prosodyDistribution.positive === 0 && 
+       prosodyDistribution.negative === 0 && 
+       prosodyDistribution.neutral === 0)) {
     return (
-      <Card className="p-8 text-center">
-        <p className="text-muted-foreground">Dados de prosódia não disponíveis.</p>
+      <Card className="p-8 text-center border-dashed border-2 border-muted-foreground/20">
+        <Smile className="w-12 h-12 mx-auto mb-4 text-muted-foreground/40" />
+        <h3 className="text-lg font-medium mb-2">Prosódia Semântica Indisponível</h3>
+        <p className="text-muted-foreground max-w-md mx-auto text-sm">
+          A análise de prosódia requer domínios semânticos anotados. Para corpus de usuário, 
+          esta funcionalidade estará disponível após anotação semântica.
+        </p>
       </Card>
     );
   }

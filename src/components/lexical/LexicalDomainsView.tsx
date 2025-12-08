@@ -48,6 +48,20 @@ export function LexicalDomainsView({ domains, onWordClick, totalWords }: Lexical
     link.click();
   };
 
+  // SPRINT LF-7.2: Placeholder para corpus sem domínios
+  if (domains.length === 0) {
+    return (
+      <Card className="p-8 text-center border-dashed border-2 border-muted-foreground/20">
+        <Layers className="w-12 h-12 mx-auto mb-4 text-muted-foreground/40" />
+        <h3 className="text-lg font-medium mb-2">Domínios Semânticos Indisponíveis</h3>
+        <p className="text-muted-foreground max-w-md mx-auto text-sm">
+          Este corpus não possui anotação semântica. Para corpus de usuário, utilize as abas 
+          "Visão Geral" e "Estatísticas" para análise de frequências e métricas léxicas.
+        </p>
+      </Card>
+    );
+  }
+
   return (
     <div className="space-y-4">
       {/* Controles */}
@@ -71,7 +85,7 @@ export function LexicalDomainsView({ domains, onWordClick, totalWords }: Lexical
             <Label htmlFor="show-keywords" className="text-sm">Exibir palavras</Label>
           </div>
         </div>
-        <Button variant="outline" size="sm" onClick={handleExportCSV} className="gap-2">
+        <Button variant="outline" size="sm" onClick={handleExportCSV} className="gap-2" disabled={domains.length === 0}>
           <Download className="w-4 h-4" />
           Exportar CSV
         </Button>

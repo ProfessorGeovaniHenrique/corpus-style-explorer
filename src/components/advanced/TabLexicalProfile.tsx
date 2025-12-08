@@ -436,20 +436,21 @@ export function TabLexicalProfile() {
           <BookOpen className="w-6 h-6 text-primary" />
           <div>
             <h2 className="text-2xl font-bold">Perfil Léxico</h2>
-            <p className="text-sm text-muted-foreground">
+            {/* SPRINT LF-7.4: Usar span ao invés de p para evitar DOM nesting inválido */}
+            <span className="text-sm text-muted-foreground flex items-center gap-2">
               Análise de vocabulário e riqueza lexical
               {stylisticSelection?.study?.artist && (
-                <Badge variant="secondary" className="ml-2">
+                <Badge variant="secondary">
                   {stylisticSelection.study.artist}
                 </Badge>
               )}
               {/* Badge para corpus do usuário */}
               {studyCorpus?.type === 'user' && studyCorpus.userCorpus && (
-                <Badge variant="outline" className="ml-2">
+                <Badge variant="outline">
                   📄 {studyCorpus.userCorpus.name}
                 </Badge>
               )}
-            </p>
+            </span>
           </div>
         </div>
         

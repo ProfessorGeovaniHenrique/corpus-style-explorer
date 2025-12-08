@@ -74,6 +74,33 @@ export function LexicalDomainCloud({ cloudData, domains, onDomainClick, onWordCl
     }
   };
 
+  // SPRINT LF-7.2: Placeholder para corpus sem domínios
+  if (cloudData.length === 0 || domains.length === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Cloud className="w-5 h-5" />
+            Nuvem de Domínios Semânticos
+          </CardTitle>
+          <CardDescription>Visualização interativa dos domínios temáticos</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="min-h-[300px] flex items-center justify-center border-2 border-dashed border-muted-foreground/20 rounded-lg">
+            <div className="text-center p-8">
+              <Cloud className="w-12 h-12 mx-auto mb-4 text-muted-foreground/40" />
+              <h3 className="text-lg font-medium mb-2">Nuvem Indisponível</h3>
+              <p className="text-muted-foreground text-sm max-w-sm">
+                Este corpus não possui domínios semânticos anotados. A visualização em nuvem 
+                requer anotação prévia do corpus.
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card>
       <CardHeader>
