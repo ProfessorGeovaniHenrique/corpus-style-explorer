@@ -9,7 +9,6 @@ interface ProportionalSampleInfoProps {
   targetSize: number;
   ratio: number;
   samplingMethod: 'complete' | 'proportional-sample';
-  warnings?: string[];
 }
 
 export function ProportionalSampleInfo({
@@ -17,27 +16,25 @@ export function ProportionalSampleInfo({
   referenceSize,
   targetSize,
   ratio,
-  samplingMethod,
-  warnings = []
+  samplingMethod
 }: ProportionalSampleInfoProps) {
-  // SPRINT LF-11 FIX: Usar valores passados como props diretamente
-  // Esses valores já vêm calculados corretamente do TabLexicalProfile
+  // FIX-UI-1: Validação unificada usando apenas valores exibidos
   const actualRatio = studySize > 0 ? referenceSize / studySize : 0;
   const isComplete = samplingMethod === 'complete';
-  
-  // Validar consistência de dados
   const hasValidData = studySize > 0 && referenceSize > 0;
   
-  // SPRINT LF-11 FIX: Validações usando os mesmos valores exibidos
-  const validationWarnings: string[] = [...warnings];
+  // Validações locais usando os mesmos valores exibidos (evita inconsistências)
+  const validationWarnings: string[] = [];
   
-  if (hasValidData) {
-    if (referenceSize < studySize && !isComplete) {
+  if (hasValidData && !isComplete) {
+    // Alerta apenas se referência REALMENTE é menor que estudo
+    if (referenceSize < studySize) {
       validationWarnings.push(`Corpus de referência (${referenceSize.toLocaleString()}) menor que corpus de estudo (${studySize.toLocaleString()}). Considere aumentar a proporção.`);
     }
     
-    if (ratio > 0 && Math.abs(actualRatio - ratio) > 0.5 && !isComplete) {
-      validationWarnings.push(`Proporção real (${actualRatio.toFixed(2)}x) difere da configurada (${ratio}x). Corpus de referência pode ser limitado.`);
+    // Alerta se proporção real é significativamente menor que configurada (< 50%)
+    if (ratio > 0 && actualRatio < ratio * 0.5) {
+      validationWarnings.push(`Proporção real (${actualRatio.toFixed(2)}x) significativamente menor que configurada (${ratio}x). Corpus de referência pode ser limitado.`);
     }
   }
 

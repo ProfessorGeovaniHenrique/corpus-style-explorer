@@ -412,7 +412,6 @@ export function TabLexicalProfile() {
           targetSize={balancing.enabled ? Math.round((studyProfile?.totalTokens || 1000) * balancing.ratio) : (stylisticSelection?.reference?.targetSize || referenceCorpusSize)}
           ratio={balancing.enabled ? balancing.ratio : (stylisticSelection?.reference?.sizeRatio || 1)}
           samplingMethod={balancing.enabled ? 'proportional-sample' : (stylisticSelection?.reference?.mode || 'complete')}
-          warnings={validation?.warnings || []}
         />
       )}
 

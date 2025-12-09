@@ -48,7 +48,7 @@ export function AnnotationProgressCard({
         
         <div className="flex flex-wrap justify-between items-center gap-2">
           <p className="text-xs text-muted-foreground">
-            {step === 'pos' && 'Anotando classes gramaticais com IA...'}
+            {step === 'pos' && 'Processando análise morfológica...'}
             {step === 'semantic' && 'Classificando domínios semânticos...'}
             {step === 'calculating' && 'Finalizando cálculos de métricas...'}
           </p>
