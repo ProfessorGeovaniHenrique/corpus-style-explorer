@@ -1,0 +1,271 @@
+/* ============================================
+   Accessibility Improvements - Sprint AUD-ACC
+   ============================================ */
+
+/* ============================================
+   1. FOCUS STATES - Consistent keyboard navigation
+   ============================================ */
+
+/* Enhanced focus ring for all interactive elements */
+:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
+}
+
+/* Remove default outline when using mouse */
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* Enhanced focus for buttons and interactive elements */
+button:focus-visible,
+a:focus-visible,
+[role="button"]:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px hsl(var(--ring) / 0.2);
+}
+
+/* Card focus state for keyboard navigation */
+.card-focusable:focus-visible {
+  outline: 2px solid hsl(var(--primary));
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px hsl(var(--primary) / 0.15);
+}
+
+/* ============================================
+   2. HIGH CONTRAST MODE
+   ============================================ */
+
+@media (prefers-contrast: high) {
+  :root {
+    --border: 0 0% 30%;
+    --muted-foreground: 0 0% 35%;
+  }
+
+  [data-theme="academic"] {
+    --border: 0 0% 40%;
+    --muted-foreground: 0 0% 30%;
+  }
+
+  /* Increase border visibility */
+  .border,
+  [class*="border-"] {
+    border-width: 2px;
+  }
+
+  /* Ensure text meets WCAG AAA contrast */
+  .text-muted-foreground {
+    color: hsl(var(--foreground) / 0.85);
+  }
+}
+
+/* ============================================
+   3. REDUCED MOTION
+   ============================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ============================================
+   4. IMPROVED COLOR CONTRAST
+   ============================================ */
+
+/* Ensure muted text meets WCAG AA (4.5:1 for normal text) */
+[data-theme="academic"] {
+  /* Darker muted-foreground for better contrast on light background */
+  --muted-foreground: 30 10% 40%;
+}
+
+[data-theme="cosmic"] {
+  /* Lighter muted-foreground for better contrast on dark background */
+  --muted-foreground: 215 20% 70%;
+}
+
+/* Badge contrast improvements */
+.badge-accessible {
+  font-weight: 600;
+}
+
+/* ============================================
+   5. KEYBOARD NAVIGATION HELPERS
+   ============================================ */
+
+/* Skip link (visible on focus) */
+.skip-link {
+  position: absolute;
+  top: -100%;
+  left: 0;
+  z-index: 9999;
+  padding: 0.75rem 1.5rem;
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+  font-weight: 600;
+  text-decoration: none;
+  border-radius: 0 0 0.5rem 0;
+}
+
+.skip-link:focus {
+  top: 0;
+}
+
+/* Focus indicator for chart elements */
+.chart-element-focusable:focus-visible {
+  outline: 3px solid hsl(var(--ring));
+  outline-offset: 2px;
+}
+
+/* ============================================
+   6. SCREEN READER ONLY (SR-ONLY)
+   ============================================ */
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+.sr-only-focusable:focus,
+.sr-only-focusable:active {
+  position: static;
+  width: auto;
+  height: auto;
+  padding: inherit;
+  margin: inherit;
+  overflow: visible;
+  clip: auto;
+  white-space: normal;
+}
+
+/* ============================================
+   7. INTERACTIVE ELEMENT MINIMUM SIZE
+   ============================================ */
+
+/* Ensure touch targets are at least 44x44px (WCAG 2.1 AAA) */
+.touch-target-min {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+/* For inline interactive elements */
+button,
+[role="button"],
+a,
+input[type="checkbox"],
+input[type="radio"] {
+  min-height: 32px;
+}
+
+/* ============================================
+   8. CHART ACCESSIBILITY
+   ============================================ */
+
+/* Focusable chart container */
+[role="img"][tabindex="0"]:focus-visible {
+  outline: 2px solid hsl(var(--primary));
+  outline-offset: 4px;
+  border-radius: var(--radius);
+}
+
+/* Pattern fills for colorblind users */
+.chart-pattern-dots {
+  background-image: radial-gradient(circle, currentColor 1px, transparent 1px);
+  background-size: 4px 4px;
+}
+
+.chart-pattern-lines {
+  background-image: repeating-linear-gradient(
+    45deg,
+    currentColor,
+    currentColor 1px,
+    transparent 1px,
+    transparent 4px
+  );
+}
+
+.chart-pattern-crosshatch {
+  background-image: 
+    repeating-linear-gradient(0deg, currentColor, currentColor 1px, transparent 1px, transparent 4px),
+    repeating-linear-gradient(90deg, currentColor, currentColor 1px, transparent 1px, transparent 4px);
+}
+
+/* ============================================
+   9. LOADING STATE ACCESSIBILITY
+   ============================================ */
+
+/* Ensure loading spinners have sufficient contrast */
+.loading-spinner {
+  color: hsl(var(--primary));
+}
+
+[aria-busy="true"] {
+  cursor: wait;
+}
+
+/* ============================================
+   10. ERROR STATE ACCESSIBILITY
+   ============================================ */
+
+/* Ensure error states are not conveyed by color alone */
+[aria-invalid="true"] {
+  border-color: hsl(var(--destructive));
+  border-width: 2px;
+}
+
+[aria-invalid="true"]::before {
+  content: "⚠ ";
+}
+
+/* ============================================
+   11. TABLE ACCESSIBILITY
+   ============================================ */
+
+/* Ensure table headers are distinguishable */
+th {
+  font-weight: 600;
+  text-align: left;
+}
+
+/* Row hover with keyboard focus support */
+tr:focus-within {
+  background-color: hsl(var(--muted) / 0.5);
+}
+
+/* ============================================
+   12. FORM ACCESSIBILITY
+   ============================================ */
+
+/* Label visibility */
+label {
+  display: block;
+  margin-bottom: 0.25rem;
+  font-weight: 500;
+}
+
+/* Required field indicator */
+[aria-required="true"]::after {
+  content: " *";
+  color: hsl(var(--destructive));
+}
+
+/* Disabled state with better contrast */
+[disabled],
+[aria-disabled="true"] {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
