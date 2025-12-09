@@ -972,6 +972,114 @@ async function getTagsetInfo(supabase: any, codigo: string): Promise<{ nome: str
 }
 
 /**
+ * 🆕 FASE 4.1: Batch Tagset Lookup - busca nomes em 1 query para N códigos
+ */
+async function getTagsetInfoBatch(
+  supabase: any,
+  codigos: string[]
+): Promise<Map<string, string>> {
+  const result = new Map<string, string>();
+  if (!codigos.length) return result;
+
+  // Deduplica códigos e adiciona N1s
+  const allCodigos = new Set<string>();
+  for (const codigo of codigos) {
+    allCodigos.add(codigo);
+    const n1Code = codigo.split('.')[0];
+    if (n1Code !== codigo) allCodigos.add(n1Code);
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('semantic_tagset')
+      .select('codigo, nome')
+      .in('codigo', Array.from(allCodigos))
+      .eq('status', 'ativo');
+
+    if (!error && data) {
+      for (const tagset of data) {
+        result.set(tagset.codigo, tagset.nome);
+      }
+    }
+  } catch {
+    // Silently fail, retornará map vazio
+  }
+
+  return result;
+}
+
+/**
+ * 🆕 FASE 4.2: Batch Cache Insert - insere N resultados em 1 operação
+ */
+async function saveToCacheBatch(
+  supabase: any,
+  entries: Array<{
+    palavra: string;
+    contextoHash: string;
+    result: SemanticDomainResult;
+  }>
+): Promise<void> {
+  if (!entries.length) return;
+
+  const rows = entries.map(e => ({
+    palavra: e.palavra.toLowerCase(),
+    contexto_hash: e.contextoHash,
+    lema: null,
+    pos: null,
+    tagset_codigo: e.result.tagset_codigo,
+    confianca: e.result.confianca,
+    fonte: e.result.fonte,
+    justificativa: e.result.justificativa,
+  }));
+
+  try {
+    await supabase
+      .from('semantic_disambiguation_cache')
+      .upsert(rows, { 
+        onConflict: 'palavra,contexto_hash',
+        ignoreDuplicates: true 
+      });
+  } catch {
+    // Silently fail batch insert, items podem já existir
+  }
+}
+
+/**
+ * 🆕 FASE 4.3: Processamento Paralelo Controlado
+ * Processa palavras em paralelo com concurrency limite
+ */
+async function processWordsWithRulesParallel(
+  supabase: any,
+  words: string[],
+  logger: any,
+  concurrency: number = 5
+): Promise<Map<string, SemanticDomainResult>> {
+  const results = new Map<string, SemanticDomainResult>();
+
+  for (let i = 0; i < words.length; i += concurrency) {
+    const batch = words.slice(i, i + concurrency);
+    
+    const promises = batch.map(async (palavra) => {
+      const palavraNorm = palavra.toLowerCase().trim();
+      if (!palavraNorm) return { palavra: palavraNorm, result: null };
+      
+      const result = await processWordWithRules(supabase, palavraNorm, logger);
+      return { palavra: palavraNorm, result };
+    });
+
+    const batchResults = await Promise.all(promises);
+    
+    for (const { palavra, result } of batchResults) {
+      if (result) {
+        results.set(palavra, result);
+      }
+    }
+  }
+
+  return results;
+}
+
+/**
  * Processa uma única palavra via pipeline rule-based (cache → lexicon → rules)
  * Retorna resultado ou null se precisa Gemini
  */
@@ -1076,8 +1184,12 @@ async function processWordWithRules(
 }
 
 /**
- * 🆕 BATCH MODE HANDLER
+ * 🆕 BATCH MODE HANDLER (OTIMIZADO)
  * Processa array de palavras e retorna array de SemanticAnnotation
+ * FASE 4 OTIMIZAÇÕES:
+ * - 4.1: Batch tagset lookup (1 query para N códigos)
+ * - 4.2: Batch cache insert (1 upsert para N resultados)
+ * - 4.3: Processamento paralelo controlado (concurrency=5)
  */
 async function handleBatchMode(
   requestBody: BatchAnnotationRequest,
@@ -1094,60 +1206,57 @@ async function handleBatchMode(
     );
   }
 
-  logger.info('Iniciando anotação semântica (modo batch)', { 
+  const perfStart = Date.now();
+  logger.info('Iniciando anotação semântica (modo batch OTIMIZADO)', { 
     wordsCount: words.length,
     hasContext: !!context 
   });
 
   const annotations: SemanticAnnotation[] = [];
   const wordsNeedingGemini: string[] = [];
-  const processedByRules = new Map<string, SemanticDomainResult>();
+  const cacheEntries: Array<{ palavra: string; contextoHash: string; result: SemanticDomainResult }> = [];
 
-  // ========== FASE 1: Processar cada palavra via pipeline rule-based ==========
-  for (const palavra of words) {
-    const palavraNorm = palavra.toLowerCase().trim();
-    if (!palavraNorm) continue;
-
-    const result = await processWordWithRules(supabaseClient, palavraNorm, logger);
-
-    if (result) {
-      processedByRules.set(palavraNorm, result);
-      
-      // Buscar nome do domínio
-      const tagsetInfo = await getTagsetInfo(supabaseClient, result.tagset_codigo);
-      const n1Code = result.tagset_codigo.split('.')[0];
-
-      annotations.push({
-        palavra: palavraNorm,
-        tagset_primario: n1Code,
-        tagset_codigo: result.tagset_codigo,
-        dominio_nome: tagsetInfo?.nome || result.tagset_codigo,
-        cor: getColorForDomain(n1Code),
-        confianca: result.confianca,
-        prosody: 'Neutra'
-      });
-
-      // Salvar no cache
-      const contextoHash = await hashContext('', '');
-      await saveToCache(supabaseClient, palavraNorm, contextoHash, undefined, undefined, result);
-    } else {
-      wordsNeedingGemini.push(palavraNorm);
+  // ========== FASE 1: Processar palavras via pipeline rule-based (PARALELO) ==========
+  const phase1Start = Date.now();
+  
+  // 🆕 4.3: Processamento paralelo com concurrency=5
+  const uniqueWords = [...new Set(words.map(w => w.toLowerCase().trim()).filter(Boolean))];
+  const processedByRules = await processWordsWithRulesParallel(supabaseClient, uniqueWords, logger, 5);
+  
+  // Coletar códigos para batch lookup
+  const codigosParaBuscar: string[] = [];
+  const emptyContextHash = await hashContext('', '');
+  
+  for (const [palavraNorm, result] of processedByRules) {
+    codigosParaBuscar.push(result.tagset_codigo);
+    cacheEntries.push({ palavra: palavraNorm, contextoHash: emptyContextHash, result });
+  }
+  
+  // Identificar palavras que precisam Gemini
+  for (const palavra of uniqueWords) {
+    if (!processedByRules.has(palavra)) {
+      wordsNeedingGemini.push(palavra);
     }
   }
 
-  logger.info('Fase 1 (rules) completa', {
+  const phase1Time = Date.now() - phase1Start;
+  logger.info('Fase 1 (rules paralelo) completa', {
     processedByRules: processedByRules.size,
-    needingGemini: wordsNeedingGemini.length
+    needingGemini: wordsNeedingGemini.length,
+    timeMs: phase1Time
   });
 
   // ========== FASE 2: Processar palavras restantes via Gemini Batch ==========
+  const phase2Start = Date.now();
+  const geminiResults = new Map<string, SemanticDomainResult>();
+  
   if (wordsNeedingGemini.length > 0) {
-    const BATCH_SIZE = 15; // Gemini batch size
+    const BATCH_SIZE = 15;
+    const contextHash = await hashContext(context, '');
     
     for (let i = 0; i < wordsNeedingGemini.length; i += BATCH_SIZE) {
       const batch = wordsNeedingGemini.slice(i, i + BATCH_SIZE);
       
-      // Preparar payload para batch
       const batchPayload = batch.map(palavra => ({
         palavra,
         lema: palavra,
@@ -1157,38 +1266,22 @@ async function handleBatchMode(
       }));
 
       try {
-        const geminiResults = await batchClassifyWithGemini(batchPayload, logger);
-
+        const batchResults = await batchClassifyWithGemini(batchPayload, logger);
+        
+        for (const [palavra, result] of batchResults) {
+          geminiResults.set(palavra, result);
+          codigosParaBuscar.push(result.tagset_codigo);
+          cacheEntries.push({ palavra, contextoHash: contextHash, result });
+        }
+        
+        // Marcar palavras sem resultado como NC
         for (const palavra of batch) {
-          const result = geminiResults.get(palavra.toLowerCase());
-          
-          if (result) {
-            const tagsetInfo = await getTagsetInfo(supabaseClient, result.tagset_codigo);
-            const n1Code = result.tagset_codigo.split('.')[0];
-
-            annotations.push({
-              palavra,
-              tagset_primario: n1Code,
-              tagset_codigo: result.tagset_codigo,
-              dominio_nome: tagsetInfo?.nome || result.tagset_codigo,
-              cor: getColorForDomain(n1Code),
-              confianca: result.confianca,
-              prosody: 'Neutra'
-            });
-
-            // Salvar no cache
-            const contextoHash = await hashContext(context, '');
-            await saveToCache(supabaseClient, palavra, contextoHash, undefined, undefined, result);
-          } else {
-            // Fallback: NC (Não Classificado)
-            annotations.push({
-              palavra,
-              tagset_primario: 'NC',
+          if (!batchResults.has(palavra.toLowerCase())) {
+            geminiResults.set(palavra.toLowerCase(), {
               tagset_codigo: 'NC',
-              dominio_nome: 'Não Classificado',
-              cor: getColorForDomain('NC'),
               confianca: 0.5,
-              prosody: 'Neutra'
+              fonte: 'rule_based',
+              justificativa: 'Gemini não retornou classificação'
             });
           }
         }
@@ -1198,34 +1291,105 @@ async function handleBatchMode(
           error: geminiError instanceof Error ? geminiError.message : String(geminiError)
         });
         
-        // Fallback para todas as palavras do batch
+        // Fallback NC para todas do batch
         for (const palavra of batch) {
-          annotations.push({
-            palavra,
-            tagset_primario: 'NC',
+          geminiResults.set(palavra.toLowerCase(), {
             tagset_codigo: 'NC',
-            dominio_nome: 'Não Classificado',
-            cor: getColorForDomain('NC'),
             confianca: 0.5,
-            prosody: 'Neutra'
+            fonte: 'rule_based',
+            justificativa: 'Fallback: erro no Gemini batch'
           });
         }
       }
       
-      // Rate limiting delay between batches
+      // Rate limiting delay entre batches Gemini
       if (i + BATCH_SIZE < wordsNeedingGemini.length) {
         await new Promise(resolve => setTimeout(resolve, 200));
       }
     }
   }
 
+  const phase2Time = Date.now() - phase2Start;
+  logger.info('Fase 2 (Gemini) completa', {
+    geminiProcessed: geminiResults.size,
+    timeMs: phase2Time
+  });
+
+  // ========== FASE 3: Batch Tagset Lookup (1 query para todos os códigos) ==========
+  const phase3Start = Date.now();
+  
+  // 🆕 4.1: Batch lookup de nomes de tagsets
+  const tagsetNomes = await getTagsetInfoBatch(supabaseClient, codigosParaBuscar);
+
+  const phase3Time = Date.now() - phase3Start;
+  logger.info('Fase 3 (tagset batch lookup) completa', {
+    codigosBuscados: codigosParaBuscar.length,
+    nomesEncontrados: tagsetNomes.size,
+    timeMs: phase3Time
+  });
+
+  // ========== FASE 4: Montar annotations ==========
+  for (const palavra of uniqueWords) {
+    const result = processedByRules.get(palavra) || geminiResults.get(palavra);
+    
+    if (result) {
+      const n1Code = result.tagset_codigo.split('.')[0];
+      const dominioNome = tagsetNomes.get(result.tagset_codigo) 
+        || tagsetNomes.get(n1Code) 
+        || result.tagset_codigo;
+
+      annotations.push({
+        palavra,
+        tagset_primario: n1Code,
+        tagset_codigo: result.tagset_codigo,
+        dominio_nome: dominioNome,
+        cor: getColorForDomain(n1Code),
+        confianca: result.confianca,
+        prosody: 'Neutra'
+      });
+    } else {
+      // Fallback final NC
+      annotations.push({
+        palavra,
+        tagset_primario: 'NC',
+        tagset_codigo: 'NC',
+        dominio_nome: 'Não Classificado',
+        cor: getColorForDomain('NC'),
+        confianca: 0.5,
+        prosody: 'Neutra'
+      });
+    }
+  }
+
+  // ========== FASE 5: Batch Cache Insert (1 operação para todos) ==========
+  const phase5Start = Date.now();
+  
+  // 🆕 4.2: Batch insert no cache
+  await saveToCacheBatch(supabaseClient, cacheEntries);
+
+  const phase5Time = Date.now() - phase5Start;
+  logger.info('Fase 5 (batch cache insert) completa', {
+    entriesSaved: cacheEntries.length,
+    timeMs: phase5Time
+  });
+
+  // ========== RESULTADO FINAL ==========
+  const totalTime = Date.now() - perfStart;
   const dominiosUnicos = new Set(annotations.map(a => a.tagset_primario));
 
-  logger.info('Anotação semântica (modo batch) concluída', {
+  logger.info('Anotação semântica (modo batch OTIMIZADO) concluída', {
     totalPalavras: words.length,
+    palavrasUnicas: uniqueWords.length,
     palavrasClassificadas: annotations.length,
     dominiosEncontrados: dominiosUnicos.size,
-    processingTime: Date.now() - startTime
+    processingTime: totalTime,
+    performance: {
+      phase1_rules_ms: phase1Time,
+      phase2_gemini_ms: phase2Time,
+      phase3_tagsets_ms: phase3Time,
+      phase5_cache_ms: phase5Time,
+      wordsPerSecond: Math.round((uniqueWords.length / totalTime) * 1000)
+    }
   });
 
   return new Response(
@@ -1235,7 +1399,7 @@ async function handleBatchMode(
       totalPalavras: words.length,
       palavrasClassificadas: annotations.length,
       dominiosEncontrados: dominiosUnicos.size,
-      processingTime: Date.now() - startTime
+      processingTime: totalTime
     }),
     { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
   );
