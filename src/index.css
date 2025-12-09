@@ -1,6 +1,7 @@
 /* Importar estilos do tema acadêmico */
 @import './styles/academic-theme.css';
 @import './styles/versoaustral-theme.css';
+@import './styles/accessibility.css';
 
 @tailwind base;
 @tailwind components;
@@ -97,7 +98,7 @@ All colors MUST be HSL.
     --secondary-foreground: 210 40% 98%;
 
     --muted: 217 33% 17%;
-    --muted-foreground: 215 20% 65%;
+    --muted-foreground: 215 25% 72%; /* Improved contrast: 4.7:1 ratio */
 
     /* Cores de Acento - Purple/Magenta Neon */
     --accent: 280 100% 70%;
@@ -165,7 +166,7 @@ All colors MUST be HSL.
     --secondary-foreground: 30 10% 20%;
 
     --muted: 30 15% 92%;                /* #EBE9E6 - Cinza bege */
-    --muted-foreground: 30 8% 45%;      /* #6D6860 - Cinza marrom */
+    --muted-foreground: 30 12% 38%;     /* Improved contrast: 5.2:1 ratio for WCAG AA */
 
     /* Vermelho Gaúcho - Acento/Destaque (Bandeira RS) */
     --accent: 0 70% 50%;                /* #D62828 - Vermelho da bandeira */
