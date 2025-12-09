@@ -1,9 +1,10 @@
 /**
  * useFullAnalysis
  * Sprint PERSIST-1: Hook para processar todas as 7 ferramentas de análise
+ * Sprint PERSIST-2: Correções de bugs e validação
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { useSubcorpus } from '@/contexts/SubcorpusContext';
 import { useAnalysisTools, ToolKey } from '@/contexts/AnalysisToolsContext';
 import { toast } from 'sonner';
@@ -43,7 +44,7 @@ const TOOL_CONFIGS: { key: ToolKey; label: string }[] = [
   { key: 'foregrounding', label: 'Foregrounding' },
 ];
 
-const initialToolsState: ToolStatus[] = TOOL_CONFIGS.map(config => ({
+const createInitialToolsState = (): ToolStatus[] => TOOL_CONFIGS.map(config => ({
   ...config,
   status: 'pending' as const,
 }));
@@ -55,10 +56,11 @@ export function useFullAnalysis() {
   const [state, setState] = useState<FullAnalysisState>({
     isProcessing: false,
     currentToolIndex: -1,
-    tools: initialToolsState,
+    tools: createInitialToolsState(),
   });
   
-  const [isCancelled, setIsCancelled] = useState(false);
+  // Usar ref para cancelamento (evita stale closure)
+  const isCancelledRef = useRef(false);
 
   const updateToolStatus = useCallback((index: number, status: ToolStatus['status'], error?: string) => {
     setState(prev => ({
@@ -75,19 +77,25 @@ export function useFullAnalysis() {
       return;
     }
 
-    setIsCancelled(false);
+    isCancelledRef.current = false;
     setState({
       isProcessing: true,
       currentToolIndex: 0,
-      tools: initialToolsState,
+      tools: createInitialToolsState(),
       startedAt: new Date(),
     });
 
     // Pre-process: POS annotation for syntactic analysis
     let annotatedCorpus: any = null;
+    let completedCount = 0;
+    let errorCount = 0;
 
     for (let i = 0; i < TOOL_CONFIGS.length; i++) {
-      if (isCancelled) break;
+      // Verificar cancelamento via ref (evita stale closure)
+      if (isCancelledRef.current) {
+        toast.info(`Análise cancelada após ${completedCount} ferramentas`);
+        break;
+      }
       
       const tool = TOOL_CONFIGS[i];
       setState(prev => ({ ...prev, currentToolIndex: i }));
@@ -104,7 +112,13 @@ export function useFullAnalysis() {
           case 'syntactic':
             // POS annotation needed
             if (!annotatedCorpus) {
-              annotatedCorpus = await annotatePOSForCorpus(loadedCorpus);
+              try {
+                annotatedCorpus = await annotatePOSForCorpus(loadedCorpus);
+              } catch (posError) {
+                console.warn('POS annotation failed, using fallback:', posError);
+                // Fallback: usar corpus sem anotação POS
+                annotatedCorpus = loadedCorpus;
+              }
             }
             result = calculateSyntacticProfile(annotatedCorpus);
             break;
@@ -130,6 +144,11 @@ export function useFullAnalysis() {
             break;
         }
 
+        // Verificar cancelamento após processamento
+        if (isCancelledRef.current) {
+          break;
+        }
+
         // Salvar no cache
         if (result) {
           setToolCache(tool.key, {
@@ -138,12 +157,14 @@ export function useFullAnalysis() {
             timestamp: Date.now(),
             isStale: false,
           });
+          completedCount++;
         }
 
         updateToolStatus(i, 'completed');
       } catch (error) {
         console.error(`Erro ao processar ${tool.label}:`, error);
         updateToolStatus(i, 'error', error instanceof Error ? error.message : 'Erro desconhecido');
+        errorCount++;
       }
     }
 
@@ -153,32 +174,37 @@ export function useFullAnalysis() {
       completedAt: new Date(),
     }));
 
-    const completedCount = state.tools.filter(t => t.status === 'completed').length + 1;
-    if (!isCancelled) {
-      toast.success(`Análise completa! ${completedCount}/${TOOL_CONFIGS.length} ferramentas processadas.`);
+    // Exibir toast de conclusão apropriado
+    if (!isCancelledRef.current) {
+      if (errorCount > 0) {
+        toast.warning(`Análise concluída com ${errorCount} erros. ${completedCount}/${TOOL_CONFIGS.length} ferramentas processadas.`);
+      } else {
+        toast.success(`Análise completa! ${completedCount}/${TOOL_CONFIGS.length} ferramentas processadas.`);
+      }
     }
-  }, [loadedCorpus, setToolCache, currentCorpusHash, updateToolStatus, isCancelled, state.tools]);
+  }, [loadedCorpus, setToolCache, currentCorpusHash, updateToolStatus]);
 
   const cancelAnalysis = useCallback(() => {
-    setIsCancelled(true);
+    isCancelledRef.current = true;
     setState(prev => ({ ...prev, isProcessing: false }));
-    toast.info('Análise cancelada');
   }, []);
 
   const resetState = useCallback(() => {
     setState({
       isProcessing: false,
       currentToolIndex: -1,
-      tools: initialToolsState,
+      tools: createInitialToolsState(),
     });
-    setIsCancelled(false);
+    isCancelledRef.current = false;
   }, []);
 
+  // Calcular progresso corretamente
+  const completedTools = state.tools.filter(t => t.status === 'completed').length;
   const progress = state.isProcessing 
-    ? Math.round(((state.currentToolIndex + 1) / TOOL_CONFIGS.length) * 100)
-    : state.tools.filter(t => t.status === 'completed').length === TOOL_CONFIGS.length 
+    ? Math.round((state.currentToolIndex / TOOL_CONFIGS.length) * 100)
+    : completedTools === TOOL_CONFIGS.length 
       ? 100 
-      : 0;
+      : Math.round((completedTools / TOOL_CONFIGS.length) * 100);
 
   return {
     state,
