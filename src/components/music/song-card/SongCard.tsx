@@ -61,6 +61,7 @@ export function SongCard({
         <div className="flex flex-col gap-2 flex-shrink-0">
           <SongCardThumbnail
             title={song.title}
+            artistName={song.artist || song.artists?.name}
             youtubeUrl={youtubeLink}
             thumbnail={song.thumbnail}
             isCompact={isCompact}

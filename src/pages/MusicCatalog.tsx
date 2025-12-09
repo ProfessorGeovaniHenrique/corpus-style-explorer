@@ -2,6 +2,7 @@
  * MusicCatalog - Componente principal refatorado
  * Sprint F2.1 - Reduzido de 1830 para ~350 linhas
  * Sprint CAT-AUDIT-P1 - Breadcrumb + integração com análise
+ * Sprint CAT-AUDIT-P3 - Onboarding Shepherd.js
  */
 
 import { useMemo, useState, useCallback } from 'react';
@@ -13,8 +14,10 @@ import { EnrichmentBatchModal } from '@/components/music/EnrichmentBatchModal';
 import { YouTubeEnrichmentModal } from '@/components/music/YouTubeEnrichmentModal';
 import { TabEnrichmentJobs } from '@/components/music/TabEnrichmentJobs';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { Sparkles, Briefcase, FlaskConical, Copy } from 'lucide-react';
+import { useMusicCatalogTour } from '@/hooks/useMusicCatalogTour';
+import { Sparkles, Briefcase, FlaskConical, Copy, HelpCircle } from 'lucide-react';
 
 // Hooks refatorados
 import { 
@@ -42,6 +45,17 @@ const log = createLogger('MusicCatalog');
 
 export default function MusicCatalog() {
   const { toast } = useToast();
+  
+  // Sprint CAT-AUDIT-P3: Onboarding Tour
+  const { startTour, hasCompletedTour } = useMusicCatalogTour({ 
+    autoStart: true,
+    onComplete: () => {
+      toast({
+        title: "Tour concluído!",
+        description: "Agora você conhece as principais funcionalidades do catálogo.",
+      });
+    }
+  });
   
   // Hook centralizado de estados
   const state = useMusicCatalogState();
@@ -241,26 +255,40 @@ export default function MusicCatalog() {
         <CatalogStatsOverview />
 
         <Tabs value={state.view} onValueChange={(v) => state.setView(v as any)} className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="songs">Músicas</TabsTrigger>
-            <TabsTrigger value="artists">
-              Artistas {state.selectedLetter !== 'all' && `(${state.selectedLetter})`}
-            </TabsTrigger>
-            <TabsTrigger value="enrichment-jobs" className="flex items-center gap-1">
-              <Briefcase className="h-3 w-3" />
-              Enriquecimento
-            </TabsTrigger>
-            <TabsTrigger value="stats">Estatísticas</TabsTrigger>
-            <TabsTrigger value="metrics">Métricas</TabsTrigger>
-            <TabsTrigger value="validation" className="flex items-center gap-1">
-              <FlaskConical className="h-3 w-3" />
-              Validação
-            </TabsTrigger>
-            <TabsTrigger value="deduplication" className="flex items-center gap-1">
-              <Copy className="h-3 w-3" />
-              Deduplicação
-            </TabsTrigger>
-          </TabsList>
+          <div className="flex items-center justify-between">
+            <TabsList data-tour="catalog-tabs">
+              <TabsTrigger value="songs">Músicas</TabsTrigger>
+              <TabsTrigger value="artists">
+                Artistas {state.selectedLetter !== 'all' && `(${state.selectedLetter})`}
+              </TabsTrigger>
+              <TabsTrigger value="enrichment-jobs" className="flex items-center gap-1">
+                <Briefcase className="h-3 w-3" />
+                Enriquecimento
+              </TabsTrigger>
+              <TabsTrigger value="stats">Estatísticas</TabsTrigger>
+              <TabsTrigger value="metrics">Métricas</TabsTrigger>
+              <TabsTrigger value="validation" className="flex items-center gap-1">
+                <FlaskConical className="h-3 w-3" />
+                Validação
+              </TabsTrigger>
+              <TabsTrigger value="deduplication" className="flex items-center gap-1">
+                <Copy className="h-3 w-3" />
+                Deduplicação
+              </TabsTrigger>
+            </TabsList>
+            
+            {/* Botão para reiniciar tour */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={startTour}
+              className="gap-2 text-muted-foreground hover:text-foreground"
+              title="Iniciar tour guiado"
+            >
+              <HelpCircle className="h-4 w-4" />
+              <span className="hidden md:inline">Tour</span>
+            </Button>
+          </div>
 
           <TabsContent value="songs">
             <TabSongs

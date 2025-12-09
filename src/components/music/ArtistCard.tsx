@@ -126,7 +126,7 @@ export function ArtistCard({
 
   return (
     <>
-      <Card className="hover:shadow-lg transition-shadow">
+      <Card className="hover:shadow-lg transition-shadow" data-tour="artist-card">
         <CardHeader>
           <div className="flex justify-between items-start">
             <CardTitle className="text-lg truncate" title={name}>

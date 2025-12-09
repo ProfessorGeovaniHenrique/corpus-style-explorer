@@ -7,6 +7,7 @@ import { memo, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { ArtistCard } from '@/components/music';
 import { CorpusAnnotationJobCard } from '@/components/music/CorpusAnnotationJobCard';
 import { Sparkles, Loader2, RefreshCw, AlertCircle, Trash2 } from 'lucide-react';
@@ -43,6 +44,7 @@ interface TabArtistsProps {
   totalSongs: number;
   selectedCorpusId?: string;
   selectedCorpusName?: string;
+  itemsPerPage?: number;
 }
 
 const LETTERS = ['all', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')];
@@ -60,51 +62,87 @@ const AlphabetFilter = memo(({ selectedLetter, onLetterChange }: {
 
     if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
       e.preventDefault();
-      const buttons = e.currentTarget.parentElement?.querySelectorAll('button');
+      const container = e.currentTarget.closest('[data-alphabet-container]');
+      const buttons = container?.querySelectorAll('button');
       if (!buttons) return;
       
-      const currentIndex = index;
       const nextIndex = e.key === 'ArrowRight' 
-        ? Math.min(currentIndex + 1, buttons.length - 1)
-        : Math.max(currentIndex - 1, 0);
+        ? Math.min(index + 1, buttons.length - 1)
+        : Math.max(index - 1, 0);
       
       (buttons[nextIndex] as HTMLButtonElement)?.focus();
     }
 
     if (e.key === 'Home') {
       e.preventDefault();
-      const buttons = e.currentTarget.parentElement?.querySelectorAll('button');
+      const container = e.currentTarget.closest('[data-alphabet-container]');
+      const buttons = container?.querySelectorAll('button');
       (buttons?.[0] as HTMLButtonElement)?.focus();
     }
 
     if (e.key === 'End') {
       e.preventDefault();
-      const buttons = e.currentTarget.parentElement?.querySelectorAll('button');
+      const container = e.currentTarget.closest('[data-alphabet-container]');
+      const buttons = container?.querySelectorAll('button');
       if (buttons) (buttons[buttons.length - 1] as HTMLButtonElement)?.focus();
     }
   };
 
   return (
     <div 
-      className="flex flex-wrap gap-1 p-4 bg-card rounded-lg border mb-4"
+      className="bg-card rounded-lg border mb-4"
       role="group"
       aria-label="Filtro alfabético de artistas"
+      data-tour="alphabet-filter"
     >
-      {LETTERS.map((letter, index) => (
-        <Button
-          key={letter}
-          size="sm"
-          variant={selectedLetter === letter ? 'default' : 'outline'}
-          onClick={() => onLetterChange(letter)}
-          onKeyDown={(e) => handleKeyDown(e, letter, index)}
-          tabIndex={selectedLetter === letter ? 0 : -1}
-          aria-pressed={selectedLetter === letter}
-          aria-label={letter === 'all' ? 'Mostrar todos os artistas' : `Filtrar por letra ${letter}`}
-          className={letter === 'all' ? 'h-8 px-3 text-xs' : 'h-8 w-8 p-0 text-xs font-mono'}
-        >
-          {letter === 'all' ? 'Todos' : letter}
-        </Button>
-      ))}
+      {/* Mobile: Scroll horizontal */}
+      <div className="block sm:hidden">
+        <ScrollArea className="w-full">
+          <div 
+            className="flex gap-1 p-4"
+            data-alphabet-container
+          >
+            {LETTERS.map((letter, index) => (
+              <Button
+                key={letter}
+                size="sm"
+                variant={selectedLetter === letter ? 'default' : 'outline'}
+                onClick={() => onLetterChange(letter)}
+                onKeyDown={(e) => handleKeyDown(e, letter, index)}
+                tabIndex={selectedLetter === letter ? 0 : -1}
+                aria-pressed={selectedLetter === letter}
+                aria-label={letter === 'all' ? 'Mostrar todos os artistas' : `Filtrar por letra ${letter}`}
+                className={letter === 'all' ? 'h-8 px-3 text-xs shrink-0' : 'h-8 w-8 p-0 text-xs font-mono shrink-0'}
+              >
+                {letter === 'all' ? 'Todos' : letter}
+              </Button>
+            ))}
+          </div>
+          <ScrollBar orientation="horizontal" />
+        </ScrollArea>
+      </div>
+      
+      {/* Desktop: Flex wrap */}
+      <div 
+        className="hidden sm:flex flex-wrap gap-1 p-4"
+        data-alphabet-container
+      >
+        {LETTERS.map((letter, index) => (
+          <Button
+            key={letter}
+            size="sm"
+            variant={selectedLetter === letter ? 'default' : 'outline'}
+            onClick={() => onLetterChange(letter)}
+            onKeyDown={(e) => handleKeyDown(e, letter, index)}
+            tabIndex={selectedLetter === letter ? 0 : -1}
+            aria-pressed={selectedLetter === letter}
+            aria-label={letter === 'all' ? 'Mostrar todos os artistas' : `Filtrar por letra ${letter}`}
+            className={letter === 'all' ? 'h-8 px-3 text-xs' : 'h-8 w-8 p-0 text-xs font-mono'}
+          >
+            {letter === 'all' ? 'Todos' : letter}
+          </Button>
+        ))}
+      </div>
     </div>
   );
 });
@@ -136,6 +174,7 @@ export function TabArtists({
   totalSongs,
   selectedCorpusId,
   selectedCorpusName,
+  itemsPerPage = 12,
 }: TabArtistsProps) {
   const { toast } = useToast();
   const { enrichYouTubeBatch } = useYouTubeEnrichment();
@@ -394,30 +433,35 @@ export function TabArtists({
             })}
           </div>
 
-          {/* Pagination */}
+          {/* Pagination com contador "Mostrando X-Y de Z" */}
           {totalPages > 1 && (
-            <div className="flex justify-center items-center gap-4 mt-8 pb-4">
+            <div className="flex flex-col sm:flex-row justify-center items-center gap-2 sm:gap-4 mt-8 pb-4">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => onPageChange(Math.max(1, currentPage - 1))}
                 disabled={currentPage === 1}
+                aria-label="Ir para página anterior"
               >
                 ← Anterior
               </Button>
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">
-                  Página {currentPage} de {totalPages}
+              
+              <div className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 text-center">
+                {/* Contador "Mostrando X-Y de Z" */}
+                <span className="text-sm font-medium">
+                  Mostrando {((currentPage - 1) * itemsPerPage) + 1}–{Math.min(currentPage * itemsPerPage, artists.length)} de {artists.length}
                 </span>
-                <span className="text-xs text-muted-foreground">
-                  ({artists.length} artistas)
+                <span className="text-xs text-muted-foreground hidden sm:inline">
+                  • Página {currentPage} de {totalPages}
                 </span>
               </div>
+              
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
                 disabled={currentPage === totalPages}
+                aria-label="Ir para próxima página"
               >
                 Próxima →
               </Button>
