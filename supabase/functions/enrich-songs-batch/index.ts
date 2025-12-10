@@ -633,6 +633,27 @@ Deno.serve(async (req) => {
       const avgTimePerSong = batch.length > 0 ? Math.round(batchDuration / batch.length) : 0;
       console.log(`[enrich-batch] ✅ Lote concluído: ${batchSucceeded}/${batch.length} sucesso em ${batchDuration}ms (${avgTimePerSong}ms/música). Rate: ${currentRateLimit}ms`);
 
+      // FIX: Persistir progresso IMEDIATAMENTE após cada lote paralelo
+      // Isso evita que jobs sejam marcados como "órfãos" e garante que o progresso seja visível
+      const batchProgress = {
+        songs_processed: job.songs_processed + succeeded + failed,
+        songs_succeeded: job.songs_succeeded + succeeded,
+        songs_failed: job.songs_failed + failed,
+        current_song_index: startIndex + i + batch.length,
+        last_chunk_at: new Date().toISOString(),
+      };
+      
+      const { error: progressError } = await supabase
+        .from('enrichment_jobs')
+        .update(batchProgress)
+        .eq('id', job.id);
+      
+      if (progressError) {
+        console.error(`[enrich-batch] ⚠️ Erro persistindo progresso:`, progressError);
+      } else {
+        console.log(`[enrich-batch] 💾 Progresso salvo: ${batchProgress.songs_processed}/${job.total_songs} músicas`);
+      }
+
       // Aguardar rate limit entre lotes (não entre músicas individuais)
       if (i + PARALLEL_SONGS < songs.length) {
         await new Promise(resolve => setTimeout(resolve, currentRateLimit));
