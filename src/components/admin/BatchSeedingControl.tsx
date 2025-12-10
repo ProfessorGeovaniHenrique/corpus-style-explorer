@@ -90,18 +90,18 @@ export function BatchSeedingControl({ semanticLexiconCount, status }: BatchSeedi
       <CardHeader>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <CardTitle className="flex items-center gap-2">
-              <Database className="h-5 w-5" />
+            <h2 className="text-2xl font-semibold leading-none tracking-tight flex items-center gap-2">
+              <Database className="h-5 w-5" aria-hidden="true" />
               Batch Seeding - Léxico Semântico
-            </CardTitle>
+            </h2>
             {isProcessing && (
               <Button 
                 variant="ghost" 
                 size="icon"
                 onClick={() => setLastUpdate(new Date())}
-                title="Atualizar dados"
+                aria-label="Atualizar dados do job"
               >
-                <RefreshCw className="h-4 w-4" />
+                <RefreshCw className="h-4 w-4" aria-hidden="true" />
               </Button>
             )}
           </div>
@@ -139,7 +139,7 @@ export function BatchSeedingControl({ semanticLexiconCount, status }: BatchSeedi
         {activeJob && isProcessing && (
           <div className="space-y-2">
             <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
-              <Activity className="h-4 w-4 animate-pulse text-primary" />
+              <Activity className="h-4 w-4 animate-pulse text-primary" aria-hidden="true" />
               <div className="flex-1">
                 <p className="text-sm font-medium">Processamento em andamento</p>
                 <p className="text-xs text-muted-foreground">
@@ -204,8 +204,8 @@ export function BatchSeedingControl({ semanticLexiconCount, status }: BatchSeedi
         {isProcessing && (
           <AlertDialog>
             <AlertDialogTrigger asChild>
-              <Button variant="destructive" className="w-full">
-                <XCircle className="h-4 w-4 mr-2" />
+              <Button variant="destructive" className="w-full" aria-label={isJobAbandoned ? 'Cancelar job travado' : 'Cancelar job atual'}>
+                <XCircle className="h-4 w-4 mr-2" aria-hidden="true" />
                 {isJobAbandoned ? 'Cancelar Job Travado' : '⏹️ Cancelar Job Atual'}
               </Button>
             </AlertDialogTrigger>
@@ -235,8 +235,9 @@ export function BatchSeedingControl({ semanticLexiconCount, status }: BatchSeedi
             <Button 
               className="w-full" 
               disabled={isLoading || (isProcessing && !isJobAbandoned)}
+              aria-label="Executar batch seeding do léxico semântico"
             >
-              <Play className="h-4 w-4 mr-2" />
+              <Play className="h-4 w-4 mr-2" aria-hidden="true" />
               {isProcessing ? 'Executando Batch Seeding...' : 'Executar Batch Seeding'}
             </Button>
           </AlertDialogTrigger>

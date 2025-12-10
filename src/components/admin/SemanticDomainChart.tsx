@@ -21,38 +21,43 @@ export function SemanticDomainChart({ data }: SemanticDomainChartProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Distribuição de Domínios Semânticos</CardTitle>
+        <h2 className="text-2xl font-semibold leading-none tracking-tight">Distribuição de Domínios Semânticos</h2>
       </CardHeader>
       <CardContent>
-        <ResponsiveContainer width="100%" height={400}>
-          <BarChart data={data} layout="vertical" margin={{ left: 40, right: 40 }}>
-            <XAxis type="number" />
-            <YAxis dataKey="tagset" type="category" width={80} />
-            <Tooltip 
-              formatter={(value: number) => `${value} palavras`}
-              labelFormatter={(label) => `Domínio: ${label}`}
-            />
-            <Bar dataKey="count" radius={[0, 8, 8, 0]}>
-              {data.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={getBarColor(entry.tagset)} />
-              ))}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
+        <div 
+          role="img" 
+          aria-label={`Gráfico de barras mostrando distribuição de ${data.length} domínios semânticos`}
+        >
+          <ResponsiveContainer width="100%" height={400}>
+            <BarChart data={data} layout="vertical" margin={{ left: 40, right: 40 }}>
+              <XAxis type="number" />
+              <YAxis dataKey="tagset" type="category" width={80} />
+              <Tooltip 
+                formatter={(value: number) => `${value} palavras`}
+                labelFormatter={(label) => `Domínio: ${label}`}
+              />
+              <Bar dataKey="count" radius={[0, 8, 8, 0]}>
+                {data.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={getBarColor(entry.tagset)} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
         
         <div className="mt-4 space-y-2">
           <div className="text-sm text-muted-foreground">Legenda:</div>
-          <div className="flex flex-wrap gap-4 text-sm">
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded" style={{ backgroundColor: 'hsl(var(--primary))' }} />
+          <div className="flex flex-wrap gap-4 text-sm" role="list" aria-label="Legenda do gráfico">
+            <div className="flex items-center gap-2" role="listitem">
+              <div className="w-3 h-3 rounded" style={{ backgroundColor: 'hsl(var(--primary))' }} aria-hidden="true" />
               <span>Classificados</span>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded" style={{ backgroundColor: 'hsl(var(--destructive))' }} />
+            <div className="flex items-center gap-2" role="listitem">
+              <div className="w-3 h-3 rounded" style={{ backgroundColor: 'hsl(var(--destructive))' }} aria-hidden="true" />
               <span>NC (Não Classificados)</span>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded" style={{ backgroundColor: 'hsl(var(--muted))' }} />
+            <div className="flex items-center gap-2" role="listitem">
+              <div className="w-3 h-3 rounded" style={{ backgroundColor: 'hsl(var(--muted))' }} aria-hidden="true" />
               <span>MG (Morfologia Gramatical)</span>
             </div>
           </div>

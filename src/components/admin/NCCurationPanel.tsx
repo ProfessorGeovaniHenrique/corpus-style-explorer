@@ -132,28 +132,29 @@ export const NCCurationPanel = React.memo(function NCCurationPanel() {
         <CardHeader>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <AlertTriangle className="h-6 w-6 text-amber-500" />
+              <AlertTriangle className="h-6 w-6 text-amber-500" aria-hidden="true" />
               <div>
-                <CardTitle className="text-lg">Curadoria de Palavras NC</CardTitle>
+                <h2 className="text-lg font-semibold leading-none tracking-tight">Curadoria de Palavras NC</h2>
                 <CardDescription>
                   Classificar palavras não identificadas com sugestões inteligentes
                 </CardDescription>
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={() => refetch()}>
-                <RefreshCw className="h-4 w-4 mr-1" />
+              <Button variant="outline" size="sm" onClick={() => refetch()} aria-label="Atualizar lista de palavras NC">
+                <RefreshCw className="h-4 w-4 mr-1" aria-hidden="true" />
                 Atualizar
               </Button>
               <Button 
                 size="sm" 
                 onClick={() => getSuggestions()}
                 disabled={isLoadingSuggestions}
+                aria-label="Obter sugestões de classificação via IA"
               >
                 {isLoadingSuggestions ? (
-                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                  <Loader2 className="h-4 w-4 mr-1 animate-spin" aria-hidden="true" />
                 ) : (
-                  <Sparkles className="h-4 w-4 mr-1" />
+                  <Sparkles className="h-4 w-4 mr-1" aria-hidden="true" />
                 )}
                 Sugerir IA
               </Button>
@@ -175,12 +176,11 @@ export const NCCurationPanel = React.memo(function NCCurationPanel() {
             <Progress value={progressPercent} className="h-2" />
           </div>
 
-          {/* Filtros e Ações em Lote */}
           <div className="flex flex-wrap items-center gap-4">
             <div className="flex items-center gap-2">
-              <Filter className="h-4 w-4 text-muted-foreground" />
+              <Filter className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
               <Select value={filter} onValueChange={(v) => setFilter(v as FilterType)}>
-                <SelectTrigger className="w-[180px]">
+                <SelectTrigger className="w-[180px]" aria-label="Filtrar palavras NC">
                   <SelectValue placeholder="Filtrar" />
                 </SelectTrigger>
                 <SelectContent>
@@ -196,18 +196,19 @@ export const NCCurationPanel = React.memo(function NCCurationPanel() {
               {selectedWords.size > 0 && (
                 <>
                   <Badge variant="secondary">{selectedWords.size} selecionadas</Badge>
-                  <Button variant="ghost" size="sm" onClick={clearSelection}>
+                  <Button variant="ghost" size="sm" onClick={clearSelection} aria-label="Limpar seleção">
                     Limpar
                   </Button>
                   <Button 
                     size="sm" 
                     onClick={validateSelected}
                     disabled={isValidating}
+                    aria-label="Validar palavras selecionadas"
                   >
                     {isValidating ? (
-                      <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                      <Loader2 className="h-4 w-4 mr-1 animate-spin" aria-hidden="true" />
                     ) : (
-                      <CheckCircle2 className="h-4 w-4 mr-1" />
+                      <CheckCircle2 className="h-4 w-4 mr-1" aria-hidden="true" />
                     )}
                     Validar Selecionados
                   </Button>
@@ -237,13 +238,15 @@ export const NCCurationPanel = React.memo(function NCCurationPanel() {
               <Table>
                 <TableHeader className="sticky top-0 bg-background z-10">
                   <TableRow>
-                    <TableHead className="w-10"></TableHead>
-                    <TableHead>Palavra</TableHead>
-                    <TableHead className="text-center">Ocorr.</TableHead>
-                    <TableHead>Sugestão</TableHead>
-                    <TableHead className="text-center">Conf.</TableHead>
-                    <TableHead className="text-center">Fonte</TableHead>
-                    <TableHead className="text-right">Ações</TableHead>
+                    <TableHead className="w-10" scope="col">
+                      <span className="sr-only">Seleção</span>
+                    </TableHead>
+                    <TableHead scope="col">Palavra</TableHead>
+                    <TableHead className="text-center" scope="col">Ocorr.</TableHead>
+                    <TableHead scope="col">Sugestão</TableHead>
+                    <TableHead className="text-center" scope="col">Conf.</TableHead>
+                    <TableHead className="text-center" scope="col">Fonte</TableHead>
+                    <TableHead className="text-right" scope="col">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -312,18 +315,18 @@ export const NCCurationPanel = React.memo(function NCCurationPanel() {
                                   className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-100"
                                   onClick={() => handleValidateSuggestion(word)}
                                   disabled={isValidating}
-                                  title="Aceitar sugestão"
+                                  aria-label={`Aceitar sugestão para ${word.palavra}`}
                                 >
-                                  <Check className="h-4 w-4" />
+                                  <Check className="h-4 w-4" aria-hidden="true" />
                                 </Button>
                                 <Button
                                   size="icon"
                                   variant="ghost"
                                   className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
                                   onClick={() => rejectSuggestion(word.palavra)}
-                                  title="Rejeitar sugestão"
+                                  aria-label={`Rejeitar sugestão para ${word.palavra}`}
                                 >
-                                  <X className="h-4 w-4" />
+                                  <X className="h-4 w-4" aria-hidden="true" />
                                 </Button>
                               </>
                             )}
@@ -332,9 +335,9 @@ export const NCCurationPanel = React.memo(function NCCurationPanel() {
                               variant="ghost"
                               className="h-8 w-8"
                               onClick={() => handleOpenDetail(word)}
-                              title="Ver detalhes"
+                              aria-label={`Ver detalhes de ${word.palavra}`}
                             >
-                              <Eye className="h-4 w-4" />
+                              <Eye className="h-4 w-4" aria-hidden="true" />
                             </Button>
                           </div>
                         </TableCell>

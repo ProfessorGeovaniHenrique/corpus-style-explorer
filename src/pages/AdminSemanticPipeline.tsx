@@ -24,8 +24,12 @@ export default function AdminSemanticPipeline() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center space-y-4">
-          <div className="animate-spin h-12 w-12 border-4 border-primary border-t-transparent rounded-full mx-auto" />
-          <p className="text-muted-foreground">Carregando pipeline semântica...</p>
+          <div 
+            className="animate-spin h-12 w-12 border-4 border-primary border-t-transparent rounded-full mx-auto" 
+            role="status"
+            aria-label="Carregando pipeline semântica"
+          />
+          <p className="text-muted-foreground" aria-hidden="true">Carregando pipeline semântica...</p>
         </div>
       </div>
     );
@@ -73,20 +77,20 @@ export default function AdminSemanticPipeline() {
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full grid-cols-2 md:grid-cols-4">
-          <TabsTrigger value="dashboard" className="gap-1 md:gap-2">
-            <Database className="w-4 h-4" />
+          <TabsTrigger value="dashboard" className="gap-1 md:gap-2" aria-label="Dashboard">
+            <Database className="w-4 h-4" aria-hidden="true" />
             <span className="hidden sm:inline">Dashboard</span>
           </TabsTrigger>
-          <TabsTrigger value="lexicon" className="gap-1 md:gap-2">
-            <BookOpen className="w-4 h-4" />
+          <TabsTrigger value="lexicon" className="gap-1 md:gap-2" aria-label="Léxico Anotado">
+            <BookOpen className="w-4 h-4" aria-hidden="true" />
             <span className="hidden sm:inline">Léxico Anotado</span>
           </TabsTrigger>
-          <TabsTrigger value="insignias" className="gap-1 md:gap-2">
-            <Award className="w-4 h-4" />
+          <TabsTrigger value="insignias" className="gap-1 md:gap-2" aria-label="Insígnias Culturais">
+            <Award className="w-4 h-4" aria-hidden="true" />
             <span className="hidden sm:inline">Insígnias</span>
           </TabsTrigger>
-          <TabsTrigger value="test" className="gap-1 md:gap-2">
-            <TestTube className="w-4 h-4" />
+          <TabsTrigger value="test" className="gap-1 md:gap-2" aria-label="Teste de Pipeline">
+            <TestTube className="w-4 h-4" aria-hidden="true" />
             <span className="hidden sm:inline">Teste</span>
           </TabsTrigger>
         </TabsList>
@@ -97,8 +101,9 @@ export default function AdminSemanticPipeline() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Cache Coverage</CardTitle>
-            <Database className="h-4 w-4 text-muted-foreground" />
+            <h2 className="text-sm font-medium tracking-tight">Cache Coverage</h2>
+            <Database className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+            <Database className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
@@ -115,8 +120,8 @@ export default function AdminSemanticPipeline() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Semantic Lexicon</CardTitle>
-            <Database className="h-4 w-4 text-muted-foreground" />
+            <h2 className="text-sm font-medium tracking-tight">Semantic Lexicon</h2>
+            <Database className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
@@ -137,8 +142,8 @@ export default function AdminSemanticPipeline() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">NC Words</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-destructive" />
+            <h2 className="text-sm font-medium tracking-tight">NC Words</h2>
+            <AlertTriangle className="h-4 w-4 text-destructive" aria-hidden="true" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-destructive">
@@ -157,8 +162,8 @@ export default function AdminSemanticPipeline() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Confidence</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            <h2 className="text-sm font-medium tracking-tight">Confidence</h2>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
@@ -177,8 +182,8 @@ export default function AdminSemanticPipeline() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Léxico Semântico</CardTitle>
-            <Activity className="h-4 w-4 text-muted-foreground" />
+            <h2 className="text-sm font-medium tracking-tight">Léxico Semântico</h2>
+            <Activity className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
@@ -196,8 +201,8 @@ export default function AdminSemanticPipeline() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Cultural Insignias</CardTitle>
-            <Activity className="h-4 w-4 text-muted-foreground" />
+            <h2 className="text-sm font-medium tracking-tight">Cultural Insignias</h2>
+            <Activity className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
@@ -237,7 +242,7 @@ export default function AdminSemanticPipeline() {
       {/* System Health Summary */}
       <Card>
         <CardHeader>
-          <CardTitle>Resumo de Saúde do Sistema</CardTitle>
+          <h2 className="text-2xl font-semibold leading-none tracking-tight">Resumo de Saúde do Sistema</h2>
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="flex items-center justify-between">
@@ -276,7 +281,7 @@ export default function AdminSemanticPipeline() {
         <TabsContent value="lexicon" className="mt-6">
           <Suspense fallback={
             <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" role="status" aria-label="Carregando léxico" />
             </div>
           }>
             <SemanticLexiconPanel />

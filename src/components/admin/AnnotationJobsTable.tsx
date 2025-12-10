@@ -136,7 +136,7 @@ export function AnnotationJobsTable({ jobs, onRefresh }: AnnotationJobsTableProp
       const attempts = autoResumeAttempts[job.id] || 0;
       return (
         <Badge variant="destructive" className="flex items-center gap-1">
-          <AlertTriangle className="h-3 w-3" />
+          <AlertTriangle className="h-3 w-3" aria-hidden="true" />
           Travado {attempts > 0 && `(${attempts}/${maxAutoResumeAttempts})`}
         </Badge>
       );
@@ -173,7 +173,7 @@ export function AnnotationJobsTable({ jobs, onRefresh }: AnnotationJobsTableProp
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <div className="space-y-1">
-          <CardTitle>Jobs de Anotação Semântica</CardTitle>
+          <h2 className="text-2xl font-semibold leading-none tracking-tight">Jobs de Anotação Semântica</h2>
           <p className="text-xs text-muted-foreground">
             Última atualização: {lastRefreshAt.toLocaleTimeString('pt-BR')}
           </p>
@@ -199,8 +199,8 @@ export function AnnotationJobsTable({ jobs, onRefresh }: AnnotationJobsTableProp
             </label>
           </div>
           
-          <Button variant="outline" size="sm" onClick={onRefresh} disabled={isRefreshing}>
-            <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+          <Button variant="outline" size="sm" onClick={onRefresh} disabled={isRefreshing} aria-label="Atualizar lista de jobs">
+            <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} aria-hidden="true" />
             Atualizar
           </Button>
         </div>
@@ -211,14 +211,14 @@ export function AnnotationJobsTable({ jobs, onRefresh }: AnnotationJobsTableProp
           <div className="mb-4 p-3 bg-muted/50 rounded-lg flex items-center justify-between">
             <div className="flex items-center gap-4 text-sm">
               <span className="flex items-center gap-1">
-                <RotateCcw className="h-4 w-4" />
+                <RotateCcw className="h-4 w-4" aria-hidden="true" />
                 <span className="text-muted-foreground">Retomadas hoje:</span>
                 <span className="font-medium">{autoResumeStats.attemptsToday}</span>
               </span>
               <span className="text-green-600">✓ {autoResumeStats.successfulResumes}</span>
               <span className="text-red-600">✗ {autoResumeStats.failedResumes}</span>
             </div>
-            <Button variant="ghost" size="sm" onClick={() => resetAttempts()}>
+            <Button variant="ghost" size="sm" onClick={() => resetAttempts()} aria-label="Limpar histórico de retomadas">
               Limpar histórico
             </Button>
           </div>
@@ -252,16 +252,16 @@ export function AnnotationJobsTable({ jobs, onRefresh }: AnnotationJobsTableProp
                       </div>
                       
                       {/* Detailed metrics */}
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-2">
+                      <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-4 gap-3 mt-2">
                         <div className="flex items-center gap-1 text-sm">
-                          <Clock className="h-3 w-3 text-muted-foreground" />
+                          <Clock className="h-3 w-3 text-muted-foreground" aria-hidden="true" />
                           <span className="text-muted-foreground">Tempo:</span>
                           <span className="font-medium">{formatTime(elapsedSeconds)}</span>
                         </div>
                         
                         {rate > 0 && !stuck && (
                           <div className="flex items-center gap-1 text-sm">
-                            <Zap className="h-3 w-3 text-yellow-500" />
+                            <Zap className="h-3 w-3 text-yellow-500" aria-hidden="true" />
                             <span className="text-muted-foreground">Taxa:</span>
                             <span className="font-medium">{formatRate(rate)}</span>
                           </div>
@@ -269,7 +269,7 @@ export function AnnotationJobsTable({ jobs, onRefresh }: AnnotationJobsTableProp
                         
                         {etaSeconds && !stuck && (
                           <div className="flex items-center gap-1 text-sm">
-                            <Timer className="h-3 w-3 text-blue-500" />
+                            <Timer className="h-3 w-3 text-primary" aria-hidden="true" />
                             <span className="text-muted-foreground">ETA:</span>
                             <span className="font-medium">{formatTime(etaSeconds)}</span>
                           </div>
@@ -319,11 +319,12 @@ export function AnnotationJobsTable({ jobs, onRefresh }: AnnotationJobsTableProp
                           onClick={() => handleResume(job.id)}
                           disabled={isResuming}
                           className={stuck ? "bg-primary hover:bg-primary/90" : ""}
+                          aria-label={`Retomar job de ${job.artist_name}`}
                         >
                           {isResuming ? (
-                            <RefreshCw className="h-4 w-4 animate-spin" />
+                            <RefreshCw className="h-4 w-4 animate-spin" aria-hidden="true" />
                           ) : (
-                            <Play className="h-4 w-4" />
+                            <Play className="h-4 w-4" aria-hidden="true" />
                           )}
                           <span className="ml-1">Retomar</span>
                         </Button>
@@ -335,8 +336,9 @@ export function AnnotationJobsTable({ jobs, onRefresh }: AnnotationJobsTableProp
                           variant="destructive"
                           onClick={() => handleCancel(job.id)}
                           disabled={isResuming}
+                          aria-label={`Cancelar job de ${job.artist_name}`}
                         >
-                          <X className="h-4 w-4" />
+                          <X className="h-4 w-4" aria-hidden="true" />
                         </Button>
                       )}
                     </div>
