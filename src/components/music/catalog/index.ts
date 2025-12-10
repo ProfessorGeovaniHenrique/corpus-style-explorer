@@ -5,3 +5,5 @@ export { CatalogStatsOverview } from './CatalogStatsOverview';
 export * from './tabs';
 export * from './CatalogSearchAutocomplete';
 export * from './CatalogBreadcrumb';
+export { TabActiveJobs } from './TabActiveJobs';
+export { TabCoverageAnalysis } from './TabCoverageAnalysis';

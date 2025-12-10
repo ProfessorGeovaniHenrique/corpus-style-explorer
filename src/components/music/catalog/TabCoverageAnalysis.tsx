@@ -1,0 +1,155 @@
+/**
+ * TabCoverageAnalysis - Aba focada em análise de cobertura e curadoria
+ * 
+ * REFATORAÇÃO: Desmembramento da TabEnrichmentJobs
+ * Responsabilidade única: análise de cobertura semântica, pipeline e curadoria NC
+ * 
+ * LAZY LOADING: Hooks só são carregados quando aba está ativa
+ */
+
+import React, { useState } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Brain, ChevronDown, RefreshCw, Loader2 } from 'lucide-react';
+import { useSemanticCoverage } from '@/hooks/useSemanticCoverage';
+import { SemanticCoverageDashboard } from '../SemanticCoverageDashboard';
+import { ProcessingPipelinePanel } from '../ProcessingPipelinePanel';
+import { NCCurationPanel } from '@/components/admin/NCCurationPanel';
+
+interface TabCoverageAnalysisProps {
+  isActive?: boolean;
+}
+
+export const TabCoverageAnalysis = React.memo(function TabCoverageAnalysis({
+  isActive = true
+}: TabCoverageAnalysisProps) {
+  const [coverageOpen, setCoverageOpen] = useState(true);
+  const [pipelineOpen, setPipelineOpen] = useState(true);
+  const [ncOpen, setNcOpen] = useState(false);
+  
+  // Lazy loading: só busca dados quando aba está ativa
+  const { 
+    globalCoveragePercent, 
+    isLoading,
+    isRefreshing,
+    refresh 
+  } = useSemanticCoverage({ 
+    enabled: isActive,
+    autoRefreshInterval: false // Desabilitado - refresh manual
+  });
+
+  if (!isActive) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <p className="text-muted-foreground">Selecione esta aba para ver a análise</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Botão global de refresh */}
+      <div className="flex justify-end">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={refresh}
+          disabled={isRefreshing}
+        >
+          {isRefreshing ? (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          ) : (
+            <RefreshCw className="mr-2 h-4 w-4" />
+          )}
+          Atualizar Dados
+        </Button>
+      </div>
+
+      {/* Pipeline de Processamento Completo */}
+      <Collapsible open={pipelineOpen} onOpenChange={setPipelineOpen}>
+        <Card>
+          <CollapsibleTrigger asChild>
+            <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-lg">Pipeline de Processamento</CardTitle>
+                  <CardDescription>
+                    Inicie processamento completo: enriquecimento + anotação + qualidade
+                  </CardDescription>
+                </div>
+                <ChevronDown className={`h-5 w-5 transition-transform ${pipelineOpen ? 'rotate-180' : ''}`} />
+              </div>
+            </CardHeader>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <CardContent className="pt-0">
+              <ProcessingPipelinePanel />
+            </CardContent>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
+
+      {/* Dashboard de Cobertura Semântica */}
+      <Collapsible open={coverageOpen} onOpenChange={setCoverageOpen}>
+        <Card>
+          <CollapsibleTrigger asChild>
+            <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Brain className="h-5 w-5 text-primary" />
+                  <div>
+                    <CardTitle className="text-lg">Cobertura Semântica</CardTitle>
+                    <CardDescription>
+                      Visibilidade completa da anotação por corpus e artista
+                    </CardDescription>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  {isLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Badge variant={globalCoveragePercent >= 50 ? 'default' : 'secondary'}>
+                      {globalCoveragePercent}% anotado
+                    </Badge>
+                  )}
+                  <ChevronDown className={`h-5 w-5 transition-transform ${coverageOpen ? 'rotate-180' : ''}`} />
+                </div>
+              </div>
+            </CardHeader>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <CardContent className="pt-0">
+              <SemanticCoverageDashboard />
+            </CardContent>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
+
+      {/* Painel de Curadoria NC */}
+      <Collapsible open={ncOpen} onOpenChange={setNcOpen}>
+        <Card>
+          <CollapsibleTrigger asChild>
+            <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-lg">Curadoria de Palavras NC</CardTitle>
+                  <CardDescription>
+                    Revise e classifique palavras não categorizadas
+                  </CardDescription>
+                </div>
+                <ChevronDown className={`h-5 w-5 transition-transform ${ncOpen ? 'rotate-180' : ''}`} />
+              </div>
+            </CardHeader>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <CardContent className="pt-0">
+              <NCCurationPanel />
+            </CardContent>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
+    </div>
+  );
+});

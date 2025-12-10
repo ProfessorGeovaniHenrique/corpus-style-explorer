@@ -180,7 +180,7 @@ export function useEnrichmentLiveMetrics(options: UseEnrichmentLiveMetricsOption
     }
   }, []); // Sem dependências - usa refs para valores mutáveis
   
-  // Setup do intervalo - depende apenas de primitivos
+  // Setup do intervalo - REMOVIDO fetchMetrics das deps para evitar re-renders
   useEffect(() => {
     // Limpar interval anterior
     if (intervalRef.current) {
@@ -202,7 +202,7 @@ export function useEnrichmentLiveMetrics(options: UseEnrichmentLiveMetricsOption
         intervalRef.current = null;
       }
     };
-  }, [enabled, refreshInterval, fetchMetrics]);
+  }, [enabled, refreshInterval]); // CORRIGIDO: Removido fetchMetrics
   
   // Formatar ETA para exibição
   const formatEta = useCallback((minutes: number | null) => {

@@ -19,6 +19,7 @@ export { useProcessingPipeline } from './useProcessingPipeline';
 export { useActiveJobs } from './useActiveJobs';
 export { useEnrichmentHeartbeat } from './useEnrichmentHeartbeat';
 export { useEnrichmentLiveMetrics } from './useEnrichmentLiveMetrics';
+export { EnrichmentJobsProvider, useEnrichmentJobsContext } from '@/contexts/EnrichmentJobsContext';
 
 // Music Catalog
 export { useCatalogData } from './useCatalogData';

@@ -12,7 +12,7 @@ import { enrichmentService } from '@/services/enrichmentService';
 import { ArtistDetailsSheet } from '@/components/music/ArtistDetailsSheet';
 import { EnrichmentBatchModal } from '@/components/music/EnrichmentBatchModal';
 import { YouTubeEnrichmentModal } from '@/components/music/YouTubeEnrichmentModal';
-import { TabEnrichmentJobs } from '@/components/music/TabEnrichmentJobs';
+import { TabEnrichmentJobsRefactored } from '@/components/music/TabEnrichmentJobsRefactored';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -351,7 +351,7 @@ export default function MusicCatalog() {
           </TabsContent>
 
           <TabsContent value="enrichment-jobs">
-            <TabEnrichmentJobs />
+            <TabEnrichmentJobsRefactored />
           </TabsContent>
 
           <TabsContent value="stats">
