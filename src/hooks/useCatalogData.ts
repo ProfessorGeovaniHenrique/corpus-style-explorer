@@ -54,7 +54,7 @@ export function useCatalogData() {
     
     try {
       const { data, error: fetchError } = await supabase
-        .from('artist_stats_mv')
+        .from('artist_stats_secure')
         .select('*')
         .order('artist_name', { ascending: true });
       
