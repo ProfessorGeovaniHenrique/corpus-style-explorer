@@ -16,10 +16,12 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// ============ SPRINT 1: CONSTANTES OTIMIZADAS ============
-const CHUNK_SIZE = 50; // Aumentado de 20 para 50 (+150%)
+// ============ SPRINT STABILITY: CONSTANTES OTIMIZADAS PARA TIMEOUT ============
+// CHUNK_SIZE reduzido de 50 para 20 para garantir conclusão dentro do timeout de 240s
+// Com ~7.4s/música, 20 músicas = ~148s (seguro dentro do limite)
+const CHUNK_SIZE = 20;
 const LOCK_TIMEOUT_MS = 90000; // 90 segundos para evitar race conditions
-const AUTO_INVOKE_DELAY_MS = 3000; // Reduzido de 10s para 3s (-70%)
+const AUTO_INVOKE_DELAY_MS = 3000; // 3s entre chunks
 const ABANDONED_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutos para considerar job abandonado
 
 // Rate Limit Adaptativo
@@ -152,11 +154,17 @@ async function checkCancellation(supabase: ReturnType<typeof createSupabaseClien
   return data?.is_cancelling || data?.status === 'cancelado';
 }
 
+/**
+ * SPRINT STABILITY: Paginação baseada em cursor para evitar pular músicas
+ * quando o status muda durante o processamento.
+ * Usa ID como cursor estável em vez de .range() que depende de offset.
+ */
 async function getSongsToEnrich(
   supabase: ReturnType<typeof createSupabaseClient>,
   job: EnrichmentJob,
   startIndex: number
 ): Promise<{ id: string; title: string; artist_name: string }[]> {
+  // Para jobs com song_ids específicos, usar slice simples (ordem fixa)
   if (job.song_ids && job.song_ids.length > 0) {
     const songSlice = job.song_ids.slice(startIndex, startIndex + CHUNK_SIZE);
     const { data } = await supabase
@@ -171,23 +179,41 @@ async function getSongsToEnrich(
     }));
   }
 
+  // Obter último ID processado do metadata para paginação cursor-based
+  const lastProcessedId = (job.metadata as Record<string, unknown>)?.lastProcessedSongId as string | undefined;
+
+  // Query base ordenada por ID (cursor estável)
   let query = supabase
     .from('songs')
     .select('id, title, artists!inner(name)')
-    .order('created_at', { ascending: true })
-    .range(startIndex, startIndex + CHUNK_SIZE - 1);
+    .order('id', { ascending: true })
+    .limit(CHUNK_SIZE);
 
+  // Filtro por escopo
   if (job.scope === 'artist' && job.artist_id) {
     query = query.eq('artist_id', job.artist_id);
   } else if (job.scope === 'corpus' && job.corpus_id) {
     query = query.eq('corpus_id', job.corpus_id);
   }
 
+  // Filtro por status (apenas pending/error se não forçar reenrich)
   if (!job.force_reenrich) {
     query = query.in('status', ['pending', 'error']);
   }
 
-  const { data } = await query;
+  // Cursor-based: buscar apenas IDs maiores que o último processado
+  if (lastProcessedId) {
+    query = query.gt('id', lastProcessedId);
+  }
+
+  const { data, error } = await query;
+  
+  if (error) {
+    console.error(`[enrich-batch] Erro buscando músicas:`, error);
+    return [];
+  }
+  
+  console.log(`[enrich-batch] 📋 Query retornou ${data?.length || 0} músicas (cursor: ${lastProcessedId || 'início'})`);
   
   return (data || []).map(s => ({
     id: s.id,
@@ -671,6 +697,9 @@ Deno.serve(async (req) => {
     const avgTimePerSong = songs.length > 0 ? Math.round(totalProcessingTimeMs / songs.length) : 0;
     const songsPerMinute = avgTimePerSong > 0 ? Math.round(60000 / avgTimePerSong * PARALLEL_SONGS) : 0;
 
+    // Salvar último ID processado para paginação cursor-based
+    const lastProcessedSongId = songs.length > 0 ? songs[songs.length - 1].id : null;
+
     await supabase
       .from('enrichment_jobs')
       .update({
@@ -681,6 +710,8 @@ Deno.serve(async (req) => {
         chunks_processed: chunksProcessed,
         metadata: {
           ...job.metadata,
+          // Cursor para próximo chunk (paginação estável)
+          lastProcessedSongId,
           lastChunkStats: {
             avgTimePerSongMs: avgTimePerSong,
             songsPerMinute,
@@ -705,11 +736,12 @@ Deno.serve(async (req) => {
       const autoInvokeSuccess = await autoInvokeNextChunk(job.id, newIndex);
       
       if (!autoInvokeSuccess) {
-        console.log(`[enrich-batch] ⚠️ Marcando job como pausado para recovery automático`);
+        console.log(`[enrich-batch] ⚠️ Auto-invocação falhou - marcando como pausado com mensagem de erro`);
         await supabase
           .from('enrichment_jobs')
           .update({ 
             status: 'pausado',
+            erro_mensagem: 'Auto-invocação falhou - Edge Function possivelmente atingiu timeout. Use "Retomar" para continuar.',
             updated_at: new Date().toISOString()
           })
           .eq('id', job.id);
