@@ -811,25 +811,54 @@ Deno.serve(async (req) => {
 
     console.log(`[enrich-batch] 📊 Chunk ${chunksProcessed}: ${succeeded}✅ ${failed}❌ | ${songsPerMinute}/min`);
 
-    // ============ AUTO-INVOCAÇÃO SÍNCRONA (CORREÇÃO CRÍTICA) ============
-    // Fazer auto-invocação SÍNCRONA APÓS o processamento
-    // Não usa setTimeout que seria cancelado ao retornar Response
+    // ============ AUTO-INVOCAÇÃO COM WAITUNTIL (SPRINT ENRICHMENT-AUTO-RESUME) ============
+    // Usa EdgeRuntime.waitUntil para garantir retry mesmo após response
     if (hasMoreAfterThis) {
       console.log(`[enrich-batch] 🔗 Invocando próximo chunk (índice ${nextIndex})...`);
       
       const invokeResult = await autoInvokeNextChunk(job.id, nextIndex);
       
       if (!invokeResult.success) {
-        // Marcar como pausado se auto-invocação falhou
-        console.log(`[enrich-batch] ⚠️ Auto-invocação falhou, pausando job`);
+        console.log(`[enrich-batch] ⚠️ Auto-invocação falhou, agendando retry via waitUntil`);
         
-        await supabase
-          .from('enrichment_jobs')
-          .update({ 
-            status: 'pausado',
-            erro_mensagem: `Auto-invocação falhou: ${invokeResult.error}. Clique "Retomar".`,
-          })
-          .eq('id', job.id);
+        // SPRINT ENRICHMENT-AUTO-RESUME: Usar EdgeRuntime.waitUntil para retry em background
+        // Isso permite que a response seja retornada enquanto o retry acontece
+        // @ts-ignore - EdgeRuntime.waitUntil existe no Deno runtime do Supabase
+        if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime.waitUntil) {
+          // @ts-ignore
+          EdgeRuntime.waitUntil((async () => {
+            console.log(`[enrich-batch] ⏳ waitUntil: Aguardando 30s para retry...`);
+            await new Promise(r => setTimeout(r, 30000)); // 30 segundos
+            
+            console.log(`[enrich-batch] 🔄 waitUntil: Tentando auto-invocação novamente...`);
+            const retryResult = await autoInvokeNextChunk(job.id, nextIndex);
+            
+            if (!retryResult.success) {
+              console.log(`[enrich-batch] ❌ waitUntil: Retry também falhou, marcando como pausado`);
+              await supabase
+                .from('enrichment_jobs')
+                .update({ 
+                  status: 'pausado',
+                  erro_mensagem: `Auto-invocação falhou após retry. GitHub Actions ou frontend retomará em breve.`,
+                })
+                .eq('id', job.id);
+            } else {
+              console.log(`[enrich-batch] ✅ waitUntil: Retry bem sucedido!`);
+            }
+          })());
+          
+          // Não marcar como pausado ainda - waitUntil vai tentar
+          console.log(`[enrich-batch] 🕐 Retry agendado via EdgeRuntime.waitUntil`);
+        } else {
+          // Fallback se EdgeRuntime não disponível
+          await supabase
+            .from('enrichment_jobs')
+            .update({ 
+              status: 'pausado',
+              erro_mensagem: `Auto-invocação falhou: ${invokeResult.error}. Clique "Retomar".`,
+            })
+            .eq('id', job.id);
+        }
       }
     } else {
       // Job concluído

@@ -47,21 +47,37 @@ export interface UseEnrichmentJobOptions {
   jobType?: EnrichmentJobType;
   autoRefresh?: boolean;
   refreshInterval?: number;
+  autoResumeEnabled?: boolean; // SPRINT ENRICHMENT-AUTO-RESUME: habilitar auto-retomada
 }
 
 // SPRINT ENRICH-REWRITE: Reduzido de 5 para 3 minutos
 const ABANDONED_TIMEOUT_MINUTES = 3;
+// SPRINT ENRICHMENT-AUTO-RESUME: Configurações de auto-retomada
+const AUTO_RESUME_DELAY_MS = 15000; // 15 segundos antes de tentar auto-retomar
+const MAX_AUTO_RESUME_RETRIES = 3;
 
 export function useEnrichmentJob(options: UseEnrichmentJobOptions = {}) {
-  const { artistId, corpusId, jobType, autoRefresh = true, refreshInterval = 15000 } = options; // Refresh mais frequente
+  const { 
+    artistId, 
+    corpusId, 
+    jobType, 
+    autoRefresh = true, 
+    refreshInterval = 15000,
+    autoResumeEnabled = true // Habilitado por padrão
+  } = options;
 
   const [activeJob, setActiveJob] = useState<EnrichmentJob | null>(null);
   const [lastCompletedJob, setLastCompletedJob] = useState<EnrichmentJob | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isStarting, setIsStarting] = useState(false);
   const [isResuming, setIsResuming] = useState(false);
+  
+  // SPRINT ENRICHMENT-AUTO-RESUME: Estado de auto-retomada
+  const [autoResumeCount, setAutoResumeCount] = useState(0);
+  const [isAutoResuming, setIsAutoResuming] = useState(false);
 
   const refreshIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const autoResumeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Buscar job ativo
   const fetchActiveJob = useCallback(async () => {
@@ -417,6 +433,87 @@ export function useEnrichmentJob(options: UseEnrichmentJobOptions = {}) {
       }
     };
   }, [autoRefresh, activeJob, refreshInterval, fetchActiveJob]);
+
+  // SPRINT ENRICHMENT-AUTO-RESUME: Auto-retomada de jobs pausados
+  useEffect(() => {
+    // Limpar timeout anterior
+    if (autoResumeTimeoutRef.current) {
+      clearTimeout(autoResumeTimeoutRef.current);
+      autoResumeTimeoutRef.current = null;
+    }
+
+    // Não tentar auto-retomar se:
+    // - Auto-resume desabilitado
+    // - Não há job ativo
+    // - Job não está pausado
+    // - Já está retomando
+    // - Atingiu limite de tentativas
+    // - Erro é de circuit breaker (requer intervenção manual)
+    if (
+      !autoResumeEnabled ||
+      !activeJob ||
+      activeJob.status !== 'pausado' ||
+      isResuming ||
+      isAutoResuming ||
+      autoResumeCount >= MAX_AUTO_RESUME_RETRIES ||
+      activeJob.erro_mensagem?.toLowerCase().includes('circuit breaker')
+    ) {
+      return;
+    }
+
+    log.info(`Auto-resume scheduled (attempt ${autoResumeCount + 1}/${MAX_AUTO_RESUME_RETRIES})`);
+
+    autoResumeTimeoutRef.current = setTimeout(async () => {
+      setIsAutoResuming(true);
+      
+      try {
+        log.info(`Auto-resuming job ${activeJob.id}...`);
+        toast.info('Retomando job automaticamente...', { duration: 3000 });
+        
+        const { data, error } = await supabase.functions.invoke('enrich-songs-batch', {
+          body: {
+            jobId: activeJob.id,
+            continueFrom: activeJob.current_song_index,
+          }
+        });
+
+        if (error || !data?.success) {
+          setAutoResumeCount(prev => prev + 1);
+          log.warn(`Auto-resume failed (attempt ${autoResumeCount + 1})`, error || data?.error);
+          
+          if (autoResumeCount + 1 >= MAX_AUTO_RESUME_RETRIES) {
+            toast.warning('Não foi possível retomar automaticamente. Clique em "Retomar" manualmente.', {
+              duration: 10000
+            });
+          }
+        } else {
+          setAutoResumeCount(0); // Reset on success
+          toast.success('Job retomado automaticamente!');
+        }
+        
+        await fetchActiveJob();
+      } catch (err) {
+        setAutoResumeCount(prev => prev + 1);
+        log.error('Auto-resume exception', err);
+      } finally {
+        setIsAutoResuming(false);
+      }
+    }, AUTO_RESUME_DELAY_MS);
+
+    return () => {
+      if (autoResumeTimeoutRef.current) {
+        clearTimeout(autoResumeTimeoutRef.current);
+        autoResumeTimeoutRef.current = null;
+      }
+    };
+  }, [activeJob, autoResumeEnabled, isResuming, isAutoResuming, autoResumeCount, fetchActiveJob]);
+
+  // Reset auto-resume count when job changes or completes
+  useEffect(() => {
+    if (!activeJob || activeJob.status === 'processando') {
+      setAutoResumeCount(0);
+    }
+  }, [activeJob?.id, activeJob?.status]);
 
   return {
     // Estado
