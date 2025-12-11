@@ -68,6 +68,7 @@ export const TabActiveJobs = React.memo(function TabActiveJobs() {
     stats, 
     liveMetrics,
     formattedEta,
+    lastUpdated,
     refetch, 
     pauseJob, 
     resumeJob, 
@@ -166,6 +167,12 @@ export const TabActiveJobs = React.memo(function TabActiveJobs() {
             <CardTitle className="text-lg flex items-center gap-2">
               <Database className="h-5 w-5" />
               Jobs de Enriquecimento
+              {/* JOB-UI-FIX: Timestamp de sincronização */}
+              {lastUpdated && (
+                <span className="text-xs font-normal text-muted-foreground ml-2">
+                  (sync: {lastUpdated.toLocaleTimeString('pt-BR')})
+                </span>
+              )}
             </CardTitle>
             <Button variant="outline" size="sm" onClick={() => refetch()}>
               <RefreshCw className="mr-2 h-4 w-4" />

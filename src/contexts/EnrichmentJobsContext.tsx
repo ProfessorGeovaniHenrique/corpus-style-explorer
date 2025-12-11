@@ -48,6 +48,9 @@ interface EnrichmentJobsContextValue {
   liveMetrics: EnrichmentLiveMetrics;
   formattedEta: string | null;
   
+  // JOB-UI-FIX: Timestamp de última atualização para debug
+  lastUpdated: Date | null;
+  
   // Stats agregadas
   stats: {
     total: number;
@@ -80,9 +83,10 @@ const defaultMetrics: EnrichmentLiveMetrics = {
 
 const EnrichmentJobsContext = createContext<EnrichmentJobsContextValue | null>(null);
 
-// Intervalos
-const ACTIVE_REFRESH_INTERVAL = 5000;
-const IDLE_REFRESH_INTERVAL = 30000;
+// Intervalos - JOB-UI-FIX: Reduzidos para melhor responsividade
+const ACTIVE_REFRESH_INTERVAL = 3000; // 3s quando há jobs ativos
+const IDLE_REFRESH_INTERVAL = 15000;  // 15s quando ocioso
+const DEBOUNCE_MS = 1000;             // 1s debounce (reduzido de 3s)
 
 export function EnrichmentJobsProvider({ children }: { children: React.ReactNode }) {
   // Estados
@@ -90,12 +94,14 @@ export function EnrichmentJobsProvider({ children }: { children: React.ReactNode
   const [isLoading, setIsLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [liveMetrics, setLiveMetrics] = useState<EnrichmentLiveMetrics>(defaultMetrics);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   
   // Refs para controle de interval estável
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const metricsIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const hasActiveJobsRef = useRef(false);
   const lastFetchRef = useRef<number>(0);
+  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   
   // Jobs ativos memoizados
   const activeJobs = useMemo(() => 
@@ -112,11 +118,26 @@ export function EnrichmentJobsProvider({ children }: { children: React.ReactNode
     failed: jobs.filter(j => j.status === 'erro').length,
   }), [jobs]);
   
+  // JOB-UI-FIX: Atualização in-place via realtime (sem re-fetch)
+  const updateJobInPlace = useCallback((updatedJob: EnrichmentJob) => {
+    setJobs(prevJobs => {
+      const existingIndex = prevJobs.findIndex(j => j.id === updatedJob.id);
+      if (existingIndex >= 0) {
+        const newJobs = [...prevJobs];
+        newJobs[existingIndex] = updatedJob;
+        return newJobs;
+      }
+      // Novo job - inserir no início
+      return [updatedJob, ...prevJobs];
+    });
+    setLastUpdated(new Date());
+  }, []);
+  
   // Fetch jobs (force ignora debounce para ações manuais do usuário)
   const fetchJobs = useCallback(async (force = false) => {
     const now = Date.now();
-    // Debounce de 3s (ignorado se force=true)
-    if (!force && now - lastFetchRef.current < 3000) return;
+    // JOB-UI-FIX: Debounce reduzido de 3s para 1s
+    if (!force && now - lastFetchRef.current < DEBOUNCE_MS) return;
     lastFetchRef.current = now;
     
     try {
@@ -132,6 +153,7 @@ export function EnrichmentJobsProvider({ children }: { children: React.ReactNode
       }
 
       setJobs((data || []) as EnrichmentJob[]);
+      setLastUpdated(new Date());
     } finally {
       setIsLoading(false);
     }
@@ -290,10 +312,42 @@ export function EnrichmentJobsProvider({ children }: { children: React.ReactNode
     };
   }, [activeJobs.length, fetchJobs, fetchLiveMetrics, activeJobs]);
   
-  // Fetch inicial
+  // Fetch inicial + Realtime subscription
   useEffect(() => {
     fetchJobs();
-  }, [fetchJobs]);
+    
+    // JOB-UI-FIX: Subscription realtime para atualizações instantâneas
+    channelRef.current = supabase
+      .channel('enrichment-jobs-context-realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'enrichment_jobs' },
+        (payload) => {
+          log.debug('Realtime update received', { 
+            eventType: payload.eventType, 
+            jobId: (payload.new as any)?.id 
+          });
+          
+          if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+            // Atualização in-place sem re-fetch completo
+            updateJobInPlace(payload.new as EnrichmentJob);
+          } else if (payload.eventType === 'DELETE') {
+            setJobs(prev => prev.filter(j => j.id !== (payload.old as any)?.id));
+            setLastUpdated(new Date());
+          }
+        }
+      )
+      .subscribe((status) => {
+        log.debug('Realtime subscription status', { status });
+      });
+    
+    return () => {
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
+    };
+  }, [fetchJobs, updateJobInPlace]);
   
   // Ações
   const pauseJob = useCallback(async (jobId: string) => {
@@ -386,6 +440,7 @@ export function EnrichmentJobsProvider({ children }: { children: React.ReactNode
     isLoading,
     liveMetrics,
     formattedEta,
+    lastUpdated,
     stats,
     refetch: manualRefetch,
     pauseJob,

@@ -40,7 +40,9 @@ export interface OrchestrationData {
   orphansCleaned: number;
 }
 
-const POLL_INTERVAL = 5000; // 5 segundos
+// JOB-UI-FIX: Polling mais frequente para melhor sincronização
+const POLL_INTERVAL_ACTIVE = 3000; // 3 segundos quando ativo
+const POLL_INTERVAL_IDLE = 10000;  // 10 segundos quando ocioso
 
 export function useEnrichmentOrchestration() {
   const [data, setData] = useState<OrchestrationData | null>(null);
@@ -51,6 +53,7 @@ export function useEnrichmentOrchestration() {
   const [error, setError] = useState<string | null>(null);
 
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
   // Buscar status da orquestração
   const fetchStatus = useCallback(async () => {
@@ -205,20 +208,38 @@ export function useEnrichmentOrchestration() {
     }
   }, [fetchStatus]);
 
-  // Setup inicial e polling
+  // Setup inicial, polling dinâmico e realtime
   useEffect(() => {
     fetchStatus();
-
-    // Polling quando há processamento ativo
+    
+    // JOB-UI-FIX: Polling dinâmico baseado no estado
+    const interval = data?.state.isRunning ? POLL_INTERVAL_ACTIVE : POLL_INTERVAL_IDLE;
+    
     pollIntervalRef.current = setInterval(() => {
-      if (data?.state.isRunning) {
-        fetchStatus();
-      }
-    }, POLL_INTERVAL);
+      fetchStatus();
+    }, interval);
+    
+    // JOB-UI-FIX: Subscription realtime para atualizações instantâneas
+    channelRef.current = supabase
+      .channel('enrichment-orchestration-realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'enrichment_jobs' },
+        () => {
+          // Refetch status quando qualquer job muda
+          log.debug('Realtime update - refetching orchestration status');
+          fetchStatus();
+        }
+      )
+      .subscribe();
 
     return () => {
       if (pollIntervalRef.current) {
         clearInterval(pollIntervalRef.current);
+      }
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
       }
     };
   }, [fetchStatus, data?.state.isRunning]);
