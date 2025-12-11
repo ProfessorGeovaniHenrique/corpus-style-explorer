@@ -65,6 +65,9 @@ export function useSemanticAnnotationJob(): UseSemanticAnnotationJobResult {
   const [autoResumeCount, setAutoResumeCount] = useState(0);
   const [isAutoResuming, setIsAutoResuming] = useState(false);
   const autoResumeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // FIX-REACT-QUEUE-BUG: Ref para resumeJob evitando closure stale
+  const resumeJobRef = useRef<((jobId: string, forceLock?: boolean) => Promise<void>) | null>(null);
 
   const isProcessing = job?.status === 'iniciado' || job?.status === 'processando';
   const progress = job && job.total_words > 0 
@@ -369,21 +372,42 @@ export function useSemanticAnnotationJob(): UseSemanticAnnotationJobResult {
     }
   }, [cancelPolling]);
 
-  // Auto-resume ao montar se há job ativo salvo
+  // FIX-REACT-QUEUE-BUG: Atualizar ref quando resumeJob mudar
+  useEffect(() => {
+    resumeJobRef.current = resumeJob;
+  }, [resumeJob]);
+
+  // FIX-REACT-QUEUE-BUG: Auto-restore ao montar - usando async/await direto
   useEffect(() => {
     const savedJobId = localStorage.getItem('active-annotation-job-id');
-    if (savedJobId && !job) {
+    if (!savedJobId) return;
+    
+    const restoreJob = async () => {
       log.info('Restaurando job salvo', { jobId: savedJobId });
-      fetchJob(savedJobId).then(() => {
-        const currentJob = job;
-        if (currentJob && (currentJob.status === 'processando' || currentJob.status === 'pausado')) {
-          startPolling(savedJobId);
-        }
-      });
-    }
-  }, []);
+      
+      const { data, error } = await supabase
+        .from('semantic_annotation_jobs')
+        .select('*')
+        .eq('id', savedJobId)
+        .single();
+      
+      if (error || !data) {
+        log.warn('Job salvo não encontrado, removendo do localStorage');
+        localStorage.removeItem('active-annotation-job-id');
+        return;
+      }
+      
+      setJob(data);
+      
+      if (data.status === 'processando' || data.status === 'pausado') {
+        startPolling(savedJobId);
+      }
+    };
+    
+    restoreJob();
+  }, [startPolling]);
 
-  // SPRINT SEMANTIC-HEALTH-FIX: Auto-resume para jobs stuck
+  // FIX-REACT-QUEUE-BUG: Auto-resume para jobs stuck - SEM resumeJob nas deps
   useEffect(() => {
     // Limpar timeout anterior
     if (autoResumeTimeoutRef.current) {
@@ -395,34 +419,40 @@ export function useSemanticAnnotationJob(): UseSemanticAnnotationJobResult {
     // 1. Job está stuck (processando sem progresso por 10+ min)
     // 2. Não está já retomando
     // 3. Não excedeu limite de tentativas
-    if (isStuck && !isResuming && !isAutoResuming && autoResumeCount < MAX_AUTO_RESUME_RETRIES && job?.id) {
-      log.info('Job está stuck, iniciando auto-resume', { 
-        jobId: job.id, 
-        minutesSinceLastActivity,
-        attempt: autoResumeCount + 1 
-      });
-      
-      autoResumeTimeoutRef.current = setTimeout(async () => {
-        setIsAutoResuming(true);
-        setAutoResumeCount(prev => prev + 1);
-        
-        try {
-          await resumeJob(job.id, true); // forceLock = true para jobs stuck
-          log.info('Auto-resume bem-sucedido', { jobId: job.id });
-        } catch (err) {
-          log.error('Auto-resume falhou', err as Error);
-        } finally {
-          setIsAutoResuming(false);
-        }
-      }, AUTO_RESUME_DELAY_MS);
+    const jobId = job?.id;
+    if (!isStuck || isResuming || isAutoResuming || autoResumeCount >= MAX_AUTO_RESUME_RETRIES || !jobId) {
+      return;
     }
+    
+    log.info('Job está stuck, iniciando auto-resume', { 
+      jobId, 
+      minutesSinceLastActivity,
+      attempt: autoResumeCount + 1 
+    });
+    
+    autoResumeTimeoutRef.current = setTimeout(async () => {
+      setIsAutoResuming(true);
+      setAutoResumeCount(prev => prev + 1);
+      
+      try {
+        // FIX-REACT-QUEUE-BUG: Usar ref para evitar closure stale
+        if (resumeJobRef.current) {
+          await resumeJobRef.current(jobId, true);
+          log.info('Auto-resume bem-sucedido', { jobId });
+        }
+      } catch (err) {
+        log.error('Auto-resume falhou', err as Error);
+      } finally {
+        setIsAutoResuming(false);
+      }
+    }, AUTO_RESUME_DELAY_MS);
     
     return () => {
       if (autoResumeTimeoutRef.current) {
         clearTimeout(autoResumeTimeoutRef.current);
       }
     };
-  }, [isStuck, isResuming, isAutoResuming, autoResumeCount, job?.id, minutesSinceLastActivity, resumeJob]);
+  }, [isStuck, isResuming, isAutoResuming, autoResumeCount, job?.id, minutesSinceLastActivity]);
 
   // Cleanup ao desmontar
   useEffect(() => {
