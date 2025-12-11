@@ -13,7 +13,7 @@ interface AnnotateCorpusRequest {
   action?: 'pause' | 'resume' | 'cancel';
 }
 
-const AUTO_INVOKE_DELAY_MS = 2000; // 2s entre artistas
+const AUTO_INVOKE_DELAY_MS = 30000; // 30s entre verificações (tempo médio de um chunk)
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -355,30 +355,56 @@ async function startNextArtist(supabase: any, jobId: string, artists: any[], art
       .eq('id', jobId);
   }
 
+  // SPRINT SEMANTIC-PIPELINE-FIX: Tratar resposta de job existente
+  const artistJobId = artistJobData?.jobId || null;
+  
   // Atualizar job com artista atual
   await supabase
     .from('corpus_annotation_jobs')
     .update({
       current_artist_id: artist.id,
       current_artist_name: artist.name,
-      current_artist_job_id: artistJobData?.jobId || null,
+      current_artist_job_id: artistJobId,
       last_artist_at: new Date().toISOString(),
     })
     .eq('id', jobId);
 
-  // Agendar verificação do próximo artista
+  console.log(`Artista ${artist.name} iniciado. Job ID: ${artistJobId || 'N/A'}`);
+
+  // SPRINT SEMANTIC-PIPELINE-FIX: Usar EdgeRuntime.waitUntil para auto-invocação
+  // EdgeRuntime.waitUntil permite execução após resposta HTTP
   autoInvoke(supabase, jobId);
 }
 
 function autoInvoke(supabase: any, jobId: string) {
-  // Auto-invocar após delay para verificar progresso
-  setTimeout(async () => {
-    try {
-      await supabase.functions.invoke('annotate-corpus', {
-        body: { jobId },
-      });
-    } catch (err) {
-      console.error('Auto-invoke failed:', err);
-    }
-  }, AUTO_INVOKE_DELAY_MS);
+  // SPRINT SEMANTIC-PIPELINE-FIX: Usar EdgeRuntime.waitUntil em vez de setTimeout
+  // @ts-ignore - EdgeRuntime disponível em Deno Edge Functions
+  if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime.waitUntil) {
+    // @ts-ignore
+    EdgeRuntime.waitUntil(
+      (async () => {
+        await new Promise(resolve => setTimeout(resolve, AUTO_INVOKE_DELAY_MS));
+        try {
+          console.log(`Auto-invoking annotate-corpus for job ${jobId}`);
+          await supabase.functions.invoke('annotate-corpus', {
+            body: { jobId },
+          });
+        } catch (err) {
+          console.error('EdgeRuntime auto-invoke failed:', err);
+        }
+      })()
+    );
+  } else {
+    // Fallback: setTimeout (não funciona após resposta HTTP, mas serve para testes)
+    console.warn('EdgeRuntime.waitUntil not available, using setTimeout fallback');
+    setTimeout(async () => {
+      try {
+        await supabase.functions.invoke('annotate-corpus', {
+          body: { jobId },
+        });
+      } catch (err) {
+        console.error('setTimeout auto-invoke failed:', err);
+      }
+    }, AUTO_INVOKE_DELAY_MS);
+  }
 }

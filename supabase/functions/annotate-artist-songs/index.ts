@@ -437,9 +437,10 @@ async function processChunk(
       }
     }
 
-    // ========== FASE 4: ENRIQUECIMENTO POS ==========
-    // Enriquecer tokens com POS usando pipeline híbrido 4-layer
-    logger.info('Iniciando enriquecimento POS', { tokensCount: chunkWords.length });
+    // ========== SPRINT SEMANTIC-PIPELINE-FIX: ENRIQUECIMENTO POS OTIMIZADO ==========
+    // Usar skipPOS=true para classificação semântica (evita chamada HTTP extra)
+    // POS detalhado só é necessário para análise sintática
+    logger.info('Iniciando enriquecimento POS (modo otimizado)', { tokensCount: chunkWords.length });
     
     const tokensToEnrich = chunkWords.map(w => ({
       palavra: w.palavra,
@@ -447,7 +448,8 @@ async function processChunk(
       contextoDireito: w.contextoDireito,
     }));
     
-    const enrichedTokens = await enrichTokensWithPOS(tokensToEnrich);
+    // skipPOS=true: usa inferência local rápida (0ms) em vez de chamada HTTP (92s+)
+    const enrichedTokens = await enrichTokensWithPOS(tokensToEnrich, { skipPOS: true });
     const posCoverage = calculatePOSCoverage(enrichedTokens);
     
     logger.info('POS enrichment completo', {

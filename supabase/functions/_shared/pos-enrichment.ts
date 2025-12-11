@@ -28,18 +28,90 @@ interface TokenToEnrich {
   contextoDireito: string;
 }
 
+interface EnrichmentOptions {
+  skipPOS?: boolean; // Skip detailed POS tagging - use fast local inference
+}
+
+/**
+ * SPRINT SEMANTIC-PIPELINE-FIX: Inferência POS local básica (0ms)
+ * Usa padrões morfológicos para inferir POS sem chamada externa
+ */
+function inferBasicPOS(palavra: string): { pos: string; confidence: number } {
+  const lower = palavra.toLowerCase();
+  
+  // Verbos - terminações comuns
+  if (/[aei]r$/.test(lower)) return { pos: 'VERB', confidence: 0.7 }; // infinitivo
+  if (/[aei]ndo$/.test(lower)) return { pos: 'VERB', confidence: 0.8 }; // gerúndio
+  if (/[aei]do$/.test(lower)) return { pos: 'VERB', confidence: 0.6 }; // particípio ou adj
+  if (/ou$/.test(lower) && lower.length > 3) return { pos: 'VERB', confidence: 0.75 }; // pretérito
+  if (/ava$|ia$|iam$/.test(lower)) return { pos: 'VERB', confidence: 0.8 }; // imperfeito
+  
+  // Advérbios
+  if (/mente$/.test(lower) && lower.length > 6) return { pos: 'ADV', confidence: 0.9 };
+  
+  // Adjetivos - sufixos comuns
+  if (/[aoe]s?o$|[aoe]s?a$/.test(lower) && lower.length > 4) return { pos: 'ADJ', confidence: 0.5 };
+  if (/oso$|osa$|ável$|ível$|ante$|ente$/.test(lower)) return { pos: 'ADJ', confidence: 0.75 };
+  
+  // Substantivos - sufixos comuns
+  if (/ção$|dade$|mento$|ismo$|ista$/.test(lower)) return { pos: 'NOUN', confidence: 0.8 };
+  
+  // Artigos e determinantes
+  if (['o', 'a', 'os', 'as', 'um', 'uma', 'uns', 'umas'].includes(lower)) {
+    return { pos: 'DET', confidence: 0.95 };
+  }
+  
+  // Preposições comuns
+  if (['de', 'em', 'para', 'por', 'com', 'sobre', 'sob', 'entre'].includes(lower)) {
+    return { pos: 'ADP', confidence: 0.95 };
+  }
+  
+  // Conjunções
+  if (['e', 'ou', 'mas', 'porém', 'contudo', 'todavia', 'que', 'se', 'quando', 'porque'].includes(lower)) {
+    return { pos: lower === 'e' || lower === 'ou' || lower === 'mas' ? 'CCONJ' : 'SCONJ', confidence: 0.9 };
+  }
+  
+  // Pronomes
+  if (['eu', 'tu', 'ele', 'ela', 'nós', 'vós', 'eles', 'elas', 'me', 'te', 'se', 'nos', 'vos'].includes(lower)) {
+    return { pos: 'PRON', confidence: 0.95 };
+  }
+  
+  // Default: substantivo (mais comum em corpus)
+  return { pos: 'NOUN', confidence: 0.4 };
+}
+
 /**
  * Enriquece tokens com POS usando pipeline híbrido via Edge Function
  * 
  * @param tokens - Array de tokens a serem enriquecidos
+ * @param options - Opções de enriquecimento (skipPOS para pular chamada externa)
  * @returns Array de tokens enriquecidos com POS, lema e features
  */
 export async function enrichTokensWithPOS(
-  tokens: TokenToEnrich[]
+  tokens: TokenToEnrich[],
+  options?: EnrichmentOptions
 ): Promise<EnrichedToken[]> {
   
   if (tokens.length === 0) {
     return [];
+  }
+
+  // SPRINT SEMANTIC-PIPELINE-FIX: Skip POS para anotação semântica básica
+  // Usa inferência local rápida em vez de chamada HTTP
+  if (options?.skipPOS) {
+    console.log(`⚡ POS Enrichment: SKIP mode - usando inferência local para ${tokens.length} tokens`);
+    return tokens.map(t => {
+      const inferred = inferBasicPOS(t.palavra);
+      return {
+        palavra: t.palavra,
+        lema: t.palavra, // Sem lematização no modo skip
+        pos: inferred.pos,
+        posDetalhada: 'INFERRED',
+        features: {},
+        source: 'va_grammar' as const,
+        confidence: inferred.confidence,
+      };
+    });
   }
 
   try {
