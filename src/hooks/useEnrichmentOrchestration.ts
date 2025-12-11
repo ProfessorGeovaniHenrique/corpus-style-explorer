@@ -40,9 +40,10 @@ export interface OrchestrationData {
   orphansCleaned: number;
 }
 
-// JOB-UI-FIX: Polling mais frequente para melhor sincronização
-const POLL_INTERVAL_ACTIVE = 3000; // 3 segundos quando ativo
-const POLL_INTERVAL_IDLE = 10000;  // 10 segundos quando ocioso
+// FIX: Polling intervals mais conservadores
+const POLL_INTERVAL_ACTIVE = 5000;  // 5 segundos quando ativo
+const POLL_INTERVAL_IDLE = 15000;   // 15 segundos quando ocioso
+const REALTIME_DEBOUNCE_MS = 2000;  // Debounce de 2s para updates realtime
 
 export function useEnrichmentOrchestration() {
   const [data, setData] = useState<OrchestrationData | null>(null);
@@ -54,9 +55,19 @@ export function useEnrichmentOrchestration() {
 
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const realtimeDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isRunningRef = useRef(false);
+  const isFetchingRef = useRef(false);
 
-  // Buscar status da orquestração
+  // Buscar status da orquestração (com proteção contra chamadas simultâneas)
   const fetchStatus = useCallback(async () => {
+    // Evitar chamadas simultâneas
+    if (isFetchingRef.current) {
+      return;
+    }
+    
+    isFetchingRef.current = true;
+    
     try {
       const { data: result, error: invokeError } = await supabase.functions.invoke(
         'orchestrate-corpus-enrichment',
@@ -71,6 +82,9 @@ export function useEnrichmentOrchestration() {
         throw new Error(result.error || 'Erro ao buscar status');
       }
 
+      // Atualizar ref de isRunning para polling dinâmico
+      isRunningRef.current = result.state.isRunning;
+
       setData({
         state: result.state,
         corpora: result.corpora,
@@ -82,6 +96,7 @@ export function useEnrichmentOrchestration() {
       setError(err instanceof Error ? err.message : 'Erro desconhecido');
     } finally {
       setIsLoading(false);
+      isFetchingRef.current = false;
     }
   }, []);
 
@@ -208,27 +223,45 @@ export function useEnrichmentOrchestration() {
     }
   }, [fetchStatus]);
 
-  // Setup inicial, polling dinâmico e realtime
+  // Setup inicial e cleanup
   useEffect(() => {
+    // Fetch inicial
     fetchStatus();
     
-    // JOB-UI-FIX: Polling dinâmico baseado no estado
-    const interval = data?.state.isRunning ? POLL_INTERVAL_ACTIVE : POLL_INTERVAL_IDLE;
+    // Polling dinâmico com intervalo baseado em ref (evita loop de dependências)
+    const setupPolling = () => {
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+      }
+      
+      const interval = isRunningRef.current ? POLL_INTERVAL_ACTIVE : POLL_INTERVAL_IDLE;
+      pollIntervalRef.current = setInterval(() => {
+        fetchStatus();
+        // Ajustar intervalo se estado mudou
+        const newInterval = isRunningRef.current ? POLL_INTERVAL_ACTIVE : POLL_INTERVAL_IDLE;
+        if (newInterval !== interval) {
+          setupPolling();
+        }
+      }, interval);
+    };
     
-    pollIntervalRef.current = setInterval(() => {
-      fetchStatus();
-    }, interval);
+    setupPolling();
     
-    // JOB-UI-FIX: Subscription realtime para atualizações instantâneas
+    // Subscription realtime com debounce para evitar sobrecarga
     channelRef.current = supabase
       .channel('enrichment-orchestration-realtime')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'enrichment_jobs' },
         () => {
-          // Refetch status quando qualquer job muda
-          log.debug('Realtime update - refetching orchestration status');
-          fetchStatus();
+          // Debounce realtime updates
+          if (realtimeDebounceRef.current) {
+            clearTimeout(realtimeDebounceRef.current);
+          }
+          realtimeDebounceRef.current = setTimeout(() => {
+            log.debug('Realtime update - refetching orchestration status');
+            fetchStatus();
+          }, REALTIME_DEBOUNCE_MS);
         }
       )
       .subscribe();
@@ -236,13 +269,18 @@ export function useEnrichmentOrchestration() {
     return () => {
       if (pollIntervalRef.current) {
         clearInterval(pollIntervalRef.current);
+        pollIntervalRef.current = null;
+      }
+      if (realtimeDebounceRef.current) {
+        clearTimeout(realtimeDebounceRef.current);
+        realtimeDebounceRef.current = null;
       }
       if (channelRef.current) {
         supabase.removeChannel(channelRef.current);
         channelRef.current = null;
       }
     };
-  }, [fetchStatus, data?.state.isRunning]);
+  }, [fetchStatus]);
 
   // Calcular métricas
   const totalPending = data?.corpora.reduce((sum, c) => sum + c.pendingCount, 0) || 0;
