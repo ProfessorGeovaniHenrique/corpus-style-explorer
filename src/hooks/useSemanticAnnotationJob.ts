@@ -1,8 +1,13 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { createLogger } from '@/lib/loggerFactory';
 
 const log = createLogger('useSemanticAnnotationJob');
+
+// SPRINT SEMANTIC-HEALTH-FIX: Constantes para detecção de jobs stuck
+const STUCK_DETECTION_MINUTES = 10; // Considerar stuck após 10 min sem progresso
+const MAX_AUTO_RESUME_RETRIES = 3;
+const AUTO_RESUME_DELAY_MS = 5000; // 5 segundos entre tentativas
 
 interface SemanticAnnotationJob {
   id: string;
@@ -34,15 +39,20 @@ interface UseSemanticAnnotationJobResult {
   wordsPerSecond: number | null;
   startJob: (artistName: string) => Promise<string | null>;
   cancelPolling: () => void;
-  resumeJob: (jobId: string) => Promise<void>;
+  resumeJob: (jobId: string, forceLock?: boolean) => Promise<void>;
   cancelJob: (jobId: string) => Promise<void>;
   checkExistingJob: (artistName: string) => Promise<SemanticAnnotationJob | null>;
   checkRecentlyCompleted: (artistName: string) => Promise<SemanticAnnotationJob | null>;
   isResuming: boolean;
+  // SPRINT SEMANTIC-HEALTH-FIX: Novos indicadores
+  isStuck: boolean;
+  minutesSinceLastActivity: number | null;
+  needsAttention: boolean;
 }
 
 /**
  * Hook para gerenciar jobs de anotação semântica com polling e ETA
+ * SPRINT SEMANTIC-HEALTH-FIX: Adicionado detecção de stuck e auto-resume
  */
 export function useSemanticAnnotationJob(): UseSemanticAnnotationJobResult {
   const [job, setJob] = useState<SemanticAnnotationJob | null>(null);
@@ -50,11 +60,27 @@ export function useSemanticAnnotationJob(): UseSemanticAnnotationJobResult {
   const [isResuming, setIsResuming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pollingIntervalId, setPollingIntervalId] = useState<number | null>(null);
+  
+  // SPRINT SEMANTIC-HEALTH-FIX: Estado para auto-resume
+  const [autoResumeCount, setAutoResumeCount] = useState(0);
+  const [isAutoResuming, setIsAutoResuming] = useState(false);
+  const autoResumeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const isProcessing = job?.status === 'iniciado' || job?.status === 'processando';
   const progress = job && job.total_words > 0 
     ? (job.processed_words / job.total_words) * 100 
     : 0;
+
+  // SPRINT SEMANTIC-HEALTH-FIX: Calcular se job está stuck
+  const minutesSinceLastActivity = job?.last_chunk_at 
+    ? Math.round((Date.now() - new Date(job.last_chunk_at).getTime()) / 60000)
+    : null;
+  
+  const isStuck = isProcessing && 
+    minutesSinceLastActivity !== null && 
+    minutesSinceLastActivity >= STUCK_DETECTION_MINUTES;
+  
+  const needsAttention = isStuck || (job?.status === 'pausado' && !job?.erro_mensagem?.includes('concluído'));
 
   // Calcular velocidade e ETA
   const calculateETA = useCallback((): { eta: string | null; wordsPerSecond: number | null } => {
@@ -248,13 +274,14 @@ export function useSemanticAnnotationJob(): UseSemanticAnnotationJobResult {
   
   /**
    * Retomar job pausado
+   * SPRINT SEMANTIC-HEALTH-FIX: Adicionado forceLock para jobs stuck
    */
-  const resumeJob = useCallback(async (jobId: string): Promise<void> => {
-    if (isResuming) return; // Prevenir cliques múltiplos
+  const resumeJob = useCallback(async (jobId: string, forceLock = false): Promise<void> => {
+    if (isResuming || isAutoResuming) return; // Prevenir cliques múltiplos
     setIsResuming(true);
     
     try {
-      log.info('Resuming job', { jobId });
+      log.info('Resuming job', { jobId, forceLock });
       
       // Buscar job para obter posição atual
       const { data: jobData, error: fetchError } = await supabase
@@ -267,18 +294,21 @@ export function useSemanticAnnotationJob(): UseSemanticAnnotationJobResult {
         throw new Error('Job não encontrado');
       }
       
-      // Definir last_chunk_at para 1 minuto atrás (para passar na validação anti-duplicação)
-      const oneMinuteAgo = new Date(Date.now() - 60000).toISOString();
+      // SPRINT SEMANTIC-HEALTH-FIX: Reset last_chunk_at mais antigo para forceLock
+      const resetTime = forceLock 
+        ? new Date(Date.now() - 2 * 60000).toISOString() // 2 minutos atrás para forçar lock
+        : new Date(Date.now() - 60000).toISOString(); // 1 minuto atrás normal
       
       await supabase
         .from('semantic_annotation_jobs')
         .update({ 
           status: 'processando', 
-          last_chunk_at: oneMinuteAgo 
+          last_chunk_at: resetTime,
+          erro_mensagem: null // Limpar mensagem de erro anterior
         })
         .eq('id', jobId);
       
-      setJob({ ...jobData, status: 'processando' });
+      setJob({ ...jobData, status: 'processando', erro_mensagem: null });
       
       // CRÍTICO: Invocar Edge Function para continuar processamento
       const { data, error: invokeError } = await supabase.functions.invoke(
@@ -302,14 +332,17 @@ export function useSemanticAnnotationJob(): UseSemanticAnnotationJobResult {
       // Iniciar polling
       startPolling(jobId);
       
-      log.info('Job resumed and Edge Function invoked', { jobId });
+      // Reset auto-resume counter on manual resume
+      setAutoResumeCount(0);
+      
+      log.info('Job resumed and Edge Function invoked', { jobId, forceLock });
     } catch (err) {
       log.error('Error resuming job', err as Error);
       setError(err instanceof Error ? err.message : 'Erro ao retomar job');
     } finally {
       setIsResuming(false);
     }
-  }, [isResuming, startPolling]);
+  }, [isResuming, isAutoResuming, startPolling]);
   
   /**
    * Cancelar job
@@ -350,11 +383,55 @@ export function useSemanticAnnotationJob(): UseSemanticAnnotationJobResult {
     }
   }, []);
 
+  // SPRINT SEMANTIC-HEALTH-FIX: Auto-resume para jobs stuck
+  useEffect(() => {
+    // Limpar timeout anterior
+    if (autoResumeTimeoutRef.current) {
+      clearTimeout(autoResumeTimeoutRef.current);
+      autoResumeTimeoutRef.current = null;
+    }
+    
+    // Condições para auto-resume:
+    // 1. Job está stuck (processando sem progresso por 10+ min)
+    // 2. Não está já retomando
+    // 3. Não excedeu limite de tentativas
+    if (isStuck && !isResuming && !isAutoResuming && autoResumeCount < MAX_AUTO_RESUME_RETRIES && job?.id) {
+      log.info('Job está stuck, iniciando auto-resume', { 
+        jobId: job.id, 
+        minutesSinceLastActivity,
+        attempt: autoResumeCount + 1 
+      });
+      
+      autoResumeTimeoutRef.current = setTimeout(async () => {
+        setIsAutoResuming(true);
+        setAutoResumeCount(prev => prev + 1);
+        
+        try {
+          await resumeJob(job.id, true); // forceLock = true para jobs stuck
+          log.info('Auto-resume bem-sucedido', { jobId: job.id });
+        } catch (err) {
+          log.error('Auto-resume falhou', err as Error);
+        } finally {
+          setIsAutoResuming(false);
+        }
+      }, AUTO_RESUME_DELAY_MS);
+    }
+    
+    return () => {
+      if (autoResumeTimeoutRef.current) {
+        clearTimeout(autoResumeTimeoutRef.current);
+      }
+    };
+  }, [isStuck, isResuming, isAutoResuming, autoResumeCount, job?.id, minutesSinceLastActivity, resumeJob]);
+
   // Cleanup ao desmontar
   useEffect(() => {
     return () => {
       if (pollingIntervalId) {
         clearInterval(pollingIntervalId);
+      }
+      if (autoResumeTimeoutRef.current) {
+        clearTimeout(autoResumeTimeoutRef.current);
       }
     };
   }, [pollingIntervalId]);
@@ -374,5 +451,9 @@ export function useSemanticAnnotationJob(): UseSemanticAnnotationJobResult {
     checkExistingJob,
     checkRecentlyCompleted,
     isResuming,
+    // SPRINT SEMANTIC-HEALTH-FIX: Novos indicadores
+    isStuck,
+    minutesSinceLastActivity,
+    needsAttention,
   };
 }

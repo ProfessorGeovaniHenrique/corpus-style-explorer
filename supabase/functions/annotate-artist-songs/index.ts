@@ -22,6 +22,65 @@ interface AnnotateArtistRequest {
 const CHUNK_SIZE = 100; // FASE 4: Aumentado de 50 para 100 (batch processing suporta mais)
 const CHUNK_TIMEOUT_MS = 4 * 60 * 1000; // 4 minutos
 const BATCH_SIZE = 15; // Máximo de palavras por batch Gemini
+const STUCK_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutos - threshold para jobs stuck
+const ABANDONED_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutos - threshold para jobs abandonados
+
+/**
+ * SPRINT SEMANTIC-HEALTH-FIX: Detecta e pausa jobs stuck
+ * Um job é considerado "stuck" se está em 'processando' há mais de 30 min sem progresso
+ * Um job é considerado "abandonado" se está em 'processando' há mais de 5 min sem heartbeat
+ */
+async function detectAndHandleStuckJobs(supabase: any, logger: any): Promise<number> {
+  try {
+    const stuckThreshold = new Date(Date.now() - STUCK_TIMEOUT_MS).toISOString();
+    const abandonedThreshold = new Date(Date.now() - ABANDONED_TIMEOUT_MS).toISOString();
+    
+    // Buscar jobs stuck: em 'processando' há muito tempo OU sem heartbeat recente
+    const { data: stuckJobs, error } = await supabase
+      .from('semantic_annotation_jobs')
+      .select('id, artist_name, processed_words, total_words, last_chunk_at, tempo_inicio, chunks_processed')
+      .eq('status', 'processando')
+      .or(`tempo_inicio.lt.${stuckThreshold},last_chunk_at.lt.${abandonedThreshold}`)
+      .limit(10);
+    
+    if (error || !stuckJobs || stuckJobs.length === 0) {
+      return 0;
+    }
+    
+    logger.info('Jobs stuck detectados', { count: stuckJobs.length });
+    
+    for (const job of stuckJobs) {
+      const minutesSinceHeartbeat = job.last_chunk_at 
+        ? Math.round((Date.now() - new Date(job.last_chunk_at).getTime()) / 60000)
+        : 'N/A';
+      
+      const minutesSinceStart = Math.round((Date.now() - new Date(job.tempo_inicio).getTime()) / 60000);
+      
+      await supabase
+        .from('semantic_annotation_jobs')
+        .update({
+          status: 'pausado',
+          erro_mensagem: `Auto-pausado: sem atividade há ${minutesSinceHeartbeat} min (iniciado há ${minutesSinceStart} min). Use "Retomar" para continuar.`
+        })
+        .eq('id', job.id);
+      
+      logger.warn('Job marcado como pausado (stuck)', {
+        jobId: job.id,
+        artistName: job.artist_name,
+        minutesSinceHeartbeat,
+        minutesSinceStart,
+        processedWords: job.processed_words,
+        totalWords: job.total_words,
+        chunksProcessed: job.chunks_processed
+      });
+    }
+    
+    return stuckJobs.length;
+  } catch (err) {
+    logger.error('Erro ao detectar jobs stuck', err);
+    return 0;
+  }
+}
 
 /**
  * Mapeamento de MWEs conhecidas para seus domínios semânticos
@@ -72,6 +131,12 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
+
+    // SPRINT SEMANTIC-HEALTH-FIX: Detectar e pausar jobs stuck antes de processar
+    const stuckCount = await detectAndHandleStuckJobs(supabaseClient, logger);
+    if (stuckCount > 0) {
+      logger.info('Jobs stuck pausados automaticamente', { count: stuckCount });
+    }
 
     const requestBody: AnnotateArtistRequest = await req.json();
     const { artistId, artistName, jobId, continueFrom } = requestBody;
