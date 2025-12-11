@@ -3,7 +3,7 @@
  * Todos os tipos e escopos disponíveis em um único lugar
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -33,6 +33,9 @@ import { useEnrichmentJob, EnrichmentJobType, EnrichmentScope } from '@/hooks/us
 import { useSemanticCoverage, getCoverageLevel, CoverageLevel } from '@/hooks/useSemanticCoverage';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { createLogger } from '@/lib/loggerFactory';
+
+const log = createLogger('EnrichmentControlPanel');
 
 const JOB_TYPE_OPTIONS = [
   { value: 'metadata', label: 'Metadados', icon: Sparkles, description: 'Compositor, ano, álbum' },
@@ -133,55 +136,110 @@ export function EnrichmentControlPanel() {
     filterArtists();
   }, [artists, scope, selectedLetter, selectedCorpus, coverageFilter, artistCoverage]);
 
-  // Calcular músicas elegíveis
-  useEffect(() => {
-    async function calculateEligible() {
-      setIsCountLoading(true);
-      try {
-        let query = supabase.from('songs').select('id', { count: 'exact', head: true });
+  // Proteção contra loops de fetch
+  const retryCountRef = useRef(0);
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const MAX_RETRIES = 3;
+  const DEBOUNCE_MS = 500;
 
-        // Filtro por status (se não forçar re-enriquecimento)
-        if (!forceReenrich) {
-          if (jobType === 'youtube') {
-            query = query.is('youtube_url', null);
-          } else if (jobType === 'lyrics') {
-            query = query.is('lyrics', null);
-          } else {
-            query = query.eq('status', 'pending');
-          }
-        }
+  // Calcular músicas elegíveis com debounce e retry protection
+  const calculateEligible = useCallback(async (abortSignal?: AbortSignal) => {
+    // Se já está carregando, ignorar
+    if (isCountLoading) return;
+    
+    setIsCountLoading(true);
+    try {
+      let query = supabase.from('songs').select('id', { count: 'exact', head: true });
 
-        // Filtros por escopo
-        if (scope === 'corpus' && selectedCorpus) {
-          query = query.eq('corpus_id', selectedCorpus);
-        } else if (scope === 'artist' && selectedArtist) {
-          query = query.eq('artist_id', selectedArtist);
-        } else if (scope === 'letter' && selectedLetter) {
-          // Precisamos buscar artistas pela letra primeiro
-          const artistIds = filteredArtists.map(a => a.id);
-          if (artistIds.length > 0) {
-            query = query.in('artist_id', artistIds);
-          } else {
-            setEligibleCount(0);
-            setIsCountLoading(false);
-            return;
-          }
-        }
-
-        const { count, error } = await query;
-        
-        if (error) {
-          console.error('Erro calculando elegíveis:', error);
-          setEligibleCount(null);
+      // Filtro por status (se não forçar re-enriquecimento)
+      if (!forceReenrich) {
+        if (jobType === 'youtube') {
+          query = query.is('youtube_url', null);
+        } else if (jobType === 'lyrics') {
+          query = query.is('lyrics', null);
         } else {
-          setEligibleCount(count || 0);
+          query = query.eq('status', 'pending');
         }
-      } finally {
-        setIsCountLoading(false);
       }
-    }
 
-    calculateEligible();
+      // Filtros por escopo
+      if (scope === 'corpus' && selectedCorpus) {
+        query = query.eq('corpus_id', selectedCorpus);
+      } else if (scope === 'artist' && selectedArtist) {
+        query = query.eq('artist_id', selectedArtist);
+      } else if (scope === 'letter' && selectedLetter) {
+        // Precisamos buscar artistas pela letra primeiro
+        const artistIds = filteredArtists.map(a => a.id);
+        if (artistIds.length > 0) {
+          query = query.in('artist_id', artistIds);
+        } else {
+          setEligibleCount(0);
+          setIsCountLoading(false);
+          return;
+        }
+      }
+
+      // Verificar se foi cancelado
+      if (abortSignal?.aborted) return;
+
+      const { count, error } = await query;
+      
+      if (abortSignal?.aborted) return;
+      
+      if (error) {
+        log.error('Erro calculando elegíveis: ' + error.message);
+        
+        // Retry com backoff exponencial
+        if (retryCountRef.current < MAX_RETRIES) {
+          retryCountRef.current++;
+          const delay = Math.min(1000 * Math.pow(2, retryCountRef.current), 8000);
+          log.warn(`Retry ${retryCountRef.current}/${MAX_RETRIES} em ${delay}ms`);
+          
+          debounceTimerRef.current = setTimeout(() => {
+            calculateEligible(abortSignal);
+          }, delay);
+          return;
+        }
+        
+        // Max retries atingido
+        log.error('Max retries atingido para calculateEligible');
+        setEligibleCount(null);
+      } else {
+        // Sucesso - resetar retry counter
+        retryCountRef.current = 0;
+        setEligibleCount(count || 0);
+      }
+    } catch (err) {
+      log.error('Exception em calculateEligible: ' + String(err));
+      setEligibleCount(null);
+    } finally {
+      setIsCountLoading(false);
+    }
+  }, [jobType, scope, selectedCorpus, selectedArtist, selectedLetter, forceReenrich, filteredArtists, isCountLoading]);
+
+  // Effect com debounce para evitar múltiplas chamadas
+  useEffect(() => {
+    const abortController = new AbortController();
+    
+    // Limpar timer anterior
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+    
+    // Resetar retry counter quando deps mudam
+    retryCountRef.current = 0;
+    
+    // Debounce a chamada
+    debounceTimerRef.current = setTimeout(() => {
+      calculateEligible(abortController.signal);
+    }, DEBOUNCE_MS);
+
+    return () => {
+      abortController.abort();
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
   }, [jobType, scope, selectedCorpus, selectedArtist, selectedLetter, forceReenrich, filteredArtists]);
 
   const handleStartJob = async () => {
