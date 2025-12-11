@@ -377,8 +377,18 @@ export function useSemanticAnnotationJob(): UseSemanticAnnotationJobResult {
     resumeJobRef.current = resumeJob;
   }, [resumeJob]);
 
-  // FIX-REACT-QUEUE-BUG: Auto-restore ao montar - usando async/await direto
+  // Ref para startPolling (evitar re-execução do useEffect de restore)
+  const startPollingRef = useRef(startPolling);
   useEffect(() => {
+    startPollingRef.current = startPolling;
+  }, [startPolling]);
+
+  // FIX-REACT-QUEUE-BUG: Auto-restore ao montar - executar apenas uma vez
+  const hasRestoredRef = useRef(false);
+  useEffect(() => {
+    if (hasRestoredRef.current) return;
+    hasRestoredRef.current = true;
+    
     const savedJobId = localStorage.getItem('active-annotation-job-id');
     if (!savedJobId) return;
     
@@ -400,12 +410,12 @@ export function useSemanticAnnotationJob(): UseSemanticAnnotationJobResult {
       setJob(data);
       
       if (data.status === 'processando' || data.status === 'pausado') {
-        startPolling(savedJobId);
+        startPollingRef.current(savedJobId);
       }
     };
     
     restoreJob();
-  }, [startPolling]);
+  }, []); // Sem dependências - executar apenas uma vez
 
   // FIX-REACT-QUEUE-BUG: Auto-resume para jobs stuck - SEM resumeJob nas deps
   useEffect(() => {
