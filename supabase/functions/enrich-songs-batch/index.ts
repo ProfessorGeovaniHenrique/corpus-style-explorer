@@ -17,7 +17,7 @@ const corsHeaders = {
 };
 
 // ============ CONSTANTES ============
-const CHUNK_SIZE = 5;
+const CHUNK_SIZE = 15; // Aumentado de 5 para 15 para melhor throughput
 const PARALLEL_SONGS = 1;
 const LOCK_TIMEOUT_MS = 90000;
 const ABANDONED_TIMEOUT_MS = 3 * 60 * 1000;
@@ -31,7 +31,7 @@ const RETRY_ATTEMPTS = 2;
 
 // ============ CIRCUIT BREAKER CONSTANTS ============
 const CIRCUIT_BREAKER_MAX_CHUNKS_NO_PROGRESS = 10;
-const CIRCUIT_BREAKER_MAX_TOTAL_TIME_MS = 30 * 60 * 1000; // 30 minutos
+const CIRCUIT_BREAKER_MAX_TOTAL_TIME_MS = 60 * 60 * 1000; // 60 minutos (aumentado de 30)
 const CIRCUIT_BREAKER_MAX_CONSECUTIVE_FAILURES = 3;
 
 interface EnrichmentJobPayload {
