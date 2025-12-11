@@ -505,7 +505,13 @@ Deno.serve(async (req) => {
         );
       }
 
-      const shouldForceLock = payload.forceLock || job.status === 'pausado';
+      // ARCHITECTURE-FIX v2: Reconhecer auto-invocação como continuação legítima
+      const isContinuation = !!payload.continueFrom;
+      const shouldForceLock = payload.forceLock || job.status === 'pausado' || isContinuation;
+      
+      console.log(`[enrich-batch] 🏗️ ARCHITECTURE-FIX v2: CHUNK=${CHUNK_SIZE}`);
+      console.log(`[enrich-batch] Payload: ${JSON.stringify({jobId: payload.jobId, continueFrom: payload.continueFrom})}`);
+      
       const lockAcquired = await acquireLock(supabase, job.id, shouldForceLock);
       if (!lockAcquired) {
         return new Response(
