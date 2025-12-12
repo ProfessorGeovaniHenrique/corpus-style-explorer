@@ -16,19 +16,22 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// ============ CONSTANTES ============
-const CHUNK_SIZE = 15;
-const PARALLEL_SONGS = 1;
+// ============ CONSTANTES OTIMIZADAS (Sprint OTIM-10X) ============
+const CHUNK_SIZE = 25; // Aumentado de 15 para 25 (menos overhead auto-invocação)
+const PARALLEL_SONGS = 3; // Aumentado de 1 para 3 (processamento paralelo)
 const LOCK_TIMEOUT_MS = 90000;
-const ABANDONED_TIMEOUT_MS = 3 * 60 * 1000; // 3 minutos sem heartbeat
-const STUCK_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutos sem progresso (novo critério)
+const ABANDONED_TIMEOUT_MS = 3 * 60 * 1000;
+const STUCK_TIMEOUT_MS = 30 * 60 * 1000;
 const AUTO_INVOKE_RETRIES = 3;
-const RATE_LIMIT_BASE_MS = 300;
-const RATE_LIMIT_MAX_MS = 2000;
-const RATE_LIMIT_BACKOFF_FACTOR = 1.5;
-const RATE_LIMIT_COOLDOWN_FACTOR = 0.9;
-const MAX_CONSECUTIVE_ERRORS = 5;
+const RATE_LIMIT_BASE_MS = 200; // Reduzido de 300 para 200ms
+const RATE_LIMIT_MAX_MS = 1500; // Reduzido de 2000 para 1500ms
+const RATE_LIMIT_BACKOFF_FACTOR = 1.3; // Reduzido de 1.5 para 1.3
+const RATE_LIMIT_COOLDOWN_FACTOR = 0.85; // Mais agressivo
+const MAX_CONSECUTIVE_ERRORS = 8; // Aumentado de 5 para 8 (mais tolerância)
 const RETRY_ATTEMPTS = 2;
+
+// ============ RACE CONDITION PREVENTION ============
+const processingSongIds = new Set<string>(); // Lock local por songId
 
 // ============ CIRCUIT BREAKER CONSTANTS ============
 const CIRCUIT_BREAKER_MAX_CHUNKS_NO_PROGRESS = 10;
@@ -454,7 +457,7 @@ Deno.serve(async (req) => {
 
   try {
     const payload: EnrichmentJobPayload = await req.json();
-    console.log(`[enrich-batch] 🏗️ ARCHITECTURE-FIX v2: CHUNK=${CHUNK_SIZE}`);
+    console.log(`[enrich-batch] 🚀 OTIM-10X v1: CHUNK=${CHUNK_SIZE}, PARALLEL=${PARALLEL_SONGS}`);
     console.log(`[enrich-batch] Payload:`, JSON.stringify(payload));
 
     // Detectar e limpar jobs abandonados
@@ -520,7 +523,7 @@ Deno.serve(async (req) => {
       const isContinuation = !!payload.continueFrom;
       const shouldForceLock = payload.forceLock || job.status === 'pausado' || isContinuation;
       
-      console.log(`[enrich-batch] 🏗️ ARCHITECTURE-FIX v2: CHUNK=${CHUNK_SIZE}`);
+      console.log(`[enrich-batch] 🚀 OTIM-10X v1: CHUNK=${CHUNK_SIZE}, PARALLEL=${PARALLEL_SONGS}`);
       console.log(`[enrich-batch] Payload: ${JSON.stringify({jobId: payload.jobId, continueFrom: payload.continueFrom})}`);
       
       const lockAcquired = await acquireLock(supabase, job.id, shouldForceLock);
@@ -645,7 +648,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // ============ PROCESSAMENTO SEQUENCIAL COM HEARTBEAT ============
+    // ============ PROCESSAMENTO PARALELO COM HEARTBEAT (Sprint OTIM-10X) ============
     let succeeded = 0;
     let failed = 0;
     let currentRateLimit = RATE_LIMIT_BASE_MS;
@@ -654,12 +657,28 @@ Deno.serve(async (req) => {
     let rateLimitHits = 0;
     let lastSongId: string | undefined;
 
-    for (let i = 0; i < songs.length; i++) {
-      const song = songs[i];
-      
-      // Verificar cancelamento
+    // Filtrar músicas já em processamento (race condition prevention)
+    const songsToProcess = songs.filter(song => {
+      if (processingSongIds.has(song.id)) {
+        console.log(`[enrich-batch] ⏭️ Skipping ${song.id} (já em processamento)`);
+        return false;
+      }
+      return true;
+    });
+
+    // Adicionar ao lock local
+    songsToProcess.forEach(song => processingSongIds.add(song.id));
+
+    console.log(`[enrich-batch] 🚀 PARALLEL_SONGS=${PARALLEL_SONGS}, processando ${songsToProcess.length} músicas`);
+
+    // Processar em batches paralelos
+    for (let batchStart = 0; batchStart < songsToProcess.length; batchStart += PARALLEL_SONGS) {
+      // Verificar cancelamento antes de cada batch
       if (await checkCancellation(supabase, job.id)) {
         console.log(`[enrich-batch] Job cancelado`);
+        // Limpar locks
+        songsToProcess.forEach(song => processingSongIds.delete(song.id));
+        
         await supabase
           .from('enrichment_jobs')
           .update({ 
@@ -678,42 +697,63 @@ Deno.serve(async (req) => {
         );
       }
 
-      console.log(`[enrich-batch] 🎵 [${i + 1}/${songs.length}] "${song.title.substring(0, 25)}..."`);
+      const batchEnd = Math.min(batchStart + PARALLEL_SONGS, songsToProcess.length);
+      const batch = songsToProcess.slice(batchStart, batchEnd);
+      
+      console.log(`[enrich-batch] 🎵 Batch [${batchStart + 1}-${batchEnd}/${songsToProcess.length}] paralelo`);
 
-      const result = await enrichWithRetry(supabase, song.id, job.job_type, job.force_reenrich);
-      totalProcessingTimeMs += result.durationMs;
+      const batchStartTime = Date.now();
+      
+      // Processar batch em paralelo
+      const batchResults = await Promise.all(
+        batch.map(async (song) => {
+          const result = await enrichWithRetry(supabase, song.id, job.job_type, job.force_reenrich);
+          // Remover do lock após processamento
+          processingSongIds.delete(song.id);
+          return { song, result };
+        })
+      );
 
-      if (result.success) {
-        succeeded++;
-        consecutiveErrors = 0;
-        currentRateLimit = Math.max(RATE_LIMIT_BASE_MS, Math.round(currentRateLimit * RATE_LIMIT_COOLDOWN_FACTOR));
-      } else {
-        failed++;
-        consecutiveErrors++;
-        if (result.rateLimitHit) {
-          rateLimitHits++;
-          currentRateLimit = Math.min(RATE_LIMIT_MAX_MS, Math.round(currentRateLimit * RATE_LIMIT_BACKOFF_FACTOR));
+      const batchDuration = Date.now() - batchStartTime;
+      totalProcessingTimeMs += batchDuration;
+
+      // Processar resultados do batch
+      for (const { song, result } of batchResults) {
+        if (result.success) {
+          succeeded++;
+          consecutiveErrors = 0;
+          currentRateLimit = Math.max(RATE_LIMIT_BASE_MS, Math.round(currentRateLimit * RATE_LIMIT_COOLDOWN_FACTOR));
+        } else {
+          failed++;
+          consecutiveErrors++;
+          if (result.rateLimitHit) {
+            rateLimitHits++;
+            currentRateLimit = Math.min(RATE_LIMIT_MAX_MS, Math.round(currentRateLimit * RATE_LIMIT_BACKOFF_FACTOR));
+          }
         }
+        lastSongId = song.id;
       }
 
-      lastSongId = song.id;
-
-      // Heartbeat após cada música
+      // Heartbeat após cada batch
       await updateHeartbeat(
         supabase,
         job.id,
         job.songs_processed + succeeded + failed,
         job.songs_succeeded + succeeded,
         job.songs_failed + failed,
-        startIndex + i + 1,
+        startIndex + batchEnd,
         lastSongId
       );
 
-      console.log(`[enrich-batch] ${result.success ? '✅' : '❌'} ${result.durationMs}ms | ${succeeded}✅ ${failed}❌`);
+      const batchSucceeded = batchResults.filter(r => r.result.success).length;
+      const batchFailed = batch.length - batchSucceeded;
+      console.log(`[enrich-batch] ⚡ Batch ${batchDuration}ms | ${batchSucceeded}✅ ${batchFailed}❌ | Total: ${succeeded}✅ ${failed}❌`);
 
-      // Auto-pause após muitos erros
+      // Auto-pause após muitos erros consecutivos
       if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
         console.log(`[enrich-batch] 🛑 ${consecutiveErrors} erros - pausando`);
+        // Limpar locks restantes
+        songsToProcess.forEach(song => processingSongIds.delete(song.id));
         
         await supabase
           .from('enrichment_jobs')
@@ -734,11 +774,14 @@ Deno.serve(async (req) => {
         );
       }
 
-      // Rate limit entre músicas
-      if (i < songs.length - 1) {
+      // Rate limit entre batches (não entre músicas individuais)
+      if (batchEnd < songsToProcess.length) {
         await new Promise(resolve => setTimeout(resolve, currentRateLimit));
       }
     }
+    
+    // Limpar todos os locks no final
+    songsToProcess.forEach(song => processingSongIds.delete(song.id));
 
     // Atualizar estatísticas do chunk
     const newProcessed = job.songs_processed + succeeded + failed;
