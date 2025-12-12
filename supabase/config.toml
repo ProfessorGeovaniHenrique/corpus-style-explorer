@@ -1,5 +1,8 @@
 project_id = "kywmhuubbsvclkorxrse"
 
+[functions.emergency-kill-jobs]
+verify_jwt = false
+
 [functions.orchestrate-corpus-enrichment]
 verify_jwt = false
 
